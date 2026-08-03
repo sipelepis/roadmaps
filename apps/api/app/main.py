@@ -1,8 +1,11 @@
 from contextlib import asynccontextmanager
 from io import BytesIO
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pypdf import PdfReader
 
 from . import db, rag
@@ -121,6 +124,27 @@ def query(body: QueryRequest) -> QueryResponse:
         for r in rows
     ]
     return QueryResponse(answer=rag.answer(body.question, sources), sources=sources)
+
+
+# ── Serving the console ─────────────────────────────
+# In the container the built SPA sits next to the app package; in dev the
+# directory is absent and Vite serves it instead, so these routes never
+# register and the OpenAPI schema stays identical either way.
+WEB = Path(__file__).resolve().parent.parent / "web"
+
+if WEB.is_dir():
+    app.mount("/assets", StaticFiles(directory=WEB / "assets"), name="assets")
+
+    @app.get("/{path:path}", include_in_schema=False)
+    def spa(path: str) -> FileResponse:
+        """Serve a real file if it exists, else index.html so client-side
+        routes like /learn/embeddings survive a hard refresh."""
+        candidate = (WEB / path).resolve()
+        # `path` is attacker-controlled: resolve it and confirm it stayed
+        # inside WEB before touching the filesystem.
+        if path and candidate.is_relative_to(WEB) and candidate.is_file():
+            return FileResponse(candidate)
+        return FileResponse(WEB / "index.html")
 
 
 def _ingest(filename: str, text: str) -> Document:

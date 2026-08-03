@@ -75,7 +75,8 @@ export function AskPage() {
               <CardHeader>
                 <CardTitle className="font-heading text-lg">Answer</CardTitle>
                 <CardDescription>
-                  Generated from the {ask.data.sources.length} chunks below, and nothing else.
+                  Generated from the {ask.data.sources.length}{' '}
+                  {ask.data.sources.length === 1 ? 'chunk' : 'chunks'} below, and nothing else.
                 </CardDescription>
               </CardHeader>
               <CardContent>

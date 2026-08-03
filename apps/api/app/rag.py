@@ -7,7 +7,11 @@ from .models import Chunk
 SYSTEM = (
     "Answer the question using only the numbered sources below. "
     "Cite the sources you used as [1], [2], etc. "
-    "If the sources don't contain the answer, say so plainly — do not guess."
+    "If the sources don't contain the answer, say so plainly — do not guess. "
+    # The console renders the answer as plain text, so markdown syntax would
+    # show up as literal asterisks. One instruction beats shipping a renderer.
+    "Write plain prose: no markdown, no ** for emphasis, no # headings. "
+    "Use '- ' at the start of a line when a list genuinely reads better."
 )
 
 
@@ -35,7 +39,7 @@ def chunk_text(text: str, size: int, overlap: int) -> list[str]:
 
 
 def embed(texts: list[str]) -> list[list[float]]:
-    client = OpenAI(api_key=settings.openai_api_key)
+    client = OpenAI(api_key=settings.embedding_api_key, base_url=settings.embedding_base_url)
     result = client.embeddings.create(model=settings.embedding_model, input=texts)
     return [d.embedding for d in result.data]
 
