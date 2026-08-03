@@ -1,0 +1,34 @@
+{
+  "name": "api",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/api/app",
+  "projectType": "application",
+  "tags": ["scope:rag", "type:backend", "framework:fastapi"],
+  "targets": {
+    "install": {
+      "executor": "nx:run-commands",
+      "options": { "command": "uv sync", "cwd": "apps/api" }
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "uv run uvicorn app.main:app --reload --port 3300",
+        "cwd": "apps/api"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": { "command": "uv run pytest -q", "cwd": "apps/api" }
+    },
+    "openapi": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": ["production"],
+      "outputs": ["{projectRoot}/openapi.json"],
+      "options": {
+        "command": "uv run python -m app.openapi_dump > openapi.json",
+        "cwd": "apps/api"
+      }
+    }
+  }
+}

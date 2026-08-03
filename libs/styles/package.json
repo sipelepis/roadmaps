@@ -1,0 +1,9 @@
+{
+  "name": "@boost/styles",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared design tokens (fonts, :root CSS vars, base reset), adopted verbatim from boost-library. Imported from the web app's Tailwind v4 entry as @boost/styles/tokens.css.",
+  "engines": {
+    "node": ">=24.13.1 <25"
+  }
+}

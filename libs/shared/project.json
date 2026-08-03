@@ -1,0 +1,19 @@
+{
+  "name": "shared",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/shared/src",
+  "projectType": "library",
+  "tags": ["scope:rag", "type:domain"],
+  "targets": {
+    "codegen": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["api:openapi"],
+      "inputs": [{ "dependentTasksOutputFiles": "**/openapi.json" }],
+      "outputs": ["{projectRoot}/src/api.gen.ts"],
+      "options": {
+        "command": "npx openapi-typescript ../../apps/api/openapi.json -o src/api.gen.ts",
+        "cwd": "libs/shared"
+      }
+    }
+  }
+}

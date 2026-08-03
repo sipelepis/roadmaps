@@ -1,0 +1,8 @@
+{
+  "name": "styles",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/styles/src",
+  "projectType": "library",
+  "tags": ["scope:rag", "type:styles", "origin:boost-library"],
+  "targets": {}
+}

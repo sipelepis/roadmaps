@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "useDefineForClassFields": true,
+    "noEmit": true,
+    // @rag/shared is consumed as source; api.gen.ts is emitted by shared:codegen.
+    // Its barrel uses .ts extensions so no build step is needed.
+    "allowImportingTsExtensions": true,
+    "ignoreDeprecations": "6.0",
+    "baseUrl": ".",
+    "paths": {
+      "@boost/ui": ["../../libs/ui/src/index.ts"],
+      "@rag/shared": ["../../libs/shared/src/index.ts"]
+    }
+  },
+  "include": ["src", "vite.config.ts"]
+}
