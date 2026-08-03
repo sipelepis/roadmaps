@@ -1,5 +1,7 @@
 # rag-pet
 
+**Live: https://rag-pet.fly.dev**
+
 RAG over your own documents. A FastAPI service does ingest and retrieval against
 Postgres + pgvector; a React console lets you index sources, ask questions, and
 **see the exact chunks each answer was built from**. There is a Learn section that
@@ -51,6 +53,26 @@ query fail — those are the two calls that leave the machine.
 | `npm test` | pytest + tsc |
 | `npm run codegen` | regenerate the shared types |
 | `npm run graph` | Nx project graph |
+
+## Deploying
+
+One Fly machine serves both halves: the Dockerfile builds the SPA in a Node
+stage and the API stage copies it in, so `apps/api/app/main.py` serves the
+console and `/api` from the same origin — no CORS in production and no second
+service. It suspends when idle and wakes on the next request.
+
+Postgres is Neon's free tier rather than a Fly volume: pgvector is supported,
+it scales to zero on its own, and the schema is created on boot. Expect a
+couple of slow seconds on the first request after an idle period, while both
+the machine and the database wake up.
+
+```bash
+fly secrets set DATABASE_URL=… ANTHROPIC_API_KEY=… EMBEDDING_API_KEY=…
+fly deploy
+```
+
+Fly provisions two machines on first deploy for high availability; `fly scale
+count 1` is the right call for a pet.
 
 ## Deliberate simplifications
 

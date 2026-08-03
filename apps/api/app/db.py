@@ -34,6 +34,12 @@ pool = ConnectionPool(
     max_size=8,
     open=False,
     configure=register_vector,
+    # psycopg3 starts server-side preparing a statement after its 5th execution,
+    # which a transaction-mode pooler (Neon's -pooler host, Supabase's port 6543,
+    # any PgBouncer) rejects because the next execution can land on a different
+    # backend. Disabling it costs a little planning time and makes every
+    # connection-string flavour work.
+    kwargs={"prepare_threshold": None},
 )
 
 
