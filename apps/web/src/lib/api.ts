@@ -1,4 +1,4 @@
-import type { Document, QueryRequest, QueryResponse, Stats } from '@rag/shared';
+import type { ChunkPreview, Document, QueryRequest, QueryResponse, Stats } from '@rag/shared';
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, {
@@ -44,4 +44,7 @@ export const api = {
 
   query: (body: QueryRequest) =>
     req<QueryResponse>('/query', { method: 'POST', body: JSON.stringify(body) }),
+
+  chunkPreview: (text: string) =>
+    req<ChunkPreview>('/chunk-preview', { method: 'POST', body: JSON.stringify({ text }) }),
 };

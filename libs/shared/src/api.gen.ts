@@ -123,6 +123,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/chunk-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Chunk Preview
+         * @description Run the chunker and throw the result away. Nothing is embedded and
+         *     nothing is stored — /flow uses it to show the split before you commit to it.
+         */
+        post: operations["chunk_preview_api_chunk_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -146,6 +167,26 @@ export interface components {
             text: string;
             /** Score */
             score: number;
+        };
+        /** ChunkPreviewRequest */
+        ChunkPreviewRequest: {
+            /** Text */
+            text: string;
+        };
+        /**
+         * ChunkPreviewResponse
+         * @description A dry run of the chunker: same function ingest uses, nothing embedded
+         *     and nothing stored.
+         */
+        ChunkPreviewResponse: {
+            /** Chunks */
+            chunks: string[];
+            /** Shared */
+            shared: number[];
+            /** Chunk Chars */
+            chunk_chars: number;
+            /** Chunk Overlap */
+            chunk_overlap: number;
         };
         /** Document */
         Document: {
@@ -191,6 +232,11 @@ export interface components {
              * @default 5
              */
             top_k: number;
+            /**
+             * Trace
+             * @default false
+             */
+            trace: boolean;
         };
         /** QueryResponse */
         QueryResponse: {
@@ -198,6 +244,7 @@ export interface components {
             answer: string;
             /** Sources */
             sources: components["schemas"]["Chunk"][];
+            trace?: components["schemas"]["Trace"] | null;
         };
         /** Stats */
         Stats: {
@@ -209,6 +256,35 @@ export interface components {
             chat_model: string;
             /** Embedding Model */
             embedding_model: string;
+            /** Embedding Dims */
+            embedding_dims: number;
+            /** Chunk Chars */
+            chunk_chars: number;
+            /** Chunk Overlap */
+            chunk_overlap: number;
+        };
+        /**
+         * Trace
+         * @description What actually happened inside one query. Opt-in via QueryRequest.trace
+         *     because the vector preview and the full prompt only matter to /flow.
+         */
+        Trace: {
+            /** Embedding Dims */
+            embedding_dims: number;
+            /** Embedding Preview */
+            embedding_preview: number[];
+            /** Chunks Scanned */
+            chunks_scanned: number;
+            /** System */
+            system: string;
+            /** Prompt */
+            prompt: string;
+            /** Ms Embed */
+            ms_embed: number;
+            /** Ms Search */
+            ms_search: number;
+            /** Ms Answer */
+            ms_answer: number;
         };
         /** ValidationError */
         ValidationError: {
@@ -407,6 +483,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QueryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    chunk_preview_api_chunk_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChunkPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChunkPreviewResponse"];
                 };
             };
             /** @description Validation Error */

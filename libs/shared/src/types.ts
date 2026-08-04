@@ -15,4 +15,6 @@ export type Chunk = Schemas['Chunk'];
 export type IngestText = Schemas['IngestText'];
 export type QueryRequest = Schemas['QueryRequest'];
 export type QueryResponse = Schemas['QueryResponse'];
+export type Trace = Schemas['Trace'];
+export type ChunkPreview = Schemas['ChunkPreviewResponse'];
 export type Stats = Schemas['Stats'];

@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 from io import BytesIO
 from pathlib import Path
+from time import perf_counter
 
 from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,13 +13,20 @@ from . import db, rag
 from .config import settings
 from .models import (
     Chunk,
+    ChunkPreviewRequest,
+    ChunkPreviewResponse,
     Document,
     Health,
     IngestText,
     QueryRequest,
     QueryResponse,
     Stats,
+    Trace,
 )
+
+# How many leading dimensions of the question vector /flow gets to draw. Enough
+# to see it is just numbers; not so many that the response doubles in size.
+TRACE_DIMS = 48
 
 
 @asynccontextmanager
@@ -55,6 +63,9 @@ def stats() -> Stats:
         chunks=chunks,
         chat_model=settings.chat_model,
         embedding_model=settings.embedding_model,
+        embedding_dims=settings.embedding_dims,
+        chunk_chars=settings.chunk_chars,
+        chunk_overlap=settings.chunk_overlap,
     )
 
 
@@ -102,7 +113,9 @@ def delete_document(document_id: int) -> None:
 
 @app.post("/api/query", response_model=QueryResponse)
 def query(body: QueryRequest) -> QueryResponse:
+    embed_start = perf_counter()
     vector = rag.embed([body.question])[0]
+    search_start = perf_counter()
     with db.pool.connection() as conn:
         rows = conn.execute(
             """SELECT c.id, c.document_id, d.filename, c.ordinal, c.text,
@@ -112,6 +125,10 @@ def query(body: QueryRequest) -> QueryResponse:
                LIMIT %s""",
             (vector, vector, body.top_k),
         ).fetchall()
+        # Every chunk was compared to reach that LIMIT — the point of the exact
+        # scan, and the number that makes an ANN index worth adding one day.
+        scanned = conn.execute("SELECT count(*) FROM chunks").fetchone()[0]
+    answer_start = perf_counter()
     sources = [
         Chunk(
             id=r[0],
@@ -123,7 +140,38 @@ def query(body: QueryRequest) -> QueryResponse:
         )
         for r in rows
     ]
-    return QueryResponse(answer=rag.answer(body.question, sources), sources=sources)
+    text = rag.answer(body.question, sources)
+    done = perf_counter()
+
+    trace = None
+    if body.trace:
+        trace = Trace(
+            embedding_dims=len(vector),
+            embedding_preview=[round(v, 4) for v in vector[:TRACE_DIMS]],
+            chunks_scanned=scanned,
+            system=rag.SYSTEM,
+            prompt=rag.build_prompt(body.question, sources),
+            ms_embed=round((search_start - embed_start) * 1000),
+            ms_search=round((answer_start - search_start) * 1000),
+            ms_answer=round((done - answer_start) * 1000),
+        )
+    return QueryResponse(answer=text, sources=sources, trace=trace)
+
+
+@app.post("/api/chunk-preview", response_model=ChunkPreviewResponse)
+def chunk_preview(body: ChunkPreviewRequest) -> ChunkPreviewResponse:
+    """Run the chunker and throw the result away. Nothing is embedded and
+    nothing is stored — /flow uses it to show the split before you commit to it."""
+    chunks = rag.chunk_text(body.text, settings.chunk_chars, settings.chunk_overlap)
+    return ChunkPreviewResponse(
+        chunks=chunks,
+        shared=[
+            rag.shared_prefix(chunks[i - 1], c, settings.chunk_overlap) if i else 0
+            for i, c in enumerate(chunks)
+        ],
+        chunk_chars=settings.chunk_chars,
+        chunk_overlap=settings.chunk_overlap,
+    )
 
 
 # ── Serving the console ─────────────────────────────

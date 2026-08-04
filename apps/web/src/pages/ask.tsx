@@ -23,7 +23,8 @@ export function AskPage() {
   const [question, setQuestion] = useState('');
 
   const ask = useMutation({
-    mutationFn: (q: string) => api.query({ question: q, top_k: 5 }),
+    // No trace: the Flow page is where the timings and the raw prompt belong.
+    mutationFn: (q: string) => api.query({ question: q, top_k: 5, trace: false }),
     onError: (error: Error) => toast.error(error.message),
   });
 

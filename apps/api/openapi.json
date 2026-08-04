@@ -208,6 +208,45 @@
           }
         }
       }
+    },
+    "/api/chunk-preview": {
+      "post": {
+        "summary": "Chunk Preview",
+        "description": "Run the chunker and throw the result away. Nothing is embedded and\nnothing is stored \u2014 /flow uses it to show the split before you commit to it.",
+        "operationId": "chunk_preview_api_chunk_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChunkPreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChunkPreviewResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -263,6 +302,56 @@
           "score"
         ],
         "title": "Chunk"
+      },
+      "ChunkPreviewRequest": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 100000,
+            "minLength": 1,
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "ChunkPreviewRequest"
+      },
+      "ChunkPreviewResponse": {
+        "properties": {
+          "chunks": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Chunks"
+          },
+          "shared": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Shared"
+          },
+          "chunk_chars": {
+            "type": "integer",
+            "title": "Chunk Chars"
+          },
+          "chunk_overlap": {
+            "type": "integer",
+            "title": "Chunk Overlap"
+          }
+        },
+        "type": "object",
+        "required": [
+          "chunks",
+          "shared",
+          "chunk_chars",
+          "chunk_overlap"
+        ],
+        "title": "ChunkPreviewResponse",
+        "description": "A dry run of the chunker: same function ingest uses, nothing embedded\nand nothing stored."
       },
       "Document": {
         "properties": {
@@ -364,6 +453,11 @@
             "minimum": 1.0,
             "title": "Top K",
             "default": 5
+          },
+          "trace": {
+            "type": "boolean",
+            "title": "Trace",
+            "default": false
           }
         },
         "type": "object",
@@ -384,6 +478,16 @@
             },
             "type": "array",
             "title": "Sources"
+          },
+          "trace": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Trace"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -410,6 +514,18 @@
           "embedding_model": {
             "type": "string",
             "title": "Embedding Model"
+          },
+          "embedding_dims": {
+            "type": "integer",
+            "title": "Embedding Dims"
+          },
+          "chunk_chars": {
+            "type": "integer",
+            "title": "Chunk Chars"
+          },
+          "chunk_overlap": {
+            "type": "integer",
+            "title": "Chunk Overlap"
           }
         },
         "type": "object",
@@ -417,9 +533,64 @@
           "documents",
           "chunks",
           "chat_model",
-          "embedding_model"
+          "embedding_model",
+          "embedding_dims",
+          "chunk_chars",
+          "chunk_overlap"
         ],
         "title": "Stats"
+      },
+      "Trace": {
+        "properties": {
+          "embedding_dims": {
+            "type": "integer",
+            "title": "Embedding Dims"
+          },
+          "embedding_preview": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Embedding Preview"
+          },
+          "chunks_scanned": {
+            "type": "integer",
+            "title": "Chunks Scanned"
+          },
+          "system": {
+            "type": "string",
+            "title": "System"
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          },
+          "ms_embed": {
+            "type": "integer",
+            "title": "Ms Embed"
+          },
+          "ms_search": {
+            "type": "integer",
+            "title": "Ms Search"
+          },
+          "ms_answer": {
+            "type": "integer",
+            "title": "Ms Answer"
+          }
+        },
+        "type": "object",
+        "required": [
+          "embedding_dims",
+          "embedding_preview",
+          "chunks_scanned",
+          "system",
+          "prompt",
+          "ms_embed",
+          "ms_search",
+          "ms_answer"
+        ],
+        "title": "Trace",
+        "description": "What actually happened inside one query. Opt-in via QueryRequest.trace\nbecause the vector preview and the full prompt only matter to /flow."
       },
       "ValidationError": {
         "properties": {

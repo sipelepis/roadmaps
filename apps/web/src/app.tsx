@@ -1,5 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { BookOpen, LayoutDashboard, MessageSquare, Moon, Sun } from 'lucide-react';
+import { BookOpen, LayoutDashboard, MessageSquare, Moon, Sun, Workflow } from 'lucide-react';
 import { BrowserRouter, Link, Route, Routes, useLocation } from 'react-router';
 
 import { AppLayout, AppSidebar, Button, Toaster } from '@boost/ui';
@@ -8,6 +8,7 @@ import { queryClient } from './lib/query-client';
 import { useTheme } from './lib/use-theme';
 import { AskPage } from './pages/ask';
 import { DashboardPage } from './pages/dashboard';
+import { FlowPage } from './pages/flow';
 import { ArticlePage, LearnPage } from './pages/learn';
 
 const NAV = [
@@ -16,6 +17,7 @@ const NAV = [
     items: [
       { href: '/', label: 'Dashboard', icon: LayoutDashboard },
       { href: '/ask', label: 'Ask', icon: MessageSquare },
+      { href: '/flow', label: 'Flow', icon: Workflow },
       { href: '/learn', label: 'Learn RAG', icon: BookOpen },
     ],
   },
@@ -64,6 +66,7 @@ export function App() {
           <Routes>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/ask" element={<AskPage />} />
+            <Route path="/flow" element={<FlowPage />} />
             <Route path="/learn" element={<LearnPage />} />
             <Route path="/learn/:slug" element={<ArticlePage />} />
           </Routes>

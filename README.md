@@ -5,11 +5,12 @@
 RAG over your own documents. A FastAPI service does ingest and retrieval against
 Postgres + pgvector; a React console lets you index sources, ask questions, and
 **see the exact chunks each answer was built from**. There is a Learn section that
-explains every step and points at the file that implements it.
+explains every step and points at the file that implements it, and a Flow page
+that runs the pipeline in front of you (see below).
 
 ```
 apps/api     Python 3.13 · FastAPI · pgvector      ingest, retrieve, answer
-apps/web     React 19 · Vite · Tailwind v4         dashboard, ask, learn
+apps/web     React 19 · Vite · Tailwind v4         dashboard, ask, flow, learn
 libs/shared  @rag/shared                           generated wire types
 libs/ui      @boost/ui                             shared components (from boost-library)
 libs/styles  @boost/styles                         design tokens
@@ -30,6 +31,26 @@ models.py  →  openapi.json  →  api.gen.ts  →  types.ts  →  the dashboard
 
 Add a field in Python, re-run codegen, and it appears in the frontend. There is
 no second definition to keep in sync.
+
+## Seeing it run
+
+`/flow` is the page for working out what RAG actually does here. It draws both
+paths — ingest once per document, query once per question — and then runs them
+on real data rather than illustrating them:
+
+- **The chunker, live.** Paste text, and `POST /api/chunk-preview` runs the same
+  `chunk_text()` ingest uses and returns the pieces without embedding or storing
+  anything. The shared region between consecutive chunks is measured server-side
+  by `rag.shared_prefix()` and highlighted, so the overlap is a thing you can see
+  rather than a number in a config file.
+- **A query, traced.** `POST /api/query` with `trace: true` comes back with the
+  question's embedding (leading dims), how many chunks were scanned, the
+  byte-for-byte prompt the model received, and the time each stage took. The page
+  renders that as: vector → similarity scores → prompt → answer → a waterfall of
+  where the milliseconds went.
+
+The trace is opt-in — `/ask` never asks for it — so ordinary queries don't carry
+a 1536-float vector and the full prompt back over the wire.
 
 ## Running it
 
