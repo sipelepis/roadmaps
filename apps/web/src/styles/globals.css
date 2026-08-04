@@ -117,6 +117,16 @@
   color-scheme: light;
 }
 
+/* ── Code ───────────────────────────────────────── */
+/* The mono face ligates `<=` and `=>` into arrow glyphs, which turns pgvector's
+   `<=>` operator into a symbol that appears nowhere in the SQL you would type.
+   Code has to be copyable and literal, so ligatures come off everywhere it
+   appears. */
+code,
+pre {
+  font-variant-ligatures: none;
+}
+
 /* ── Phone adjustments ──────────────────────────── */
 /* @boost/ui's PageHeader sets a confident laptop-sized title (text-4xl), which
    on a 390px screen eats three lines before the form starts. Scaled down here

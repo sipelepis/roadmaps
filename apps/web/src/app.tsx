@@ -9,6 +9,7 @@ import { useTheme } from './lib/use-theme';
 import { AskPage } from './pages/ask';
 import { DashboardPage } from './pages/dashboard';
 import { FlowPage } from './pages/flow';
+import { FlowStepPage } from './pages/flow-step';
 import { ArticlePage, LearnPage } from './pages/learn';
 
 const NAV = [
@@ -67,6 +68,7 @@ export function App() {
             <Route path="/" element={<DashboardPage />} />
             <Route path="/ask" element={<AskPage />} />
             <Route path="/flow" element={<FlowPage />} />
+            <Route path="/flow/:id" element={<FlowStepPage />} />
             <Route path="/learn" element={<LearnPage />} />
             <Route path="/learn/:slug" element={<ArticlePage />} />
           </Routes>

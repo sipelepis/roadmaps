@@ -38,7 +38,19 @@ no second definition to keep in sync.
 paths step by step — seven for ingest, from the uploaded file through text
 extraction, chunking, the batched embedding call and both INSERTs to the
 `VECTOR` column itself; six for query — and then runs them on real data rather
-than illustrating them:
+than illustrating them.
+
+Every box on the map is a link. `/flow/:step` explains that one step in full:
+what it does, the code from this repo that does it, the settings that govern
+it, and what goes wrong there — a scanned PDF with no text layer, a changed
+embedding model that silently invalidates every stored vector, retrieval that
+returns five irrelevant chunks because there is no score threshold. Steps with
+a concept behind them link on to the matching Learn article, and each one links
+to its neighbours, so the pipeline reads end to end. The steps and the map come
+from one list in `apps/web/src/content/steps.tsx`, which is what stops the
+diagram and the explanations from drifting apart.
+
+The two live runs:
 
 - **The chunker, live.** Paste text, and `POST /api/chunk-preview` runs the same
   `chunk_text()` ingest uses and returns the pieces without embedding or storing

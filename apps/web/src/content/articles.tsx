@@ -1,42 +1,13 @@
 import type { ReactNode } from 'react';
 
-import { cn } from '@boost/ui';
+import { Code, H, P, Where } from './prose';
 
 /**
  * The Learn section. Articles are plain components rather than markdown so
  * there's no parser and no dependency — the whole "content system" is this
- * file plus three helpers. Swap in MDX if these ever outgrow hand-written JSX.
+ * file plus the four helpers in prose.tsx. Swap in MDX if these ever outgrow
+ * hand-written JSX.
  */
-
-function P({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <p className={cn('text-sm leading-relaxed text-muted-foreground', className)}>{children}</p>
-  );
-}
-
-function H({ children }: { children: ReactNode }) {
-  return <h2 className="pt-2 font-heading text-lg text-foreground">{children}</h2>;
-}
-
-function Code({ children }: { children: ReactNode }) {
-  return (
-    <pre className="overflow-x-auto rounded-md border border-border bg-elevation-2 p-3 text-xs leading-relaxed text-foreground">
-      <code>{children}</code>
-    </pre>
-  );
-}
-
-/** Points at the file in this repo that implements what the paragraph describes. */
-function Where({ path, children }: { path: string; children: ReactNode }) {
-  return (
-    <div className="rounded-md border border-border bg-elevation-1 p-3">
-      <div className="font-mono text-[11px] uppercase tracking-widest text-primary-strong">
-        {path}
-      </div>
-      <div className="mt-1 text-sm text-muted-foreground">{children}</div>
-    </div>
-  );
-}
 
 export interface Article {
   slug: string;

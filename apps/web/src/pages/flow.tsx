@@ -19,6 +19,7 @@ import {
 } from '@boost/ui';
 import type { Chunk, ChunkPreview, Document, IngestTrace, Stats, Trace } from '@rag/shared';
 
+import { type Step, stepsInLane } from '../content/steps';
 import { api } from '../lib/api';
 
 /**
@@ -38,105 +39,7 @@ Parental leave runs alongside the statutory scheme and does not reduce the annua
 
 Unused leave is paid out on termination at the employee's final daily rate, calculated as monthly salary divided by 21.75. Leave taken in advance of accrual is deducted from that payout. Public holidays falling inside a leave period are not counted against the allowance, and a holiday falling on a weekend is observed on the following Monday.`;
 
-interface Stage {
-  id: string;
-  label: string;
-  /** One line on what happens here — real config where there is any. */
-  detail: (s?: Stats) => string;
-  where: string;
-  learn?: string;
-}
-
-const INGEST: Stage[] = [
-  {
-    id: 'source',
-    label: 'Upload or paste',
-    detail: () => 'PDF, txt, md, csv, json',
-    where: 'apps/api/app/main.py:91',
-  },
-  {
-    id: 'extract',
-    label: 'Extract text',
-    detail: () => 'PdfReader per page, else utf-8',
-    where: 'apps/api/app/main.py:95',
-  },
-  {
-    id: 'chunk',
-    label: 'chunk_text()',
-    detail: (s) => `${s?.chunk_chars ?? '—'} chars, ${s?.chunk_overlap ?? '—'} overlap`,
-    where: 'apps/api/app/rag.py:18',
-    learn: 'chunking',
-  },
-  {
-    id: 'embed-chunks',
-    label: 'embed()',
-    detail: (s) => `one batched call → ${s?.embedding_dims ?? '—'} dims each`,
-    where: 'apps/api/app/rag.py:50',
-    learn: 'embeddings',
-  },
-  {
-    id: 'insert-document',
-    label: 'INSERT documents',
-    detail: () => 'filename + length → id',
-    where: 'apps/api/app/main.py:198',
-  },
-  {
-    id: 'insert-chunks',
-    label: 'INSERT chunks',
-    detail: () => 'executemany: ordinal, text, vector',
-    where: 'apps/api/app/main.py:210',
-  },
-  {
-    id: 'stored',
-    label: 'VECTOR column',
-    detail: (s) => `${plural(s?.chunks ?? 0, 'vector')} in pgvector`,
-    where: 'apps/api/app/db.py:17',
-  },
-];
-
 const plural = (n: number, word: string) => `${n.toLocaleString()} ${word}${n === 1 ? '' : 's'}`;
-
-const QUERY: Stage[] = [
-  {
-    id: 'question',
-    label: 'Question',
-    detail: () => 'plain text from you',
-    where: 'apps/web/src/pages/ask.tsx',
-  },
-  {
-    id: 'embed-question',
-    label: 'embed()',
-    detail: (s) => `same model, same ${s?.embedding_dims ?? '—'} dims`,
-    where: 'apps/api/app/rag.py:41',
-    learn: 'embeddings',
-  },
-  {
-    id: 'search',
-    label: 'ORDER BY <=>',
-    detail: (s) => `cosine over ${plural(s?.chunks ?? 0, 'chunk')}`,
-    where: 'apps/api/app/main.py:114',
-    learn: 'retrieval',
-  },
-  {
-    id: 'prompt',
-    label: 'build_prompt()',
-    detail: () => 'top-k pasted in, numbered',
-    where: 'apps/api/app/rag.py:47',
-  },
-  {
-    id: 'generate',
-    label: 'Claude',
-    detail: (s) => s?.chat_model ?? '—',
-    where: 'apps/api/app/rag.py:65',
-    learn: 'generation',
-  },
-  {
-    id: 'answer',
-    label: 'Cited answer',
-    detail: () => 'prose + the chunks behind it',
-    where: 'apps/web/src/pages/ask.tsx',
-  },
-];
 
 export function FlowPage() {
   const qc = useQueryClient();
@@ -197,8 +100,8 @@ export function FlowPage() {
           <CardContent className="space-y-5">
             <Lane
               title="Ingest"
-              note="once per document"
-              stages={INGEST}
+              note="once per document · click any step"
+              stages={stepsInLane('ingest')}
               stats={stats.data}
               state={ingestState}
               timings={
@@ -215,8 +118,8 @@ export function FlowPage() {
             />
             <Lane
               title="Query"
-              note="once per question"
-              stages={QUERY}
+              note="once per question · click any step"
+              stages={stepsInLane('query')}
               stats={stats.data}
               state={queryState}
               timings={
@@ -284,7 +187,7 @@ function Lane({
 }: {
   title: string;
   note: string;
-  stages: Stage[];
+  stages: Step[];
   stats?: Stats;
   state: 'idle' | 'running' | 'done';
   timings?: Record<string, number>;
@@ -322,55 +225,52 @@ function Node({
   state,
   ms,
 }: {
-  stage: Stage;
+  stage: Step;
   step: number;
   stats?: Stats;
   state: 'idle' | 'running' | 'done';
   ms?: number;
 }) {
-  const body = (
-    <div
-      className={cn(
-        'h-full rounded-md border p-2 transition-colors duration-200',
-        state === 'idle' && 'border-border bg-elevation-1',
-        state === 'running' && 'animate-pulse border-primary/40 bg-primary/5',
-        state === 'done' && 'border-primary/30 bg-primary/5',
-        stage.learn && 'hover:border-primary/60',
-      )}
-    >
-      {/* Ligatures off: the mono face draws `<=>` as a single arrow glyph, and
-          the operator is the whole point of that node. */}
-      <div className="flex items-baseline gap-1.5">
-        <span className="font-heading text-[10px] tabular-nums text-muted-foreground/70">
-          {String(step).padStart(2, '0')}
-        </span>
-        <span className="truncate font-mono text-xs text-foreground [font-variant-ligatures:none]">
-          {stage.label}
-        </span>
-      </div>
-      <div className="mt-1 text-[11px] leading-tight text-muted-foreground">
-        {stage.detail(stats)}
-      </div>
-      {/* Filename and line only — the full path is a tooltip, so five nodes fit
-          across without any label ellipsing. The measured time shares this row
-          rather than the label's, where it would crowd out `ORDER BY <=>`. */}
-      <div className="mt-1.5 flex items-baseline justify-between gap-1 font-mono text-[10px]">
-        <span className="truncate text-muted-foreground/70" title={stage.where}>
-          {stage.where.split('/').pop()}
-        </span>
-        {ms !== undefined && (
-          <span className="shrink-0 font-heading tabular-nums text-primary-strong">{ms} ms</span>
+  // Every box goes somewhere: /flow/:id explains that step in full, with the
+  // code that implements it. A step you cannot click is a step you cannot ask
+  // about.
+  return (
+    <Link to={`/flow/${stage.id}`} className="block h-full">
+      <div
+        className={cn(
+          'flex h-full flex-col rounded-md border p-2 transition-colors duration-200',
+          'hover:border-primary/60 hover:bg-primary/10',
+          state === 'idle' && 'border-border bg-elevation-1',
+          state === 'running' && 'animate-pulse border-primary/40 bg-primary/5',
+          state === 'done' && 'border-primary/30 bg-primary/5',
         )}
+      >
+        {/* Ligatures off: the mono face draws `<=>` as a single arrow glyph, and
+            the operator is the whole point of that node. */}
+        <div className="flex items-baseline gap-1.5">
+          <span className="font-heading text-[10px] tabular-nums text-muted-foreground/70">
+            {String(step).padStart(2, '0')}
+          </span>
+          <span className="truncate font-mono text-xs text-foreground [font-variant-ligatures:none]">
+            {stage.label}
+          </span>
+        </div>
+        <div className="mt-1 text-[11px] leading-tight text-muted-foreground">
+          {stage.detail(stats)}
+        </div>
+        {/* Filename and line only — the full path is a tooltip, so four nodes fit
+            across without any label ellipsing. The measured time shares this row
+            rather than the label's, where it would crowd out `ORDER BY <=>`. */}
+        <div className="mt-auto flex items-baseline justify-between gap-1 pt-1.5 font-mono text-[10px]">
+          <span className="truncate text-muted-foreground/70" title={stage.where}>
+            {stage.where.split('/').pop()}
+          </span>
+          {ms !== undefined && (
+            <span className="shrink-0 font-heading tabular-nums text-primary-strong">{ms} ms</span>
+          )}
+        </div>
       </div>
-    </div>
-  );
-
-  return stage.learn ? (
-    <Link to={`/learn/${stage.learn}`} className="block">
-      {body}
     </Link>
-  ) : (
-    body
   );
 }
 
