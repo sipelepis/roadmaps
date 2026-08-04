@@ -203,6 +203,7 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            trace?: components["schemas"]["IngestTrace"] | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -222,6 +223,34 @@ export interface components {
             filename: string;
             /** Text */
             text: string;
+            /**
+             * Trace
+             * @default false
+             */
+            trace: boolean;
+        };
+        /**
+         * IngestTrace
+         * @description One document's trip from text to rows in pgvector. Opt-in, same as
+         *     Trace — only /flow has any use for it.
+         */
+        IngestTrace: {
+            /** Chars */
+            chars: number;
+            /** Chunks */
+            chunks: number;
+            /** Embed Calls */
+            embed_calls: number;
+            /** Dims */
+            dims: number;
+            /** Rows Inserted */
+            rows_inserted: number;
+            /** Ms Chunk */
+            ms_chunk: number;
+            /** Ms Embed */
+            ms_embed: number;
+            /** Ms Store */
+            ms_store: number;
         };
         /** QueryRequest */
         QueryRequest: {

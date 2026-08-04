@@ -28,10 +28,10 @@ export const api = {
   stats: () => req<Stats>('/stats'),
   documents: () => req<Document[]>('/documents'),
 
-  ingestText: (filename: string, text: string) =>
+  ingestText: (filename: string, text: string, trace = false) =>
     req<Document>('/documents/text', {
       method: 'POST',
-      body: JSON.stringify({ filename, text }),
+      body: JSON.stringify({ filename, text, trace }),
     }),
 
   upload: (file: File) => {

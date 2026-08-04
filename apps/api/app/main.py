@@ -18,6 +18,7 @@ from .models import (
     Document,
     Health,
     IngestText,
+    IngestTrace,
     QueryRequest,
     QueryResponse,
     Stats,
@@ -85,7 +86,7 @@ def list_documents() -> list[Document]:
 
 @app.post("/api/documents/text", response_model=Document)
 def ingest_text(body: IngestText) -> Document:
-    return _ingest(body.filename, body.text)
+    return _ingest(body.filename, body.text, trace=body.trace)
 
 
 @app.post("/api/documents/upload", response_model=Document)
@@ -195,11 +196,14 @@ if WEB.is_dir():
         return FileResponse(WEB / "index.html")
 
 
-def _ingest(filename: str, text: str) -> Document:
+def _ingest(filename: str, text: str, trace: bool = False) -> Document:
+    chunk_start = perf_counter()
     pieces = rag.chunk_text(text, settings.chunk_chars, settings.chunk_overlap)
     if not pieces:
         raise HTTPException(422, "Nothing to index")
+    embed_start = perf_counter()
     vectors = rag.embed(pieces)
+    store_start = perf_counter()
 
     with db.pool.connection() as conn:
         row = conn.execute(
@@ -212,10 +216,25 @@ def _ingest(filename: str, text: str) -> Document:
                 "INSERT INTO chunks (document_id, ordinal, text, embedding) VALUES (%s, %s, %s, %s)",
                 [(document_id, i, p, v) for i, (p, v) in enumerate(zip(pieces, vectors))],
             )
+            rows_inserted = cur.rowcount
+    done = perf_counter()
+
     return Document(
         id=document_id,
         filename=filename,
         chars=len(text),
         chunks=len(pieces),
         created_at=created_at,
+        trace=IngestTrace(
+            chars=len(text),
+            chunks=len(pieces),
+            embed_calls=1,
+            dims=len(vectors[0]),
+            rows_inserted=rows_inserted,
+            ms_chunk=round((embed_start - chunk_start) * 1000),
+            ms_embed=round((store_start - embed_start) * 1000),
+            ms_store=round((done - store_start) * 1000),
+        )
+        if trace
+        else None,
     )

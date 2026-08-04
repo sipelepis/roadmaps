@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { ArrowRight, Play, Scissors } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Database, Play, Scissors } from 'lucide-react';
 import { Link } from 'react-router';
 
 import {
@@ -11,12 +11,13 @@ import {
   CardHeader,
   CardTitle,
   Chip,
+  Input,
   PageHeader,
   Textarea,
   cn,
   toast,
 } from '@boost/ui';
-import type { Chunk, ChunkPreview, Stats, Trace } from '@rag/shared';
+import type { Chunk, ChunkPreview, Document, IngestTrace, Stats, Trace } from '@rag/shared';
 
 import { api } from '../lib/api';
 
@@ -49,9 +50,15 @@ interface Stage {
 const INGEST: Stage[] = [
   {
     id: 'source',
-    label: 'Document',
-    detail: () => 'PDF or pasted text',
+    label: 'Upload or paste',
+    detail: () => 'PDF, txt, md, csv, json',
     where: 'apps/api/app/main.py:91',
+  },
+  {
+    id: 'extract',
+    label: 'Extract text',
+    detail: () => 'PdfReader per page, else utf-8',
+    where: 'apps/api/app/main.py:95',
   },
   {
     id: 'chunk',
@@ -63,15 +70,27 @@ const INGEST: Stage[] = [
   {
     id: 'embed-chunks',
     label: 'embed()',
-    detail: (s) => `${s?.embedding_dims ?? '—'} dims per chunk`,
-    where: 'apps/api/app/rag.py:41',
+    detail: (s) => `one batched call → ${s?.embedding_dims ?? '—'} dims each`,
+    where: 'apps/api/app/rag.py:50',
     learn: 'embeddings',
   },
   {
-    id: 'store',
+    id: 'insert-document',
+    label: 'INSERT documents',
+    detail: () => 'filename + length → id',
+    where: 'apps/api/app/main.py:198',
+  },
+  {
+    id: 'insert-chunks',
     label: 'INSERT chunks',
-    detail: (s) => `${plural(s?.chunks ?? 0, 'vector')} stored`,
-    where: 'apps/api/app/main.py:193',
+    detail: () => 'executemany: ordinal, text, vector',
+    where: 'apps/api/app/main.py:210',
+  },
+  {
+    id: 'stored',
+    label: 'VECTOR column',
+    detail: (s) => `${plural(s?.chunks ?? 0, 'vector')} in pgvector`,
+    where: 'apps/api/app/db.py:17',
   },
 ];
 
@@ -108,16 +127,37 @@ const QUERY: Stage[] = [
     id: 'generate',
     label: 'Claude',
     detail: (s) => s?.chat_model ?? '—',
-    where: 'apps/api/app/rag.py:56',
+    where: 'apps/api/app/rag.py:65',
     learn: 'generation',
+  },
+  {
+    id: 'answer',
+    label: 'Cited answer',
+    detail: () => 'prose + the chunks behind it',
+    where: 'apps/web/src/pages/ask.tsx',
   },
 ];
 
 export function FlowPage() {
+  const qc = useQueryClient();
   const stats = useQuery({ queryKey: ['stats'], queryFn: api.stats });
 
   const split = useMutation({
     mutationFn: api.chunkPreview,
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const index = useMutation({
+    mutationFn: (input: { filename: string; text: string }) =>
+      api.ingestText(input.filename, input.text, true),
+    onSuccess: async (doc) => {
+      toast.success(`Indexed ${doc.filename} into ${plural(doc.chunks, 'chunk')}`);
+      // The map labels itself with the corpus size, so it should grow visibly.
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['stats'] }),
+        qc.invalidateQueries({ queryKey: ['documents'] }),
+      ]);
+    },
     onError: (error: Error) => toast.error(error.message),
   });
 
@@ -126,10 +166,16 @@ export function FlowPage() {
     onError: (error: Error) => toast.error(error.message),
   });
 
-  // A stage is lit while its half of the pipeline is in flight and stays lit
+  // A lane is lit while its half of the pipeline is in flight and stays lit
   // once that half has produced something.
-  const ingestState = split.isPending ? 'running' : split.data ? 'done' : 'idle';
+  const ingestState =
+    split.isPending || index.isPending
+      ? 'running'
+      : split.data || index.data
+        ? 'done'
+        : 'idle';
   const queryState = run.isPending ? 'running' : run.data ? 'done' : 'idle';
+  const ingestTrace = index.data?.trace;
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -155,6 +201,17 @@ export function FlowPage() {
               stages={INGEST}
               stats={stats.data}
               state={ingestState}
+              timings={
+                ingestTrace
+                  ? {
+                      chunk: ingestTrace.ms_chunk,
+                      'embed-chunks': ingestTrace.ms_embed,
+                      // One transaction covers both inserts; charging it to the
+                      // chunk insert beats double-counting it.
+                      'insert-chunks': ingestTrace.ms_store,
+                    }
+                  : undefined
+              }
             />
             <Lane
               title="Query"
@@ -179,17 +236,18 @@ export function FlowPage() {
           <CardHeader>
             <CardTitle className="font-heading text-lg">
               <Scissors className="mr-2 inline size-4 text-primary-strong" />
-              Watch the chunker cut
+              Watch a document reach the vector store
             </CardTitle>
             <CardDescription>
-              The same function ingest uses, run as a dry run — nothing here is embedded and
-              nothing is stored. Highlighted text is the overlap: the tail of one chunk repeated
-              at the head of the next, so a sentence split across the boundary still lands whole
-              in one of them.
+              Two buttons, two different things. Splitting is a dry run of the chunker — nothing
+              embedded, nothing stored — and highlights the overlap, the tail of one chunk
+              repeated at the head of the next so a sentence split across the boundary still lands
+              whole in one of them. Indexing runs the real thing: chunk, embed, insert, and the
+              text is in the corpus afterwards.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <ChunkDemo split={split} />
+            <ChunkDemo split={split} index={index} />
           </CardContent>
         </Card>
 
@@ -237,40 +295,35 @@ function Lane({
         <span className="font-heading text-sm text-foreground">{title}</span>
         <span className="text-xs text-muted-foreground">{note}</span>
       </div>
-      {/* Horizontal scroll rather than wrapping: a pipeline that wraps stops
-          reading as a pipeline. */}
-      <div className="-mx-1 flex items-stretch gap-1 overflow-x-auto px-1 pb-1">
+      {/* Numbered grid rather than one scrolling row: seven steps in a row
+          would push the last ones off-screen, and a step you have to scroll to
+          find is a step you will not read. The order carries the flow. */}
+      <ol className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-4">
         {stages.map((stage, i) => (
-          <div key={stage.id} className="flex min-w-0 items-center gap-1">
+          <li key={stage.id}>
             <Node
               stage={stage}
+              step={i + 1}
               stats={stats}
               state={state}
               ms={timings ? timings[stage.id] : undefined}
             />
-            {i < stages.length - 1 && (
-              <ArrowRight
-                className={cn(
-                  'size-3.5 shrink-0 transition-colors',
-                  state === 'idle' ? 'text-border' : 'text-primary-strong',
-                )}
-                aria-hidden
-              />
-            )}
-          </div>
+          </li>
         ))}
-      </div>
+      </ol>
     </div>
   );
 }
 
 function Node({
   stage,
+  step,
   stats,
   state,
   ms,
 }: {
   stage: Stage;
+  step: number;
   stats?: Stats;
   state: 'idle' | 'running' | 'done';
   ms?: number;
@@ -278,7 +331,7 @@ function Node({
   const body = (
     <div
       className={cn(
-        'h-full w-36 shrink-0 rounded-md border p-2 transition-colors duration-200',
+        'h-full rounded-md border p-2 transition-colors duration-200',
         state === 'idle' && 'border-border bg-elevation-1',
         state === 'running' && 'animate-pulse border-primary/40 bg-primary/5',
         state === 'done' && 'border-primary/30 bg-primary/5',
@@ -287,8 +340,13 @@ function Node({
     >
       {/* Ligatures off: the mono face draws `<=>` as a single arrow glyph, and
           the operator is the whole point of that node. */}
-      <div className="truncate font-mono text-xs text-foreground [font-variant-ligatures:none]">
-        {stage.label}
+      <div className="flex items-baseline gap-1.5">
+        <span className="font-heading text-[10px] tabular-nums text-muted-foreground/70">
+          {String(step).padStart(2, '0')}
+        </span>
+        <span className="truncate font-mono text-xs text-foreground [font-variant-ligatures:none]">
+          {stage.label}
+        </span>
       </div>
       <div className="mt-1 text-[11px] leading-tight text-muted-foreground">
         {stage.detail(stats)}
@@ -318,31 +376,114 @@ function Node({
 
 /* ── ingest, live ──────────────────────────────────── */
 
-type SplitMutation = ReturnType<typeof useMutation<Awaited<ReturnType<typeof api.chunkPreview>>, Error, string>>;
+type SplitMutation = ReturnType<
+  typeof useMutation<Awaited<ReturnType<typeof api.chunkPreview>>, Error, string>
+>;
 
-function ChunkDemo({ split }: { split: SplitMutation }) {
+type IndexMutation = ReturnType<
+  typeof useMutation<Document, Error, { filename: string; text: string }>
+>;
+
+function ChunkDemo({ split, index }: { split: SplitMutation; index: IndexMutation }) {
   const [text, setText] = useState(SAMPLE);
+  const [filename, setFilename] = useState('leave-policy-extended.md');
 
   return (
     <>
       <Textarea rows={5} value={text} onChange={(e) => setText(e.target.value)} />
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2">
         <Button
+          variant="outline"
           disabled={!text.trim()}
           loading={split.isPending}
           loadingText="Splitting…"
           onClick={() => split.mutate(text)}
         >
           <Scissors />
-          Split this text
+          Split it (dry run)
         </Button>
-        <span className="text-xs text-muted-foreground tabular-nums">
+        <Input
+          className="w-56"
+          value={filename}
+          onChange={(e) => setFilename(e.target.value)}
+          aria-label="Filename to index it under"
+        />
+        <Button
+          disabled={!text.trim() || !filename.trim()}
+          loading={index.isPending}
+          loadingText="Embedding…"
+          onClick={() => index.mutate({ filename: filename.trim(), text })}
+        >
+          <Database />
+          Index it for real
+        </Button>
+        <span className="text-xs tabular-nums text-muted-foreground">
           {text.length.toLocaleString()} characters in
         </span>
       </div>
 
       {split.data && <ChunkResult data={split.data} />}
+      {index.data?.trace && <IngestResult document={index.data} trace={index.data.trace} />}
     </>
+  );
+}
+
+function IngestResult({ document, trace }: { document: Document; trace: IngestTrace }) {
+  return (
+    <div className="space-y-3 border-t border-border pt-3">
+      <Step
+        n={1}
+        title="What was written"
+        note={`Stored as document ${document.id}, "${document.filename}". Those rows are in the corpus now — delete them from the Dashboard if this was only a demonstration.`}
+      >
+        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+          <Figure label="characters" value={trace.chars.toLocaleString()} hint="text extracted" />
+          <Figure label="chunks" value={trace.chunks} hint="from chunk_text()" />
+          <Figure
+            label="embedding calls"
+            value={trace.embed_calls}
+            hint={`${plural(trace.chunks, 'chunk')}, one request`}
+          />
+          <Figure
+            label="rows inserted"
+            value={trace.rows_inserted}
+            hint={`VECTOR(${trace.dims}) each`}
+          />
+        </div>
+      </Step>
+
+      <Step
+        n={2}
+        title="Where the time went"
+        note="Chunking is string slicing and costs nothing. The embedding call is the whole bill of ingest — and it is paid once here, never again at query time."
+      >
+        <Waterfall
+          rows={[
+            { label: 'chunk_text()', ms: trace.ms_chunk, hint: 'local — string slicing' },
+            { label: 'embed()', ms: trace.ms_embed, hint: 'network — embedding API' },
+            { label: 'INSERT', ms: trace.ms_store, hint: 'local — one transaction' },
+          ]}
+        />
+      </Step>
+    </div>
+  );
+}
+
+function Figure({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string | number;
+  hint: string;
+}) {
+  return (
+    <div className="rounded-md border border-border bg-elevation-1 p-2">
+      <div className="font-heading text-lg tabular-nums text-foreground">{value}</div>
+      <div className="text-[11px] text-foreground">{label}</div>
+      <div className="text-[11px] leading-tight text-muted-foreground">{hint}</div>
+    </div>
   );
 }
 
@@ -483,7 +624,17 @@ function QueryDemo({ run, empty }: { run: RunMutation; empty?: boolean }) {
             title="Where the time went"
             note="Embedding and generation are network calls to someone else's GPUs; the vector search is local. At this corpus size the search is not what you would optimise."
           >
-            <Waterfall trace={trace} />
+            <Waterfall
+              rows={[
+                { label: 'embed question', ms: trace.ms_embed, hint: 'network — embedding API' },
+                {
+                  label: 'vector search',
+                  ms: trace.ms_search,
+                  hint: 'local — Postgres exact scan',
+                },
+                { label: 'generate answer', ms: trace.ms_answer, hint: 'network — Claude' },
+              ]}
+            />
           </Step>
         </div>
       )}
@@ -608,12 +759,7 @@ function Labelled({ label, children }: { label: string; children: string }) {
   );
 }
 
-function Waterfall({ trace }: { trace: Trace }) {
-  const rows = [
-    { label: 'embed question', ms: trace.ms_embed, hint: 'network — embedding API' },
-    { label: 'vector search', ms: trace.ms_search, hint: 'local — Postgres exact scan' },
-    { label: 'generate answer', ms: trace.ms_answer, hint: 'network — Claude' },
-  ];
+function Waterfall({ rows }: { rows: { label: string; ms: number; hint: string }[] }) {
   const total = rows.reduce((sum, r) => sum + r.ms, 0) || 1;
 
   return (

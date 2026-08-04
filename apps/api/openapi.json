@@ -375,6 +375,16 @@
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "trace": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IngestTrace"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -430,6 +440,11 @@
             "type": "string",
             "minLength": 1,
             "title": "Text"
+          },
+          "trace": {
+            "type": "boolean",
+            "title": "Trace",
+            "default": false
           }
         },
         "type": "object",
@@ -438,6 +453,55 @@
           "text"
         ],
         "title": "IngestText"
+      },
+      "IngestTrace": {
+        "properties": {
+          "chars": {
+            "type": "integer",
+            "title": "Chars"
+          },
+          "chunks": {
+            "type": "integer",
+            "title": "Chunks"
+          },
+          "embed_calls": {
+            "type": "integer",
+            "title": "Embed Calls"
+          },
+          "dims": {
+            "type": "integer",
+            "title": "Dims"
+          },
+          "rows_inserted": {
+            "type": "integer",
+            "title": "Rows Inserted"
+          },
+          "ms_chunk": {
+            "type": "integer",
+            "title": "Ms Chunk"
+          },
+          "ms_embed": {
+            "type": "integer",
+            "title": "Ms Embed"
+          },
+          "ms_store": {
+            "type": "integer",
+            "title": "Ms Store"
+          }
+        },
+        "type": "object",
+        "required": [
+          "chars",
+          "chunks",
+          "embed_calls",
+          "dims",
+          "rows_inserted",
+          "ms_chunk",
+          "ms_embed",
+          "ms_store"
+        ],
+        "title": "IngestTrace",
+        "description": "One document's trip from text to rows in pgvector. Opt-in, same as\nTrace \u2014 only /flow has any use for it."
       },
       "QueryRequest": {
         "properties": {

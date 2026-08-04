@@ -35,14 +35,21 @@ no second definition to keep in sync.
 ## Seeing it run
 
 `/flow` is the page for working out what RAG actually does here. It draws both
-paths — ingest once per document, query once per question — and then runs them
-on real data rather than illustrating them:
+paths step by step — seven for ingest, from the uploaded file through text
+extraction, chunking, the batched embedding call and both INSERTs to the
+`VECTOR` column itself; six for query — and then runs them on real data rather
+than illustrating them:
 
 - **The chunker, live.** Paste text, and `POST /api/chunk-preview` runs the same
   `chunk_text()` ingest uses and returns the pieces without embedding or storing
   anything. The shared region between consecutive chunks is measured server-side
   by `rag.shared_prefix()` and highlighted, so the overlap is a thing you can see
   rather than a number in a config file.
+- **The whole ingest, for real.** The other button actually indexes the text:
+  `POST /api/documents/text` with `trace: true` reports characters in, chunks
+  out, embedding calls (one — the document is batched, not one request per
+  chunk), rows inserted, and the time each stage took. The document is in the
+  corpus afterwards; delete it from the Dashboard when it was only a demo.
 - **A query, traced.** `POST /api/query` with `trace: true` comes back with the
   question's embedding (leading dims), how many chunks were scanned, the
   byte-for-byte prompt the model received, and the time each stage took. The page

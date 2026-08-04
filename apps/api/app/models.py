@@ -12,12 +12,29 @@ class Health(BaseModel):
     database: bool
 
 
+class IngestTrace(BaseModel):
+    """One document's trip from text to rows in pgvector. Opt-in, same as
+    Trace — only /flow has any use for it."""
+
+    chars: int
+    chunks: int
+    embed_calls: int  # the whole document is one batched request, not one per chunk
+    dims: int
+    rows_inserted: int
+    ms_chunk: int
+    ms_embed: int
+    ms_store: int
+
+
 class Document(BaseModel):
     id: int
     filename: str
     chars: int
     chunks: int
     created_at: datetime
+    # Only ever set on the response to an ingest that asked for it; listing
+    # documents leaves it null.
+    trace: IngestTrace | None = None
 
 
 class Chunk(BaseModel):
@@ -32,6 +49,7 @@ class Chunk(BaseModel):
 class IngestText(BaseModel):
     filename: str = Field(min_length=1, max_length=200)
     text: str = Field(min_length=1)
+    trace: bool = False
 
 
 class QueryRequest(BaseModel):
