@@ -23,7 +23,7 @@ export const ARTICLES: Article[] = [
     title: 'What RAG actually is',
     summary:
       'Retrieval-Augmented Generation is a search problem wearing an AI hat. Four steps, and only one of them involves a language model.',
-    minutes: 4,
+    minutes: 5,
     body: () => (
       <>
         <P>
@@ -67,10 +67,38 @@ QUERY (every question)
 
         <H>When not to bother</H>
         <P>
-          If your documents fit in the model's context window, skip all of this and paste
-          them in. A 1M-token context holds a lot of pages. RAG earns its complexity when the
-          corpus is bigger than the window, changes often, or is large enough that sending
-          all of it on every question would be wasteful.
+          If the whole corpus fits comfortably inside the model's context window, skip all of
+          this and paste it in. Nothing on this page beats letting the model read everything.
+        </P>
+        <P>
+          <em>Comfortably</em> is carrying the weight there. An advertised million-token window
+          is a capacity, not a promise of recall across it. The needle-in-a-haystack demos are
+          the easy version of the test — one distinctive fact buried in bland filler — and
+          models pass those long after the harder cases have started to fail. Benchmarks like
+          MRCR, where the answer has to be picked out from many near-identical passages
+          scattered through the context, degrade as the window fills. Accuracy near the limit
+          is worse than accuracy at a quarter of it.
+        </P>
+        <P>
+          It degrades quietly, too, which is what makes it dangerous. Nothing errors and nothing
+          warns you. You get a fluent, confident answer assembled from the wrong passage, and it
+          reads exactly like the right one.
+        </P>
+        <P>
+          So the number to plan against is not the advertised maximum but the fill you actually
+          trust for your task — found by testing your own material, not read off a spec sheet.
+          A working ceiling somewhere in the low hundreds of thousands of tokens is a common
+          landing spot, and there is no reason it should be the same for summarising a report as
+          for pulling one clause out of a contract.
+        </P>
+        <Code>{`advertised window   1M tokens      capacity
+working budget      what you trust, measured
+your corpus         bigger than that?  → RAG`}</Code>
+        <P>
+          That moves the crossover earlier than the marketing implies. RAG earns its complexity
+          when the corpus outgrows the budget you trust rather than the window you were sold,
+          when it changes often enough that re-sending all of it is waste, or when paying for
+          the whole corpus on every question stops making sense. Below that line, paste it in.
         </P>
       </>
     ),
