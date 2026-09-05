@@ -1,0 +1,19 @@
+{
+  "name": "py-roadmap",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vite": "^8.2.2"
+  },
+  "dependencies": {
+    "marked": "^18.0.11",
+    "monaco-editor": "^0.56.0"
+  }
+}

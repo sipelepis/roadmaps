@@ -1,0 +1,253 @@
+import './style.css'
+import { modules, type Problem } from './content'
+import { nodes, renderGraph } from './graph'
+import { mountEditor, compile, run, disposeAll, colorize, onRunKey } from './editor'
+
+const app = document.getElementById('app')!
+const passedKey = (id: string, i: number) => `passed:${id}:${i}`
+const draftKey = (id: string, i: number) => `draft:${id}:${i}`
+const passed = (id: string, i: number) => !!localStorage.getItem(passedKey(id, i))
+const esc = (s: string) => s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]!)
+
+// Global exercise order = roadmap order.
+const exercises = nodes.flatMap(n => modules[n.id].problems.map((p, i) => ({ id: n.id, i, p, label: n.label })))
+const doneCount = (id: string) => modules[id].problems.filter((_, i) => passed(id, i)).length
+const isDone = (id: string) => modules[id].problems.length > 0 && doneCount(id) === modules[id].problems.length
+const nextModule = () => nodes.find(n => !isDone(n.id))
+const status = (id: string, i: number) => passed(id, i) ? 'passed' : localStorage.getItem(draftKey(id, i)) ? 'attempted' : 'todo'
+
+/* ---------- icons: one stroke family, drawn once ---------- */
+
+const SPRITE = `<svg hidden xmlns="http://www.w3.org/2000/svg"><defs>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 5.5v13l11-6.5z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></symbol>
+  <symbol id="i-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+  <symbol id="i-reset" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.5-5.8M4 4v5h5"/></symbol>
+  <symbol id="i-spin" viewBox="0 0 24 24"><path d="M12 4a8 8 0 1 1-8 8"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5zM4 20.5V5.5M8 7h8"/></symbol>
+</defs></svg>`
+const icon = (name: string) => `<svg class="ic" aria-hidden="true"><use href="#i-${name}"/></svg>`
+const badge = (s: string) => ({
+  passed: `<span class="badge passed">${icon('check')}Passed</span>`,
+  attempted: `<span class="badge attempted">${icon('dot')}In progress</span>`,
+  todo: `<span class="badge todo">To do</span>`,
+})[s]!
+
+/* ---------- shell ---------- */
+
+function shell(active: string, body: string, side = '') {
+  const done = exercises.filter(e => passed(e.id, e.i)).length
+  const link = (href: string, key: string, text: string) => `<a href="${href}"${active === key ? ' aria-current="page"' : ''}>${text}</a>`
+  app.innerHTML = `${SPRITE}
+    <header class="nav">
+      <a class="brand" href="#/" aria-label="TypeScript Roadmap home"><span class="mark">TS</span><span class="brand-name">Roadmap</span></a>
+      <nav aria-label="Primary">${link('#/', 'home', 'Roadmap')}${link('#/learn', 'learn', 'Learn')}${link('#/exercises', 'exercises', 'Exercises')}</nav>
+      <a class="pill" href="#/exercises" aria-label="${done} of ${exercises.length} exercises passed">${icon('check')}<span class="num">${done}</span><span class="sep">/</span><span class="num">${exercises.length}</span></a>
+    </header>
+    <div class="layout${side ? ' with-side' : ''}">${side}<main id="main" tabindex="-1">${body}</main></div>`
+  const details = app.querySelector<HTMLDetailsElement>('.side details')
+  if (details && matchMedia('(max-width: 900px)').matches) details.open = false
+}
+
+const sidebar = (current: string) => `<aside class="side"><details open><summary>Modules<span class="side-progress num">${nodes.filter(n => isDone(n.id)).length}/${nodes.length}</span></summary><ol>${nodes.map(n => {
+  const m = modules[n.id]
+  const cls = [isDone(n.id) && 'done', n.id === current && 'current'].filter(Boolean).join(' ')
+  return `<li class="${cls}"><a href="#/${n.id}"${n.id === current ? ' aria-current="page"' : ''}>${n.label}</a><span class="num">${doneCount(n.id)}/${m.problems.length}</span></li>`
+}).join('')}</ol></details></aside>`
+
+/* ---------- problems (shared by module page and exercise page) ---------- */
+
+function problemHtml(id: string, i: number, p: Problem, showTitle = true) {
+  const stat = `<span class="status" id="status-${i}">${badge(status(id, i))}</span>`
+  return `<section class="problem" aria-labelledby="ph-${i}">
+    ${showTitle ? `<h3 id="ph-${i}">${p.title} ${stat}</h3>` : `<div class="problem-status">${stat}</div>`}
+    <div class="desc">${p.html}</div>
+    <div class="editor" id="ed-${i}"></div>
+    <div class="bar">
+      <button class="primary" data-run="${i}">${icon('play')}<span>Run tests</span></button>
+      <button data-reset="${i}">${icon('reset')}<span>Reset</span></button>
+      <kbd>Ctrl</kbd><kbd>Enter</kbd>
+      <details class="tests"><summary>Show tests</summary><pre><code>${esc(p.tests)}</code></pre></details>
+    </div>
+    <ul class="results" id="res-${i}" aria-live="polite"></ul>
+  </section>`
+}
+
+function wireProblem(id: string, i: number, p: Problem) {
+  const ed = mountEditor(document.getElementById(`ed-${i}`)!, localStorage.getItem(draftKey(id, i)) ?? p.starter, `${id}-ex${i}`)
+  ed.onDidChangeModelContent(() => localStorage.setItem(draftKey(id, i), ed.getValue()))
+  const list = document.getElementById(`res-${i}`)!
+  const stat = document.getElementById(`status-${i}`)!
+  const runBtn = app.querySelector<HTMLButtonElement>(`[data-run="${i}"]`)!
+  app.querySelector<HTMLButtonElement>(`[data-reset="${i}"]`)!.onclick = () => { ed.setValue(p.starter); localStorage.removeItem(draftKey(id, i)); list.replaceChildren() }
+  const runTests = async () => {
+    if (runBtn.disabled) return
+    runBtn.disabled = true
+    runBtn.innerHTML = `${icon('spin')}<span>Running…</span>`
+    list.replaceChildren()
+    try {
+      const logs: string[] = []
+      const { js, errors } = await compile(`${ed.getValue()}\n\n// ---- tests ----\n${p.tests}`)
+      const results = await run(js, line => logs.push(line))
+      const row = (ok: boolean, text: string, detail?: string) => {
+        const li = document.createElement('li'); li.className = ok ? 'ok' : 'fail'
+        li.innerHTML = `${icon(ok ? 'check' : 'x')}<span class="rt"></span>`
+        li.querySelector('.rt')!.textContent = text
+        if (detail) { const d = document.createElement('div'); d.className = 'detail'; d.textContent = detail; li.append(d) }
+        list.append(li)
+      }
+      errors.forEach(e => row(false, 'Type error', e))
+      if (!errors.length) row(true, 'Type checks pass')
+      results.forEach(r => row(r.ok, r.name, r.error))
+      if (logs.length) row(true, 'Console output', logs.join('\n'))
+      const ok = !errors.length && results.every(r => r.ok)
+      ok ? localStorage.setItem(passedKey(id, i), '1') : localStorage.removeItem(passedKey(id, i))
+      stat.innerHTML = badge(ok ? 'passed' : 'attempted')
+      const done = exercises.filter(e => passed(e.id, e.i)).length
+      app.querySelector('.pill .num')!.textContent = String(done)
+    } finally {
+      runBtn.disabled = false
+      runBtn.innerHTML = `${icon('play')}<span>Run tests</span>`
+    }
+  }
+  runBtn.onclick = runTests
+  onRunKey(ed, runTests)
+}
+
+/* ---------- pages ---------- */
+
+function home() {
+  const done = nodes.filter(n => isDone(n.id)).length
+  const next = nextModule()
+  shell('home', `
+    <section class="hero">
+      <h1>Learn <em>TypeScript</em> the way it fits together.</h1>
+      <p class="lead">${nodes.length} modules laid out by what they build on, each with an article, a live playground, and exercises with test cases you solve right here in the browser.</p>
+      <div class="actions">
+        <a class="cta" href="#/${next?.id ?? nodes[0].id}">${done ? `Continue with ${next?.label}` : 'Start the roadmap'}${icon('right')}</a>
+        <a class="ghost" href="#/exercises">Browse ${exercises.length} exercises</a>
+      </div>
+      <p class="progress num">${done} of ${nodes.length} modules completed</p>
+    </section>
+    <section class="map" aria-label="Roadmap">${renderGraph(new Set(nodes.map(n => n.id).filter(isDone)), next?.id)}</section>`)
+  const map = app.querySelector('.map')!
+  map.scrollLeft = (map.scrollWidth - map.clientWidth) / 2
+}
+
+const STAGES: Record<number, string> = { 0: 'Foundations', 1: 'Foundations', 2: 'Everyday types', 3: 'Everyday types', 4: 'Composing types', 5: 'Composing types', 6: 'Type-level programming', 7: 'Type-level programming', 8: 'In practice' }
+
+function learn() {
+  const groups = new Map<string, typeof nodes>()
+  nodes.forEach(n => groups.set(STAGES[n.level], [...(groups.get(STAGES[n.level]) ?? []), n]))
+  let idx = 0
+  shell('learn', `
+    <header class="page-head"><h1>Learn</h1><p class="lead">Every module in roadmap order. Each one builds on the ones above it, so read top to bottom the first time through.</p></header>
+    ${[...groups].map(([stage, list]) => `<section class="stage">
+      <h2>${stage}</h2>
+      <ol class="module-list" style="counter-reset: mod ${idx}">${list.map(n => {
+        idx++
+        const m = modules[n.id]
+        return `<li class="${isDone(n.id) ? 'done' : ''}"><a href="#/${n.id}">
+          <span class="module-title">${n.label}</span>
+          <span class="module-summary">${esc(m.summary)}</span>
+          <span class="module-meta num">${isDone(n.id) ? `${icon('check')}Completed` : `${doneCount(n.id)} of ${m.problems.length} exercises`}</span>
+        </a></li>`
+      }).join('')}</ol>
+    </section>`).join('')}`)
+}
+
+function exercisesPage() {
+  const filter = new URLSearchParams(location.hash.split('?')[1] ?? '').get('f') ?? 'all'
+  const labels: Record<string, string> = { all: 'All', todo: 'To do', attempted: 'In progress', passed: 'Passed' }
+  const chips = Object.keys(labels).map(f => `<a class="chip" href="#/exercises?f=${f}"${f === filter ? ' aria-current="true"' : ''}>${labels[f]}</a>`).join('')
+  const rows = nodes.map(n => {
+    const list = modules[n.id].problems.map((p, i) => ({ p, i, s: status(n.id, i) })).filter(x => filter === 'all' || x.s === filter)
+    if (!list.length) return ''
+    return `<section class="ex-group"><h2><a href="#/${n.id}">${n.label}</a><span class="num">${doneCount(n.id)}/${modules[n.id].problems.length}</span></h2>
+      <ol class="ex-list">${list.map(({ p, i, s }) => `<li><a href="#/exercise/${n.id}/${i}"><span class="ex-title">${p.title}</span>${badge(s)}</a></li>`).join('')}</ol></section>`
+  }).join('')
+  const empty: Record<string, string> = {
+    todo: 'Every exercise has been started. Nice.',
+    attempted: 'Nothing in progress. Open any exercise and edit the code to start one.',
+    passed: 'No passed exercises yet. Solve one and it shows up here.',
+  }
+  const counts = { passed: exercises.filter(e => status(e.id, e.i) === 'passed').length, attempted: exercises.filter(e => status(e.id, e.i) === 'attempted').length }
+  shell('exercises', `
+    <header class="page-head"><h1>Exercises</h1><p class="lead num">${exercises.length} problems with test cases. ${counts.passed} passed, ${counts.attempted} in progress.</p><nav class="chips" aria-label="Filter">${chips}</nav></header>
+    ${rows || `<p class="empty">${empty[filter] ?? 'Nothing here yet.'}</p>`}`)
+}
+
+function modulePage(id: string) {
+  const m = modules[id]
+  const idx = nodes.findIndex(n => n.id === id)
+  const next = nodes.filter(n => n.deps.includes(id))
+  const prev = nodes[idx].deps
+  shell('learn', `
+    <p class="crumbs"><a href="#/learn">Learn</a><span>/</span><span class="num">Module ${idx + 1} of ${nodes.length}</span></p>
+    <header class="title"><h1>${m.title}</h1>${prev.length ? `<p class="builds">Builds on ${prev.map(p => `<a href="#/${p}">${modules[p].title}</a>`).join(', ')}</p>` : ''}</header>
+    <article class="prose">${m.html}</article>
+    ${m.playground ? `<section class="play" aria-labelledby="play-h">
+      <h2 id="play-h">Try it</h2>
+      <p class="hint">Edit the code and run it. Type errors show inline and in the output.</p>
+      <div class="editor" id="play"></div>
+      <div class="bar"><button class="primary" id="run">${icon('play')}<span>Run</span></button><kbd>Ctrl</kbd><kbd>Enter</kbd></div>
+      <pre class="out" id="play-out" aria-live="polite"></pre>
+    </section>` : ''}
+    ${m.problems.length ? `<section class="exercises" aria-labelledby="ex-h"><h2 id="ex-h">Exercises</h2><p class="hint">Solve each problem so its tests pass. Your code is saved in this browser. <a href="#/exercises">All exercises</a></p>
+      ${m.problems.map((p, i) => problemHtml(id, i, p)).join('')}</section>` : ''}
+    <footer class="next">${next.length ? `<span class="next-label">Next up</span>${next.map(n => `<a href="#/${n.id}">${n.label}${icon('right')}</a>`).join('')}` : '<span class="next-label">You reached the end of the roadmap.</span><a href="#/exercises">Review your exercises' + icon('right') + '</a>'}</footer>`, sidebar(id))
+  colorize(app)
+
+  if (m.playground) {
+    const ed = mountEditor(document.getElementById('play')!, m.playground, `${id}-play`)
+    const pre = document.getElementById('play-out')!
+    const btn = document.getElementById('run') as HTMLButtonElement
+    const runPlay = async () => {
+      if (btn.disabled) return
+      btn.disabled = true
+      pre.replaceChildren()
+      const print = (line: string, kind = 'log') => { const s = document.createElement('span'); s.className = kind; s.textContent = line + '\n'; pre.append(s) }
+      try {
+        const { js, errors } = await compile(ed.getValue())
+        errors.forEach(e => print(e, 'error'))
+        await run(js, print)
+        if (!pre.childNodes.length) print('Ran without output. Add a console.log to see something here.', 'muted')
+      } finally { btn.disabled = false }
+    }
+    btn.onclick = runPlay
+    onRunKey(ed, runPlay)
+  }
+  m.problems.forEach((p, i) => wireProblem(id, i, p))
+}
+
+function exercisePage(id: string, i: number) {
+  const p = modules[id].problems[i]
+  const at = exercises.findIndex(e => e.id === id && e.i === i)
+  const prev = exercises[at - 1], next = exercises[at + 1]
+  shell('exercises', `
+    <p class="crumbs"><a href="#/exercises">Exercises</a><span>/</span><a href="#/${id}">${modules[id].title}</a><span>/</span><span class="num">${i + 1} of ${modules[id].problems.length}</span></p>
+    <header class="title"><h1 id="ph-${i}">${p.title}</h1><p class="builds">${icon('book')}Stuck? <a href="#/${id}">Read the ${modules[id].title} article</a></p></header>
+    <div class="exercises single">${problemHtml(id, i, p, false)}</div>
+    <footer class="next pager">
+      ${prev ? `<a href="#/exercise/${prev.id}/${prev.i}">${icon('left')}<span><b>${prev.p.title}</b><small>${prev.label}</small></span></a>` : '<span></span>'}
+      ${next ? `<a class="right" href="#/exercise/${next.id}/${next.i}"><span><b>${next.p.title}</b><small>${next.label}</small></span>${icon('right')}</a>` : '<span></span>'}
+    </footer>`, sidebar(id))
+  colorize(app)
+  wireProblem(id, i, p)
+}
+
+function route() {
+  disposeAll()
+  const [, a = '', b = '', c = ''] = location.hash.split('?')[0].split('/')
+  if (a === 'learn') learn()
+  else if (a === 'exercises') exercisesPage()
+  else if (a === 'exercise' && b in modules && modules[b].problems[+c]) exercisePage(b, +c)
+  else if (a in modules) modulePage(a)
+  else home()
+  window.scrollTo(0, 0)
+}
+addEventListener('hashchange', route)
+route()
