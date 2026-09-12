@@ -41,7 +41,7 @@ export const disposeAll = () => { live.forEach(d => d.dispose()); live = [] }
 export function mountEditor(el: HTMLElement, value: string, name: string) {
   const model = editor.createModel(value, 'typescript', Uri.parse(`file:///${name}.ts`))
   const ed = editor.create(el, {
-    model, fontSize: 14, fontFamily: "'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace", fontLigatures: true, minimap: { enabled: false }, automaticLayout: true,
+    model, fontSize: 14, fontFamily: "'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace", fontLigatures: true, minimap: { enabled: false }, automaticLayout: true, fixedOverflowWidgets: true,
     scrollBeyondLastLine: false, lineNumbersMinChars: 3, padding: { top: 12, bottom: 12 }, tabSize: 2,
     scrollbar: { alwaysConsumeMouseWheel: false },
   })
