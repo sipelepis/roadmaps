@@ -6,7 +6,7 @@ import { mountEditor, compile, run, disposeAll, colorize, onRunKey, syncEditorTh
 
 const app = document.getElementById('app')!
 const GITHUB = 'https://github.com/sipelepis'
-const CHARITY = { name: 'a charity you care about', url: 'https://www.givewell.org/charities/top-charities' }
+const CHARITY = { name: 'the Philippine Red Cross', url: 'https://redcross.org.ph/ways-to-donate/' }
 const passedKey = (id: string, i: number) => `passed:${id}:${i}`
 const draftKey = (id: string, i: number) => `draft:${id}:${i}`
 const passed = (id: string, i: number) => !!localStorage.getItem(passedKey(id, i))
