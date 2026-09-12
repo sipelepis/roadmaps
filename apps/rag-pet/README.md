@@ -1,5 +1,7 @@
 # rag-pet
 
+Lives at `apps/rag-pet` inside the AI Engineering Course monorepo. It keeps its own Nx workspace; run the commands below from this directory. `npm install` happens at the monorepo root.
+
 **Live: https://rag-pet.fly.dev**
 
 RAG over your own documents. A FastAPI service does ingest and retrieval against
@@ -78,18 +80,19 @@ Needs Docker, Node 24, and [uv](https://docs.astral.sh/uv/).
 ```bash
 npm run db                       # pgvector on :5433
 cp .env.example apps/api/.env    # then fill in the two API keys
-npm run setup                    # npm install + uv sync + codegen
-npm run dev                      # api :3300, web :5300
+npm install                      # from the monorepo root, once
+npm run setup                    # uv sync + codegen
+npm run stack                    # api :3300, web :5300
 ```
 
-Two keys are required: `OPENAI_API_KEY` for embeddings and `ANTHROPIC_API_KEY`
+Two keys are required: `EMBEDDING_API_KEY` (an OpenAI key) for embeddings and `ANTHROPIC_API_KEY`
 for answers. Without them the console loads and lists documents, but ingest and
 query fail — those are the two calls that leave the machine.
 
 | Command | Does |
 | --- | --- |
-| `npm run dev` | api + web, in parallel |
-| `npm run build` | typecheck + production bundle |
+| `npm run stack` | api + web, in parallel |
+| `npm run build:all` | typecheck + production bundle |
 | `npm test` | pytest + tsc |
 | `npm run codegen` | regenerate the shared types |
 | `npm run graph` | Nx project graph |
@@ -99,7 +102,8 @@ query fail — those are the two calls that leave the machine.
 One Fly machine serves both halves: the Dockerfile builds the SPA in a Node
 stage and the API stage copies it in, so `apps/api/app/main.py` serves the
 console and `/api` from the same origin — no CORS in production and no second
-service. It suspends when idle and wakes on the next request.
+service. It stops when idle and boots on the next request; a suspended VM would
+wake with a stale connection pool and hang.
 
 Postgres is Neon's free tier rather than a Fly volume: pgvector is supported,
 it scales to zero on its own, and the schema is created on boot. Expect a
@@ -107,9 +111,15 @@ couple of slow seconds on the first request after an idle period, while both
 the machine and the database wake up.
 
 ```bash
-fly secrets set DATABASE_URL=… ANTHROPIC_API_KEY=… EMBEDDING_API_KEY=…
+fly secrets set DATABASE_URL=… ANTHROPIC_API_KEY=… EMBEDDING_API_KEY=… WRITE_KEY=…
 fly deploy
 ```
+
+The deployment is public and has no accounts, so `WRITE_KEY` is a shared
+passphrase that indexing and deleting require; the console asks for it once and
+keeps it in localStorage. Queries stay open. Ingest is capped at 200k characters
+and 5 MB per upload (`MAX_CHARS`, `MAX_UPLOAD_BYTES`), and the Anthropic key
+should carry a spend limit of its own.
 
 Fly provisions two machines on first deploy for high availability; `fly scale
 count 1` is the right call for a pet.

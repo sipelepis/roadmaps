@@ -215,8 +215,8 @@ if not text.strip():
         <P>
           <code>embedding_model</code> decides the meaning of the coordinates,{' '}
           <code>embedding_dims</code> must match the width of the database column, and{' '}
-          <code>embedding_base_url</code> points at any OpenAI-compatible endpoint — OpenRouter by
-          default, api.openai.com if you prefer to go direct.
+          <code>embedding_base_url</code> points at any OpenAI-compatible endpoint, api.openai.com by
+          default.
         </P>
         <P>
           Change the model and every stored vector becomes meaningless: old chunks are coordinates

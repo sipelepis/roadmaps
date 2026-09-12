@@ -1,13 +1,24 @@
 import type { ChunkPreview, Document, QueryRequest, QueryResponse, Stats } from '@rag/shared';
 
-async function req<T>(path: string, init?: RequestInit): Promise<T> {
+// ponytail: the write key is a shared passphrase kept in localStorage and asked
+// for with window.prompt on the first 401. Real accounts if this ever gets users.
+const KEY = 'rag-write-key';
+
+async function req<T>(path: string, init?: RequestInit, retried = false): Promise<T> {
   const res = await fetch(`/api${path}`, {
     ...init,
-    headers:
-      init?.body && typeof init.body === 'string'
-        ? { 'content-type': 'application/json' }
-        : undefined,
+    headers: {
+      ...(init?.body && typeof init.body === 'string' ? { 'content-type': 'application/json' } : {}),
+      ...(localStorage.getItem(KEY) ? { 'x-write-key': localStorage.getItem(KEY)! } : {}),
+    },
   });
+  if (res.status === 401 && !retried) {
+    const key = window.prompt('This deployment needs a write key to index or delete:');
+    if (key) {
+      localStorage.setItem(KEY, key);
+      return req<T>(path, init, true);
+    }
+  }
   if (!res.ok) {
     // FastAPI answers with { detail } — a string for HTTPException, an array of
     // issues for a 422. Fall back to the status when a proxy 502 isn't JSON.

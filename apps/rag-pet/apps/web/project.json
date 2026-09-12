@@ -19,7 +19,7 @@
     "typecheck": {
       "executor": "nx:run-commands",
       "dependsOn": ["shared:codegen"],
-      "options": { "command": "npm run typecheck", "cwd": "apps/web" }
+      "options": { "command": "npm run check", "cwd": "apps/web" }
     }
   }
 }

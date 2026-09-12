@@ -1,7 +1,11 @@
 {
   "name": "roadmaps",
   "private": true,
-  "workspaces": ["apps/*"],
+  "workspaces": [
+    "apps/*",
+    "apps/rag-pet/apps/*",
+    "apps/rag-pet/libs/*"
+  ],
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",

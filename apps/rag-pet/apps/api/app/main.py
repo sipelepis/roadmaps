@@ -1,11 +1,15 @@
+import logging
+import secrets
 from contextlib import asynccontextmanager
 from io import BytesIO
 from pathlib import Path
 from time import perf_counter
 
-from fastapi import FastAPI, HTTPException, UploadFile
+import anthropic
+import openai
+from fastapi import Depends, FastAPI, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pypdf import PdfReader
 
@@ -49,6 +53,32 @@ app.add_middleware(
 )
 
 
+@app.exception_handler(openai.APIStatusError)
+@app.exception_handler(anthropic.APIStatusError)
+async def upstream_refused(_, exc: openai.APIStatusError | anthropic.APIStatusError):
+    """Embedding or chat provider said no (key limit, bad key, rate limit). Tell
+    the client that much — a bare 500 hides why ingest and query fail."""
+    body = exc.body if isinstance(exc.body, dict) else {}
+    message = (body.get("error") or body).get("message") or exc.message
+    # The provider's text names the account, the key and its dashboard URL. That
+    # belongs in the log, not in a toast on a public page with no auth.
+    logging.getLogger("uvicorn.error").warning("upstream %s: %s", exc.status_code, message)
+    return JSONResponse(
+        {"detail": f"Upstream API refused the request ({exc.status_code}). Check the provider key and its spend limit."},
+        status_code=502,
+    )
+
+
+def require_write_key(x_write_key: str = Header(default="")) -> None:
+    """Ingest and delete need the shared WRITE_KEY when one is set; queries stay
+    open so visitors can still try the thing. Unset (local dev) means no check."""
+    if settings.write_key and not secrets.compare_digest(x_write_key, settings.write_key):
+        raise HTTPException(401, "Write key required")
+
+
+WRITE = [Depends(require_write_key)]
+
+
 @app.get("/api/health", response_model=Health)
 def health() -> Health:
     return Health(status="ok", database=db.healthy())
@@ -84,14 +114,16 @@ def list_documents() -> list[Document]:
     ]
 
 
-@app.post("/api/documents/text", response_model=Document)
+@app.post("/api/documents/text", response_model=Document, dependencies=WRITE)
 def ingest_text(body: IngestText) -> Document:
     return _ingest(body.filename, body.text, trace=body.trace)
 
 
-@app.post("/api/documents/upload", response_model=Document)
+@app.post("/api/documents/upload", response_model=Document, dependencies=WRITE)
 async def ingest_upload(file: UploadFile) -> Document:
     raw = await file.read()
+    if len(raw) > settings.max_upload_bytes:
+        raise HTTPException(413, f"File over {settings.max_upload_bytes // 1_000_000} MB")
     name = file.filename or "upload"
     if name.lower().endswith(".pdf"):
         text = "\n".join(p.extract_text() or "" for p in PdfReader(BytesIO(raw)).pages)
@@ -102,7 +134,7 @@ async def ingest_upload(file: UploadFile) -> Document:
     return _ingest(name, text)
 
 
-@app.delete("/api/documents/{document_id}", status_code=204)
+@app.delete("/api/documents/{document_id}", status_code=204, dependencies=WRITE)
 def delete_document(document_id: int) -> None:
     with db.pool.connection() as conn:
         deleted = conn.execute(
@@ -197,6 +229,8 @@ if WEB.is_dir():
 
 
 def _ingest(filename: str, text: str, trace: bool = False) -> Document:
+    if len(text) > settings.max_chars:
+        raise HTTPException(413, f"Text over {settings.max_chars:,} characters")
     chunk_start = perf_counter()
     pieces = rag.chunk_text(text, settings.chunk_chars, settings.chunk_overlap)
     if not pieces:

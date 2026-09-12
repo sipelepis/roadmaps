@@ -9,9 +9,11 @@ primary_region = 'sin'
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = 'suspend'
+  auto_stop_machines = 'stop'
   auto_start_machines = true
-  # A pet project: let it sleep. Cold start is a couple of seconds.
+  # 'stop', not 'suspend': a resumed VM keeps its Postgres pool, whose connections
+  # died while it slept, and every query then hangs on TCP retransmits for minutes.
+  # A cold boot is a couple of seconds and starts with a fresh pool.
   min_machines_running = 0
 
   [[http_service.checks]]
