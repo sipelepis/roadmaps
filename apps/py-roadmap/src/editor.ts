@@ -3,8 +3,10 @@ import EditorWorker from 'monaco-editor/editor/editor.worker.js?worker'
 
 self.MonacoEnvironment = { getWorker: () => new EditorWorker() }
 
-editor.defineTheme('py-dark', { base: 'vs-dark', inherit: true, rules: [], colors: { 'editor.background': '#151a23', 'editorGutter.background': '#151a23' } })
-editor.setTheme('py-dark')
+editor.defineTheme('rm-dark', { base: 'vs-dark', inherit: true, rules: [], colors: { 'editor.background': '#151a23', 'editorGutter.background': '#151a23' } })
+editor.defineTheme('rm-light', { base: 'vs', inherit: true, rules: [], colors: { 'editor.background': '#eaeef4', 'editorGutter.background': '#eaeef4' } })
+export const syncEditorTheme = () => editor.setTheme(document.documentElement.dataset.theme === 'light' ? 'rm-light' : 'rm-dark')
+syncEditorTheme()
 document.fonts.ready.then(() => editor.remeasureFonts())
 
 let live: IDisposable[] = []
@@ -13,7 +15,7 @@ export const disposeAll = () => { live.forEach(d => d.dispose()); live = [] }
 export function mountEditor(el: HTMLElement, value: string, name: string) {
   const model = editor.createModel(value, 'python', Uri.parse(`file:///${name}.py`))
   const ed = editor.create(el, {
-    model, theme: 'py-dark', fontSize: 14, fontFamily: "'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace", fontLigatures: true, minimap: { enabled: false }, automaticLayout: true,
+    model, fontSize: 14, fontFamily: "'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace", fontLigatures: true, minimap: { enabled: false }, automaticLayout: true,
     scrollBeyondLastLine: false, lineNumbersMinChars: 3, padding: { top: 12, bottom: 12 }, tabSize: 4, insertSpaces: true,
     scrollbar: { alwaysConsumeMouseWheel: false },
   })

@@ -2,7 +2,7 @@ import './style.css'
 import { modules, type Problem } from './content'
 import { nodes, renderGraph } from './graph'
 import { enter, reveal, pop, count } from './motion'
-import { mountEditor, run, disposeAll, colorize, onRunKey, pythonReady } from './editor'
+import { mountEditor, run, disposeAll, colorize, onRunKey, syncEditorTheme, pythonReady } from './editor'
 
 const app = document.getElementById('app')!
 const passedKey = (id: string, i: number) => `passed:${id}:${i}`
@@ -29,6 +29,8 @@ const SPRITE = `<svg hidden xmlns="http://www.w3.org/2000/svg"><defs>
   <symbol id="i-reset" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.5-5.8M4 4v5h5"/></symbol>
   <symbol id="i-spin" viewBox="0 0 24 24"><path d="M12 4a8 8 0 1 1-8 8"/></symbol>
   <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5zM4 20.5V5.5M8 7h8"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></symbol>
 </defs></svg>`
 const icon = (name: string) => `<svg class="ic" aria-hidden="true"><use href="#i-${name}"/></svg>`
 const badge = (s: string) => ({
@@ -47,8 +49,13 @@ function shell(active: string, body: string, side = '') {
       <a class="brand" href="#/" aria-label="Python Roadmap home"><span class="mark">PY</span><span class="brand-name">Roadmap</span></a>
       <nav aria-label="Primary">${link('#/', 'home', 'Roadmap')}${link('#/learn', 'learn', 'Learn')}${link('#/exercises', 'exercises', 'Exercises')}</nav>
       <a class="pill" href="#/exercises" aria-label="${done} of ${exercises.length} exercises passed">${icon('check')}<span class="num">${done}</span><span class="sep">/</span><span class="num">${exercises.length}</span></a>
+      <button class="theme" id="theme" aria-label="Switch between light and dark theme"><svg class="ic sun" aria-hidden="true"><use href="#i-sun"/></svg><svg class="ic moon" aria-hidden="true"><use href="#i-moon"/></svg></button>
     </header>
     <div class="layout${side ? ' with-side' : ''}">${side}<main id="main" tabindex="-1">${body}</main></div>`
+  document.getElementById('theme')!.onclick = () => {
+    const t = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light'
+    document.documentElement.dataset.theme = t; localStorage.theme = t; syncEditorTheme()
+  }
   const details = app.querySelector<HTMLDetailsElement>('.side details')
   if (details && matchMedia('(max-width: 900px)').matches) details.open = false
 }

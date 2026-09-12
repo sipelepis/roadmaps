@@ -29,8 +29,10 @@ typescriptDefaults.setCompilerOptions({
   strict: true,
 })
 typescriptDefaults.addExtraLib(HARNESS_DTS, 'file:///harness.d.ts')
-editor.defineTheme('ts-dark', { base: 'vs-dark', inherit: true, rules: [], colors: { 'editor.background': '#151a23', 'editorGutter.background': '#151a23' } })
-editor.setTheme('ts-dark')
+editor.defineTheme('rm-dark', { base: 'vs-dark', inherit: true, rules: [], colors: { 'editor.background': '#151a23', 'editorGutter.background': '#151a23' } })
+editor.defineTheme('rm-light', { base: 'vs', inherit: true, rules: [], colors: { 'editor.background': '#eaeef4', 'editorGutter.background': '#eaeef4' } })
+export const syncEditorTheme = () => editor.setTheme(document.documentElement.dataset.theme === 'light' ? 'rm-light' : 'rm-dark')
+syncEditorTheme()
 document.fonts.ready.then(() => editor.remeasureFonts())
 
 let live: IDisposable[] = []
@@ -39,7 +41,7 @@ export const disposeAll = () => { live.forEach(d => d.dispose()); live = [] }
 export function mountEditor(el: HTMLElement, value: string, name: string) {
   const model = editor.createModel(value, 'typescript', Uri.parse(`file:///${name}.ts`))
   const ed = editor.create(el, {
-    model, theme: 'ts-dark', fontSize: 14, fontFamily: "'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace", fontLigatures: true, minimap: { enabled: false }, automaticLayout: true,
+    model, fontSize: 14, fontFamily: "'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace", fontLigatures: true, minimap: { enabled: false }, automaticLayout: true,
     scrollBeyondLastLine: false, lineNumbersMinChars: 3, padding: { top: 12, bottom: 12 }, tabSize: 2,
     scrollbar: { alwaysConsumeMouseWheel: false },
   })

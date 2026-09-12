@@ -158,7 +158,7 @@ The site is a dark drafting table and the dependency graph is the drawing on it.
 
 Density is medium and reading-first. Content columns cap at 780px for prose and 1040px for the shell. The display face, Bricolage Grotesque at its widest optical size, gives headings a slightly engineered, technical-drawing character that Inter's body text does not compete with. Code is a first-class citizen, so the mono face appears inline in headings and prose without apology.
 
-Motion is a stroke tool, not a mood. Route changes lift content in with a short stagger, test results slide in one by one, a passing badge springs, the progress counter counts. All of it is skipped under reduced motion. The system rejects gradients as decoration, glassmorphism beyond the sticky nav's blur, and any colored surface that is not a status.
+Dark is the home scheme and the one the tokens are authored in; the light theme re-points every role rather than restyling anything. Motion is a stroke tool, not a mood. Route changes lift content in with a short stagger, test results slide in one by one, a passing badge springs, the progress counter counts. All of it is skipped under reduced motion. The system rejects gradients as decoration, glassmorphism beyond the sticky nav's blur, and any colored surface that is not a status.
 
 **Key Characteristics:**
 - Four-step tonal dark palette; borders separate, shadows almost never.
@@ -191,6 +191,9 @@ A near-black blue-grey ramp with one signal blue and three status hues, all tune
 - **Pass Green** (#3dd68c): passed badges, completed nodes and edges, the progress pill, done modules in the sidebar.
 - **Warn Amber** (#f5b942): in-progress badges and playground warnings.
 - **Fail Coral** (#ff6b6b): failed test rows and error output. Only ever paired with the X icon.
+
+### Light theme
+The same roles re-pointed for a light scheme, selected by `data-theme="light"` on the root element and persisted in `localStorage.theme`. The boot script in `index.html` sets it before first paint from storage or `prefers-color-scheme`. Surfaces invert their order: page **#f4f6f9**, lifted card and output **#ffffff**, panel **#eaeef4**, panel hover **#dfe5ee**; borders **#d5dbe5** and **#bfc8d6**; text **#121722**, reading text **#2c3546**, muted **#5b6676**. The accent deepens to **#2f6fd6** (hover **#4a84e3**) with white text so it passes contrast on pale surfaces. Status deepens the same way: green **#158f5a**, amber **#a86b00**, coral **#d43d3d**. Nav blur, hero glow, selection, CTA glow, and the card shadow each have a light variant token; nothing else changes. The Monaco theme swaps to a `vs` base with the panel color as its background.
 
 ### Named Rules
 **The One Signal Rule.** Cornflower Signal appears on at most one primary action per viewport plus links and the next node. If two things are blue, one of them is wrong.
@@ -308,4 +311,4 @@ Easing everywhere is `cubic-bezier(0.2, 0.7, 0.2, 1)` in CSS and `power3.out` in
 - **Don't** add shadows to panels, lists, code blocks, or nav. The exercise card and hero CTA are the only lifted objects.
 - **Don't** fill status badges solid. Tint at 8%, border at 40%, color the text.
 - **Don't** add hover motion to graph nodes or list rows beyond a color or stroke change.
-- **Don't** ship a light theme; every token is tuned for `color-scheme: dark` only.
+- **Don't** hard-code a color outside the token block. Both themes must stay complete; a new color gets a dark and a light value or it does not ship.
