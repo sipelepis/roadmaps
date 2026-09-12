@@ -5,6 +5,8 @@ import { enter, reveal, pop, count } from './motion'
 import { mountEditor, run, disposeAll, colorize, onRunKey, syncEditorTheme, pythonReady } from './editor'
 
 const app = document.getElementById('app')!
+const GITHUB = 'https://github.com/sipelepis'
+const CHARITY = { name: 'a charity you care about', url: 'https://www.givewell.org/charities/top-charities' }
 const passedKey = (id: string, i: number) => `passed:${id}:${i}`
 const draftKey = (id: string, i: number) => `draft:${id}:${i}`
 const passed = (id: string, i: number) => !!localStorage.getItem(passedKey(id, i))
@@ -51,7 +53,11 @@ function shell(active: string, body: string, side = '') {
       <a class="pill" href="#/exercises" aria-label="${done} of ${exercises.length} exercises passed">${icon('check')}<span class="num">${done}</span><span class="sep">/</span><span class="num">${exercises.length}</span></a>
       <button class="theme" id="theme" aria-label="Switch between light and dark theme"><svg class="ic sun" aria-hidden="true"><use href="#i-sun"/></svg><svg class="ic moon" aria-hidden="true"><use href="#i-moon"/></svg></button>
     </header>
-    <div class="layout${side ? ' with-side' : ''}">${side}<main id="main" tabindex="-1">${body}</main></div>`
+    <div class="layout${side ? ' with-side' : ''}">${side}<main id="main" tabindex="-1">${body}</main></div>
+    <footer class="site-foot">
+      <p>Free and open source, built by <a href="${GITHUB}" rel="me">@sipelepis</a> · <a href="${GITHUB}/roadmaps">Source on GitHub</a></p>
+      <p class="charity">Learned something? Pay it forward: <a href="${CHARITY.url}">give to ${CHARITY.name}</a>.</p>
+    </footer>`
   document.getElementById('theme')!.onclick = () => {
     const t = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light'
     document.documentElement.dataset.theme = t; localStorage.theme = t; syncEditorTheme()

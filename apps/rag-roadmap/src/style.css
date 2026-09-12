@@ -70,7 +70,9 @@ main:focus { box-shadow: none; }
 .ic { width: 1em; height: 1em; flex: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; fill: none; vertical-align: -0.15em; }
 kbd { font: 500 0.72rem/1 var(--mono); color: var(--muted); border: 1px solid var(--border-strong); border-bottom-width: 2px; border-radius: 5px; padding: 0.25rem 0.4rem; background: var(--bg-2); }
 kbd + kbd { margin-left: 0.2rem; }
-#app { padding-bottom: 5rem; }
+#app { padding-bottom: 3rem; }
+.site-foot { max-width: 1040px; margin: 4rem auto 0; padding: 1.5rem 1.25rem 0; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.9rem; display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.site-foot .charity a { color: var(--ok); font-weight: 600; }
 
 /* ---------- shell ---------- */
 .nav { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 1.5rem; padding: 0 1.5rem; height: 60px; background: var(--nav-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); }
