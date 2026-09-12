@@ -1,0 +1,701 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "rag-pet",
+    "version": "0.0.0"
+  },
+  "paths": {
+    "/api/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_api_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stats": {
+      "get": {
+        "summary": "Stats",
+        "operationId": "stats_api_stats_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Stats"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/documents": {
+      "get": {
+        "summary": "List Documents",
+        "operationId": "list_documents_api_documents_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Document"
+                  },
+                  "type": "array",
+                  "title": "Response List Documents Api Documents Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/documents/text": {
+      "post": {
+        "summary": "Ingest Text",
+        "operationId": "ingest_text_api_documents_text_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IngestText"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Document"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/documents/upload": {
+      "post": {
+        "summary": "Ingest Upload",
+        "operationId": "ingest_upload_api_documents_upload_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_ingest_upload_api_documents_upload_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Document"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/documents/{document_id}": {
+      "delete": {
+        "summary": "Delete Document",
+        "operationId": "delete_document_api_documents__document_id__delete",
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Document Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/query": {
+      "post": {
+        "summary": "Query",
+        "operationId": "query_api_query_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chunk-preview": {
+      "post": {
+        "summary": "Chunk Preview",
+        "description": "Run the chunker and throw the result away. Nothing is embedded and\nnothing is stored \u2014 /flow uses it to show the split before you commit to it.",
+        "operationId": "chunk_preview_api_chunk_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChunkPreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChunkPreviewResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Body_ingest_upload_api_documents_upload_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_ingest_upload_api_documents_upload_post"
+      },
+      "Chunk": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "document_id": {
+            "type": "integer",
+            "title": "Document Id"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "ordinal": {
+            "type": "integer",
+            "title": "Ordinal"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "document_id",
+          "filename",
+          "ordinal",
+          "text",
+          "score"
+        ],
+        "title": "Chunk"
+      },
+      "ChunkPreviewRequest": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 100000,
+            "minLength": 1,
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "ChunkPreviewRequest"
+      },
+      "ChunkPreviewResponse": {
+        "properties": {
+          "chunks": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Chunks"
+          },
+          "shared": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Shared"
+          },
+          "chunk_chars": {
+            "type": "integer",
+            "title": "Chunk Chars"
+          },
+          "chunk_overlap": {
+            "type": "integer",
+            "title": "Chunk Overlap"
+          }
+        },
+        "type": "object",
+        "required": [
+          "chunks",
+          "shared",
+          "chunk_chars",
+          "chunk_overlap"
+        ],
+        "title": "ChunkPreviewResponse",
+        "description": "A dry run of the chunker: same function ingest uses, nothing embedded\nand nothing stored."
+      },
+      "Document": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "chars": {
+            "type": "integer",
+            "title": "Chars"
+          },
+          "chunks": {
+            "type": "integer",
+            "title": "Chunks"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "trace": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IngestTrace"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "filename",
+          "chars",
+          "chunks",
+          "created_at"
+        ],
+        "title": "Document"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "Health": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "database": {
+            "type": "boolean",
+            "title": "Database"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "database"
+        ],
+        "title": "Health"
+      },
+      "IngestText": {
+        "properties": {
+          "filename": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Filename"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Text"
+          },
+          "trace": {
+            "type": "boolean",
+            "title": "Trace",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "filename",
+          "text"
+        ],
+        "title": "IngestText"
+      },
+      "IngestTrace": {
+        "properties": {
+          "chars": {
+            "type": "integer",
+            "title": "Chars"
+          },
+          "chunks": {
+            "type": "integer",
+            "title": "Chunks"
+          },
+          "embed_calls": {
+            "type": "integer",
+            "title": "Embed Calls"
+          },
+          "dims": {
+            "type": "integer",
+            "title": "Dims"
+          },
+          "rows_inserted": {
+            "type": "integer",
+            "title": "Rows Inserted"
+          },
+          "ms_chunk": {
+            "type": "integer",
+            "title": "Ms Chunk"
+          },
+          "ms_embed": {
+            "type": "integer",
+            "title": "Ms Embed"
+          },
+          "ms_store": {
+            "type": "integer",
+            "title": "Ms Store"
+          }
+        },
+        "type": "object",
+        "required": [
+          "chars",
+          "chunks",
+          "embed_calls",
+          "dims",
+          "rows_inserted",
+          "ms_chunk",
+          "ms_embed",
+          "ms_store"
+        ],
+        "title": "IngestTrace",
+        "description": "One document's trip from text to rows in pgvector. Opt-in, same as\nTrace \u2014 only /flow has any use for it."
+      },
+      "QueryRequest": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Question"
+          },
+          "top_k": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Top K",
+            "default": 5
+          },
+          "trace": {
+            "type": "boolean",
+            "title": "Trace",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "question"
+        ],
+        "title": "QueryRequest"
+      },
+      "QueryResponse": {
+        "properties": {
+          "answer": {
+            "type": "string",
+            "title": "Answer"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/Chunk"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "trace": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Trace"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "answer",
+          "sources"
+        ],
+        "title": "QueryResponse"
+      },
+      "Stats": {
+        "properties": {
+          "documents": {
+            "type": "integer",
+            "title": "Documents"
+          },
+          "chunks": {
+            "type": "integer",
+            "title": "Chunks"
+          },
+          "chat_model": {
+            "type": "string",
+            "title": "Chat Model"
+          },
+          "embedding_model": {
+            "type": "string",
+            "title": "Embedding Model"
+          },
+          "embedding_dims": {
+            "type": "integer",
+            "title": "Embedding Dims"
+          },
+          "chunk_chars": {
+            "type": "integer",
+            "title": "Chunk Chars"
+          },
+          "chunk_overlap": {
+            "type": "integer",
+            "title": "Chunk Overlap"
+          }
+        },
+        "type": "object",
+        "required": [
+          "documents",
+          "chunks",
+          "chat_model",
+          "embedding_model",
+          "embedding_dims",
+          "chunk_chars",
+          "chunk_overlap"
+        ],
+        "title": "Stats"
+      },
+      "Trace": {
+        "properties": {
+          "embedding_dims": {
+            "type": "integer",
+            "title": "Embedding Dims"
+          },
+          "embedding_preview": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Embedding Preview"
+          },
+          "chunks_scanned": {
+            "type": "integer",
+            "title": "Chunks Scanned"
+          },
+          "system": {
+            "type": "string",
+            "title": "System"
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          },
+          "ms_embed": {
+            "type": "integer",
+            "title": "Ms Embed"
+          },
+          "ms_search": {
+            "type": "integer",
+            "title": "Ms Search"
+          },
+          "ms_answer": {
+            "type": "integer",
+            "title": "Ms Answer"
+          }
+        },
+        "type": "object",
+        "required": [
+          "embedding_dims",
+          "embedding_preview",
+          "chunks_scanned",
+          "system",
+          "prompt",
+          "ms_embed",
+          "ms_search",
+          "ms_answer"
+        ],
+        "title": "Trace",
+        "description": "What actually happened inside one query. Opt-in via QueryRequest.trace\nbecause the vector preview and the full prompt only matter to /flow."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

@@ -1,0 +1,314 @@
+/*
+ * Shared design tokens — Boost Library console.
+ * Identity: matches BoostIQ (boostiq.xyz) — dark-default, an ember/rust
+ * accent that shifts per theme, monospace for page-level headings and the
+ * wordmark only (not component titles) over a Schibsted Grotesk body.
+ * Light mode is a secondary toggle, warm-neutral (not the old paper, not
+ * cool gray either — see docs/boostiq-live-alignment.md for how both prior
+ * guesses got corrected against the live app). See /DESIGN.md. All values
+ * OKLCH.
+ *
+ * Import order in each app's globals.css:
+ *   @import 'tailwindcss';
+ *   @import 'tw-animate-css';
+ *   @import 'shadcn/tailwind.css';
+ *   @import '@boost/styles/tokens.css';
+ *   @theme inline { ... }   // stays in the app (Tailwind v4 only reads @theme
+ *                           // in the app's main CSS entry). Token NAMES below
+ *                           // are unchanged, so that mapping is untouched.
+ *
+ * Theme mechanism: :root ships the dark values (the default, no class
+ * needed). A `.light` class on <html> — toggled by useTheme() in
+ * libs/web/src/lib/use-theme.ts, applied pre-paint by an inline script in
+ * each app's index.html — swaps in the light overrides below.
+ */
+
+/* ── JetBrains Mono (Latin, variable) — headings, wordmark, identifiers ── */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 800;
+  src: url('/fonts/jetbrains-mono-latin.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ── Schibsted Grotesk (Latin, variable) — the body face ── */
+@font-face {
+  font-family: 'Schibsted Grotesk';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 900;
+  src: url('/fonts/schibsted-grotesk-latin.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ── Design tokens ──────────────────────────────── */
+:root {
+  /* Surfaces — near-black ground, computed elevation stack. `--card` /
+     `--muted` / `--popover` / `--secondary` derive from `--foreground` mixed
+     into `--background` rather than hand-picked neutrals, so a future 4th
+     surface tier is one more color-mix step, not a new hand-tuned value. */
+  --background: oklch(0.17 0.012 95); /* near-black, warm-neutral */
+  --elevation-0: var(--background);
+  --elevation-1: color-mix(in oklch, var(--foreground) 4%, var(--background));
+  --elevation-2: color-mix(in oklch, var(--foreground) 7%, var(--background));
+  --elevation-3: color-mix(in oklch, var(--foreground) 11%, var(--background));
+  --card: var(--elevation-1);
+  --muted: var(--elevation-2);
+  --color-subtle: var(--elevation-2); /* full-row hover tint */
+  /* Selected (not just hovered) row/item — one step past hover, still short
+     of a border. Measured off the real site's `--surface-selected`. */
+  --surface-selected: color-mix(in oklch, var(--foreground) 22%, var(--background));
+  --brand-subtle: color-mix(in oklch, var(--primary) 14%, transparent); /* ember wash — tracks --primary per theme */
+
+  /* Brand — a lighter, softer salmon on dark (real BoostIQ measured
+     ~#d88a6a), a darker muted rust on light (~#a85234) — the accent
+     genuinely shifts per theme, it isn't one fixed value carried across
+     both (an earlier pass here assumed it was; corrected against the live
+     app, see docs/boostiq-live-alignment.md). */
+  --primary: oklch(0.72 0.12 44);
+  --primary-foreground: oklch(0.15 0.015 48); /* near-black label ON the dark-mode fill */
+  /* Text/link/icon color: the fill (--primary) at L0.72 already clears AA
+     against the L0.17 background as a large glyph, but body-size text wants
+     a touch more punch, so this is a slightly brighter step of the same hue. */
+  --primary-strong: oklch(0.78 0.11 44);
+  /* Role-composition viz (People meter). Graphic fills only. superadmin/admin
+     reuse the ember ramp; these are the two neutral steps, tied to the same
+     elevation mechanism so they track the theme automatically. */
+  --role-member: color-mix(in oklch, var(--foreground) 60%, var(--background));
+  --role-viewer: color-mix(in oklch, var(--foreground) 35%, var(--background));
+
+  /* Ink */
+  --foreground: oklch(0.94 0.01 90); /* warm-white */
+  --muted-foreground: oklch(0.68 0.015 90);
+
+  /* Border / Ring — same elevation mechanism, one step past the top surface
+     tier so a border always reads against its own card/dialog. */
+  --border: color-mix(in oklch, var(--foreground) 14%, var(--background));
+  --ring: oklch(0.78 0.11 44 / 0.55);
+
+  /* Signal colors — 5-tier: success/warning/critical/info/muted. Base hues
+     stay fixed across both themes (brand consistency); only lightness/chroma
+     tune per theme for AA. `critical` reuses `--destructive` — that token
+     has ~130 existing call sites, so it keeps its name; -bg/-border below
+     give it (and every tier) the auto-derived tint/border boost-internal has
+     and boost-library previously hand-composed per call site
+     (bg-status-warning/10 border-status-warning/25 → bg-status-warning-bg
+     border-status-warning-border). */
+  --status-success: oklch(0.7 0.16 150);
+  --status-warning: oklch(0.72 0.15 75); /* hue kept clear of the ember accent (52) */
+  --status-info: oklch(0.7 0.13 245);
+  --status-muted: oklch(0.62 0.012 90);
+  --destructive: oklch(0.62 0.2 25);
+  --destructive-foreground: oklch(0.98 0.005 90);
+
+  --status-success-bg: color-mix(in oklch, var(--status-success) 16%, var(--background));
+  --status-success-border: color-mix(in oklch, var(--status-success) 35%, var(--background));
+  --status-warning-bg: color-mix(in oklch, var(--status-warning) 16%, var(--background));
+  --status-warning-border: color-mix(in oklch, var(--status-warning) 35%, var(--background));
+  --status-info-bg: color-mix(in oklch, var(--status-info) 16%, var(--background));
+  --status-info-border: color-mix(in oklch, var(--status-info) 35%, var(--background));
+  --status-muted-bg: color-mix(in oklch, var(--status-muted) 16%, var(--background));
+  --status-muted-border: color-mix(in oklch, var(--status-muted) 35%, var(--background));
+  --destructive-bg: color-mix(in oklch, var(--destructive) 16%, var(--background));
+  --destructive-border: color-mix(in oklch, var(--destructive) 35%, var(--background));
+
+  /* Disabled */
+  --disabled-text: color-mix(in oklch, var(--foreground) 40%, var(--background));
+  --disabled-bg: var(--elevation-2);
+  --disabled-border: var(--border);
+
+  /* shadcn/ui peer tokens */
+  --card-foreground: var(--foreground);
+  --popover: var(--elevation-2);
+  --popover-foreground: var(--foreground);
+  --secondary: var(--elevation-2);
+  --secondary-foreground: var(--foreground);
+  --accent: var(--elevation-2); /* neutral hover surface — NOT the brand accent */
+  --accent-foreground: var(--foreground);
+  --input: var(--border);
+
+  /* Radius — the real app's buttons/cards/menus measure 6–12px, never a
+     full pill (corrected here after live access; see
+     docs/boostiq-live-alignment.md). `--radius-pill` stays for chip/badge/
+     status-badge, which do use rounded-full — no evidence either way found
+     for those specifically, left as-is rather than changed on inference. */
+  --radius-pill: 999px;
+
+  /* Motion — named durations + eases, previously prose-only in DESIGN.md.
+     Slow + the spring ease are tuned to the real site's measured values. */
+  --motion-fast: 120ms;
+  --motion-normal: 200ms;
+  --motion-slow: 230ms;
+  --ease-out: cubic-bezier(0.165, 0.84, 0.44, 1); /* ease-out-quart */
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Fonts — mono for page-level headings + the wordmark only (not component
+     titles — see docs/boostiq-live-alignment.md), Schibsted Grotesk for
+     body. `--font-inter` keeps its NAME so the app's @theme mapping still
+     resolves; its value is now Schibsted Grotesk (was Inter, then Albert
+     Sans before that — the name is legacy, not the content). `--font-mono`
+     is a real webfont, not just the system stack — it's the first-class
+     display face here, so the system stack is now its fallback rather than
+     the whole story. */
+  --font-inter: 'Schibsted Grotesk', system-ui, sans-serif;
+  --font-sans: 'Schibsted Grotesk', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas',
+    'Liberation Mono', 'Courier New', monospace;
+  --font-heading: var(--font-mono);
+}
+
+/* ── Light mode — secondary, warm-neutral ──
+   Measured off the real site's actual `:root` (#f7f6f2 bg / #272621 ink) —
+   an earlier pass here guessed "cool neutral gray" from the Action Plan's
+   prose, which turned out to be wrong on measurement (see
+   docs/boostiq-live-alignment.md). Same warm hue family as dark mode's ink,
+   just inverted lightness. The accent also gets darker + more muted here
+   (not the same value as dark) with a white label instead of near-black —
+   also measured, not inferred. Everything derived from
+   --foreground/--background (elevation, role-*, status *-bg/*-border,
+   --border, --brand-subtle) picks up both swaps automatically. */
+:root.light {
+  --background: oklch(0.97 0.006 90);
+  --foreground: oklch(0.22 0.01 90);
+  --muted-foreground: oklch(0.48 0.01 90);
+
+  --primary: oklch(0.48 0.14 42);
+  --primary-foreground: oklch(1 0 0);
+  --primary-strong: oklch(0.44 0.14 42);
+  --ring: oklch(0.44 0.14 42 / 0.5);
+
+  --status-success: oklch(0.5 0.15 150);
+  --status-warning: oklch(0.53 0.14 75);
+  --status-info: oklch(0.5 0.13 245);
+  --status-muted: oklch(0.46 0.01 90);
+  --destructive: oklch(0.58 0.2 25);
+}
+
+/* ── Base reset ──────────────────────────────────── */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    border-color: var(--border);
+  }
+  html {
+    font-family: var(--font-inter);
+    font-optical-sizing: auto;
+  }
+  body {
+    margin: 0;
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-inter);
+  }
+  /* Tailwind v4 removed default cursor:pointer from interactive elements — restore it */
+  button,
+  a,
+  select,
+  [role='button'],
+  [type='button'],
+  [type='submit'],
+  [type='reset'],
+  summary {
+    cursor: pointer;
+  }
+  button:disabled,
+  select:disabled,
+  [type='button']:disabled,
+  [type='submit']:disabled,
+  [type='reset']:disabled,
+  [role='button'][aria-disabled='true'] {
+    cursor: default;
+  }
+}
+
+/* ── Themed scrollbar — every scroll region, not just one page ──
+   Not wrapped in @layer: ::-webkit-scrollbar is a UA-generated pseudo-element
+   with its own cascade-layer quirks, same reasoning as View Transitions below.
+   Firefox via the standard scrollbar-color/-width properties; everything
+   WebKit/Chromium via ::-webkit-scrollbar. Both read the theme's own border/
+   muted-foreground tokens, so this tracks light/dark automatically instead
+   of being a separate hand-picked gray. */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: var(--border);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--muted-foreground);
+}
+
+/* ── View Transitions — shared-element morphs (e.g. Integrations list → detail) ──
+   Not wrapped in @layer: view-transition pseudo-elements are UA-generated and
+   don't participate in Tailwind's layer cascade the way normal elements do. */
+::view-transition-group(*) {
+  animation-duration: var(--motion-normal);
+  animation-timing-function: var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
+/* Breathing ring on a connected integration's icon avatar — a quiet "this is
+   live" signal, not a spinner. Static ring under reduced motion. */
+@keyframes integration-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--status-success) 45%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 4px transparent;
+  }
+}
+.integration-live-ring {
+  animation: integration-breathe 2.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .integration-live-ring {
+    animation: none;
+    box-shadow: 0 0 0 2px var(--status-success);
+  }
+}
+
+/* Three-dot "typing" bounce — measured directly off BoostIQ's own "Thinking"
+   indicator (Boots, its assistant): each dot bounces opacity 0.4→1 and lifts
+   4px, staggered 150ms apart across the three. Registered as a Tailwind v4
+   `--animate-*` theme var (see each app's globals.css) so it compiles to a
+   real `animate-typing-bounce` utility, not an arbitrary-value one-off. */
+@keyframes typing-bounce {
+  0%,
+  60%,
+  100% {
+    opacity: 0.4;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-4px);
+  }
+}

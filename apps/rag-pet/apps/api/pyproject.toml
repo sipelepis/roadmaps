@@ -1,0 +1,23 @@
+[project]
+name = "rag-api"
+version = "0.0.0"
+description = "RAG ingest + retrieval API. Pydantic models here are the single source of truth for the TypeScript types in libs/shared."
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.141.1",
+    "uvicorn[standard]>=0.40.0",
+    "psycopg[binary,pool]>=3.2.0",
+    "pgvector>=0.4.0",
+    "pydantic-settings>=2.7.0",
+    "python-multipart>=0.0.20",
+    "pypdf>=6.0.0",
+    "openai>=2.0.0",
+    "anthropic>=0.116.0",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.3.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

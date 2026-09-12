@@ -1,0 +1,29 @@
+{
+  "name": "rag-pet",
+  "version": "0.0.0",
+  "private": true,
+  "description": "RAG over your own documents — FastAPI + pgvector ingestion and retrieval behind a React dashboard. Types cross the wire by codegen from the API's OpenAPI schema.",
+  "workspaces": [
+    "apps/web",
+    "libs/*"
+  ],
+  "engines": {
+    "node": ">=24.13.1 <25"
+  },
+  "scripts": {
+    "db": "docker compose up -d",
+    "setup": "npm install && nx run api:install && nx run shared:codegen",
+    "dev": "nx run-many -t serve --projects=api,web --parallel=2",
+    "build": "nx run-many -t build --all",
+    "test": "nx run-many -t test,typecheck --all",
+    "codegen": "nx run shared:codegen",
+    "graph": "nx graph",
+    "open": "open http://localhost:5300"
+  },
+  "devDependencies": {
+    "nx": "23.1.1",
+    "openapi-typescript": "7.13.0",
+    "prettier": "3.9.6",
+    "typescript": "6.0.3"
+  }
+}

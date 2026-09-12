@@ -1,0 +1,25 @@
+{
+  "name": "web",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/web/src",
+  "projectType": "application",
+  "tags": ["scope:rag", "type:frontend", "framework:vite"],
+  "targets": {
+    "serve": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["shared:codegen"],
+      "options": { "command": "npm run dev", "cwd": "apps/web" }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["shared:codegen"],
+      "outputs": ["{projectRoot}/dist"],
+      "options": { "command": "npm run build", "cwd": "apps/web" }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["shared:codegen"],
+      "options": { "command": "npm run typecheck", "cwd": "apps/web" }
+    }
+  }
+}

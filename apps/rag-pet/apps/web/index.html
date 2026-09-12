@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0d0d0c" />
+    <meta name="description" content="A RAG console — index your documents, ask them questions, see exactly what was retrieved." />
+    <title>RAG Console</title>
+    <script>
+      // Dark is the default; apply a stored 'light' choice before first paint.
+      if (localStorage.getItem('rag-theme') === 'light') {
+        document.documentElement.classList.add('light');
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
