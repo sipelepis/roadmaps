@@ -57,7 +57,7 @@ function shell(active: string, body: string, side = '') {
     <footer class="site-foot">
       <p>Free and open source, built by <a href="${GITHUB}" rel="me">@sipelepis</a> · <a href="${GITHUB}/roadmaps">Source on GitHub</a></p>
       <p class="charity">Learned something? Pay it forward: <a href="${CHARITY.url}">give to ${CHARITY.name}</a>.</p>
-      <p class="love">mahal ko kayong lahat 💋</p>
+      <p class="love">mahal ko kayong lahat 😘</p>
     </footer>`
   document.getElementById('theme')!.onclick = () => {
     const t = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light'
