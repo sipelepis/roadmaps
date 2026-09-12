@@ -2,7 +2,7 @@
 
 <!-- impeccable:product-schema 1 -->
 
-This file covers the two roadmap apps, `apps/ts-roadmap` and `apps/py-roadmap`. `apps/rag-pet` is a separate project in the same monorepo and has its own README. They share one shell, one content format, and one purpose; only the language and its runtime differ. Facts marked *(inferred)* come from the repository and launch copy rather than a confirmed answer from the owner.
+This file covers the roadmap apps, `apps/ts-roadmap`, `apps/py-roadmap`, and `apps/rag-roadmap`. `apps/rag-pet` is a separate project in the same monorepo and has its own README. They share one shell, one content format, and one purpose; only the language and its runtime differ. Facts marked *(inferred)* come from the repository and launch copy rather than a confirmed answer from the owner.
 
 ## Platform
 
