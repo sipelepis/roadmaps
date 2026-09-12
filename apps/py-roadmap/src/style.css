@@ -107,17 +107,6 @@ kbd + kbd { margin-left: 0.2rem; }
 .node.done circle { fill: var(--ok); }
 .node.done .tick { fill: none; stroke: var(--bg); stroke-width: 2; }
 
-/* the one authored moment: the roadmap draws itself, top to bottom */
-@media (prefers-reduced-motion: no-preference) {
-  .map .edge { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 0.9s var(--ease) forwards; animation-delay: calc(var(--d) * 90ms + 200ms); }
-  .map .node { opacity: 0; animation: rise 0.6s var(--ease) forwards; animation-delay: calc(var(--d) * 90ms); }
-  .hero > * { animation: rise 0.7s var(--ease) both; }
-  .hero > :nth-child(2) { animation-delay: 60ms; }
-  .hero > :nth-child(3) { animation-delay: 120ms; }
-  .hero > :nth-child(4) { animation-delay: 180ms; }
-}
-@keyframes draw { to { stroke-dashoffset: 0; } }
-@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
 /* ---------- learn + exercises hubs ---------- */
 .page-head { padding: 3rem 0 1.5rem; }

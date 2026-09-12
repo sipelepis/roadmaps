@@ -1,0 +1,482 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-12T03:33:11.555Z",
+  "title": "Design System: Roadmaps",
+  "extensions": {
+    "colorMeta": {
+      "ink-black": {
+        "role": "neutral",
+        "displayName": "Ink Black",
+        "canonical": "oklch(16.3% 0.014 264)",
+        "tonalRamp": [
+          "oklch(15.0% 0.014 264)",
+          "oklch(25.0% 0.014 264)",
+          "oklch(35.0% 0.014 264)",
+          "oklch(45.0% 0.014 264)",
+          "oklch(55.0% 0.014 264)",
+          "oklch(65.0% 0.014 264)",
+          "oklch(80.0% 0.014 264)",
+          "oklch(95.0% 0.014 264)"
+        ]
+      },
+      "ink-black-2": {
+        "role": "neutral",
+        "displayName": "Ink Black 2",
+        "canonical": "oklch(18.1% 0.016 262)",
+        "tonalRamp": [
+          "oklch(15.0% 0.016 262)",
+          "oklch(25.0% 0.016 262)",
+          "oklch(35.0% 0.016 262)",
+          "oklch(45.0% 0.016 262)",
+          "oklch(55.0% 0.016 262)",
+          "oklch(65.0% 0.016 262)",
+          "oklch(80.0% 0.016 262)",
+          "oklch(95.0% 0.016 262)"
+        ]
+      },
+      "graphite-panel": {
+        "role": "neutral",
+        "displayName": "Graphite Panel",
+        "canonical": "oklch(21.7% 0.019 262)",
+        "tonalRamp": [
+          "oklch(15.0% 0.019 262)",
+          "oklch(25.0% 0.019 262)",
+          "oklch(35.0% 0.019 262)",
+          "oklch(45.0% 0.019 262)",
+          "oklch(55.0% 0.019 262)",
+          "oklch(65.0% 0.019 262)",
+          "oklch(80.0% 0.019 262)",
+          "oklch(95.0% 0.019 262)"
+        ]
+      },
+      "graphite-panel-2": {
+        "role": "neutral",
+        "displayName": "Graphite Panel 2",
+        "canonical": "oklch(24.9% 0.030 267)",
+        "tonalRamp": [
+          "oklch(15.0% 0.022 267)",
+          "oklch(25.0% 0.024 267)",
+          "oklch(35.0% 0.025 267)",
+          "oklch(45.0% 0.027 267)",
+          "oklch(55.0% 0.028 267)",
+          "oklch(65.0% 0.030 267)",
+          "oklch(80.0% 0.028 267)",
+          "oklch(95.0% 0.025 267)"
+        ]
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "oklch(28.8% 0.026 263)",
+        "tonalRamp": [
+          "oklch(15.0% 0.021 263)",
+          "oklch(25.0% 0.022 263)",
+          "oklch(35.0% 0.023 263)",
+          "oklch(45.0% 0.024 263)",
+          "oklch(55.0% 0.025 263)",
+          "oklch(65.0% 0.026 263)",
+          "oklch(80.0% 0.025 263)",
+          "oklch(95.0% 0.023 263)"
+        ]
+      },
+      "hairline-strong": {
+        "role": "neutral",
+        "displayName": "Hairline Strong",
+        "canonical": "oklch(34.3% 0.029 261)",
+        "tonalRamp": [
+          "oklch(15.0% 0.022 261)",
+          "oklch(25.0% 0.024 261)",
+          "oklch(35.0% 0.025 261)",
+          "oklch(45.0% 0.026 261)",
+          "oklch(55.0% 0.028 261)",
+          "oklch(65.0% 0.029 261)",
+          "oklch(80.0% 0.027 261)",
+          "oklch(95.0% 0.025 261)"
+        ]
+      },
+      "paper-white": {
+        "role": "neutral",
+        "displayName": "Paper White",
+        "canonical": "oklch(93.9% 0.012 265)",
+        "tonalRamp": [
+          "oklch(15.0% 0.012 265)",
+          "oklch(25.0% 0.012 265)",
+          "oklch(35.0% 0.012 265)",
+          "oklch(45.0% 0.012 265)",
+          "oklch(55.0% 0.012 265)",
+          "oklch(65.0% 0.012 265)",
+          "oklch(80.0% 0.012 265)",
+          "oklch(95.0% 0.012 265)"
+        ]
+      },
+      "paper-soft": {
+        "role": "neutral",
+        "displayName": "Paper Soft",
+        "canonical": "oklch(83.7% 0.018 261)",
+        "tonalRamp": [
+          "oklch(15.0% 0.018 261)",
+          "oklch(25.0% 0.018 261)",
+          "oklch(35.0% 0.018 261)",
+          "oklch(45.0% 0.018 261)",
+          "oklch(55.0% 0.018 261)",
+          "oklch(65.0% 0.018 261)",
+          "oklch(80.0% 0.018 261)",
+          "oklch(95.0% 0.018 261)"
+        ]
+      },
+      "slate-muted": {
+        "role": "neutral",
+        "displayName": "Slate Muted",
+        "canonical": "oklch(68.1% 0.029 262)",
+        "tonalRamp": [
+          "oklch(15.0% 0.022 262)",
+          "oklch(25.0% 0.023 262)",
+          "oklch(35.0% 0.025 262)",
+          "oklch(45.0% 0.026 262)",
+          "oklch(55.0% 0.028 262)",
+          "oklch(65.0% 0.029 262)",
+          "oklch(80.0% 0.027 262)",
+          "oklch(95.0% 0.025 262)"
+        ]
+      },
+      "cornflower-signal": {
+        "role": "primary",
+        "displayName": "Cornflower Signal",
+        "canonical": "oklch(71.1% 0.152 256)",
+        "tonalRamp": [
+          "oklch(15.0% 0.051 256)",
+          "oklch(25.0% 0.071 256)",
+          "oklch(35.0% 0.091 256)",
+          "oklch(45.0% 0.112 256)",
+          "oklch(55.0% 0.132 256)",
+          "oklch(65.0% 0.152 256)",
+          "oklch(80.0% 0.122 256)",
+          "oklch(95.0% 0.091 256)"
+        ]
+      },
+      "cornflower-lift": {
+        "role": "primary",
+        "displayName": "Cornflower Lift",
+        "canonical": "oklch(75.9% 0.125 256)",
+        "tonalRamp": [
+          "oklch(15.0% 0.044 256)",
+          "oklch(25.0% 0.060 256)",
+          "oklch(35.0% 0.076 256)",
+          "oklch(45.0% 0.093 256)",
+          "oklch(55.0% 0.109 256)",
+          "oklch(65.0% 0.125 256)",
+          "oklch(80.0% 0.101 256)",
+          "oklch(95.0% 0.076 256)"
+        ]
+      },
+      "blueprint-blue": {
+        "role": "secondary",
+        "displayName": "Blueprint Blue",
+        "canonical": "oklch(56.7% 0.140 253)",
+        "tonalRamp": [
+          "oklch(15.0% 0.048 253)",
+          "oklch(25.0% 0.066 253)",
+          "oklch(35.0% 0.085 253)",
+          "oklch(45.0% 0.103 253)",
+          "oklch(55.0% 0.121 253)",
+          "oklch(65.0% 0.140 253)",
+          "oklch(80.0% 0.112 253)",
+          "oklch(95.0% 0.085 253)"
+        ]
+      },
+      "pass-green": {
+        "role": "status",
+        "displayName": "Pass Green",
+        "canonical": "oklch(77.9% 0.165 157)",
+        "tonalRamp": [
+          "oklch(15.0% 0.054 157)",
+          "oklch(25.0% 0.076 157)",
+          "oklch(35.0% 0.098 157)",
+          "oklch(45.0% 0.121 157)",
+          "oklch(55.0% 0.143 157)",
+          "oklch(65.0% 0.165 157)",
+          "oklch(80.0% 0.132 157)",
+          "oklch(95.0% 0.098 157)"
+        ]
+      },
+      "fail-coral": {
+        "role": "status",
+        "displayName": "Fail Coral",
+        "canonical": "oklch(71.2% 0.181 23)",
+        "tonalRamp": [
+          "oklch(15.0% 0.057 23)",
+          "oklch(25.0% 0.082 23)",
+          "oklch(35.0% 0.107 23)",
+          "oklch(45.0% 0.132 23)",
+          "oklch(55.0% 0.156 23)",
+          "oklch(65.0% 0.181 23)",
+          "oklch(80.0% 0.144 23)",
+          "oklch(95.0% 0.107 23)"
+        ]
+      },
+      "warn-amber": {
+        "role": "status",
+        "displayName": "Warn Amber",
+        "canonical": "oklch(82.1% 0.147 81)",
+        "tonalRamp": [
+          "oklch(15.0% 0.049 81)",
+          "oklch(25.0% 0.069 81)",
+          "oklch(35.0% 0.088 81)",
+          "oklch(45.0% 0.108 81)",
+          "oklch(55.0% 0.127 81)",
+          "oklch(65.0% 0.147 81)",
+          "oklch(80.0% 0.118 81)",
+          "oklch(95.0% 0.088 81)"
+        ]
+      },
+      "python-yellow": {
+        "role": "secondary",
+        "displayName": "Python Yellow",
+        "canonical": "oklch(88.3% 0.165 92)",
+        "tonalRamp": [
+          "oklch(15.0% 0.053 92)",
+          "oklch(25.0% 0.076 92)",
+          "oklch(35.0% 0.098 92)",
+          "oklch(45.0% 0.120 92)",
+          "oklch(55.0% 0.143 92)",
+          "oklch(65.0% 0.165 92)",
+          "oklch(80.0% 0.131 92)",
+          "oklch(95.0% 0.098 92)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The home hero headline only. One word in Cornflower Signal."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Page and module titles."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Article h2, Try it and Exercises section heads, module card titles at 1.15rem."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Article prose in Paper Soft, 780px column. Leads at 1.1 to 1.15rem in Slate Muted."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Uppercase tracked labels: sidebar summary, Learn page stage headings. Slate Muted only."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "Code blocks, inline code, results detail, module numbers, kbd caps."
+      }
+    },
+    "shadows": [
+      {
+        "name": "card-lift",
+        "value": "0 8px 24px -12px rgba(0,0,0,0.6), 0 2px 6px -2px rgba(0,0,0,0.4)",
+        "purpose": "The exercise problem card only."
+      },
+      {
+        "name": "cta-glow",
+        "value": "0 6px 20px -8px rgba(94,163,255,0.7)",
+        "purpose": "The hero primary CTA only."
+      },
+      {
+        "name": "focus-ring",
+        "value": "0 0 0 2px #0b0e14, 0 0 0 4px #5ea3ff",
+        "purpose": "Every focus-visible element. Inset on list rows."
+      },
+      {
+        "name": "current-marker",
+        "value": "inset 2px 0 0 #5ea3ff",
+        "purpose": "Active module row in the sidebar."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-standard",
+        "value": "cubic-bezier(0.2, 0.7, 0.2, 1)",
+        "purpose": "CSS transitions on transforms."
+      },
+      {
+        "name": "ease-gsap",
+        "value": "power3.out",
+        "purpose": "GSAP default for all entrances."
+      },
+      {
+        "name": "ease-pop",
+        "value": "back.out(2.5)",
+        "purpose": "Badge change: scale from 0.6 over 0.45s."
+      },
+      {
+        "name": "duration-color",
+        "value": "0.15s",
+        "purpose": "Color, border, background hover transitions."
+      },
+      {
+        "name": "duration-transform",
+        "value": "0.2s",
+        "purpose": "Hover lift and icon nudge on the CTA."
+      },
+      {
+        "name": "enter-route",
+        "value": "y 14px, autoAlpha 0, 0.6s, stagger 0.06s",
+        "purpose": "Main content blocks on every route change."
+      },
+      {
+        "name": "enter-graph",
+        "value": "nodes y 10px 0.6s staggered over 0.8s; edges strokeDashoffset 1 to 0 over 0.9s staggered over 0.8s",
+        "purpose": "Home roadmap draws itself top to bottom."
+      },
+      {
+        "name": "enter-results",
+        "value": "y 6px, autoAlpha 0, 0.35s, stagger 0.05s",
+        "purpose": "Test result rows after a run."
+      },
+      {
+        "name": "count",
+        "value": "0.5s, snap to integer",
+        "purpose": "Progress pill counter."
+      },
+      {
+        "name": "spin",
+        "value": "0.8s linear infinite",
+        "purpose": "Disabled button icon while running."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "side",
+        "value": "900px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Run and Run tests. The one blue action in a view.",
+      "html": "<button class=\"ds-btn-primary\"><svg viewBox=\"0 0 24 24\" width=\"0.95em\" height=\"0.95em\" aria-hidden=\"true\"><path d=\"M7 5.5v13l11-6.5z\" fill=\"currentColor\"/></svg><span>Run tests</span></button>",
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;gap:0.45rem;font:600 0.9rem Inter,system-ui,sans-serif;padding:0.5rem 1rem;border-radius:999px;cursor:pointer;transition:background 0.15s,border-color 0.15s,transform 0.15s cubic-bezier(0.2,0.7,0.2,1);background:#5ea3ff;color:#0b0e14;border:1px solid #5ea3ff}.ds-btn-primary:hover{background:#7bb3ff;border-color:#7bb3ff}.ds-btn-primary:active{transform:scale(0.98)}.ds-btn-primary:focus-visible{outline:none;box-shadow:0 0 0 2px #0b0e14,0 0 0 4px #5ea3ff;}.ds-btn-primary:disabled{opacity:0.6;cursor:progress;transform:none}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Reset and other non-primary actions.",
+      "html": "<button class=\"ds-btn-secondary\"><svg viewBox=\"0 0 24 24\" width=\"0.95em\" height=\"0.95em\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M4 12a8 8 0 1 0 2.5-5.8M4 4v5h5\"/></svg><span>Reset</span></button>",
+      "css": ".ds-btn-secondary{display:inline-flex;align-items:center;gap:0.45rem;font:600 0.9rem Inter,system-ui,sans-serif;padding:0.5rem 1rem;border-radius:999px;cursor:pointer;transition:background 0.15s,border-color 0.15s,transform 0.15s cubic-bezier(0.2,0.7,0.2,1);background:#151a23;color:#e7ebf3;border:1px solid #303948}.ds-btn-secondary:hover{background:#1b2130;border-color:#5ea3ff}.ds-btn-secondary:active{transform:scale(0.98)}.ds-btn-secondary:focus-visible{outline:none;box-shadow:0 0 0 2px #0b0e14,0 0 0 4px #5ea3ff;}"
+    },
+    {
+      "name": "Hero CTA",
+      "kind": "button",
+      "refersTo": "cta",
+      "description": "The single glowing call to action on the home hero, with its ghost sibling.",
+      "html": "<a class=\"ds-cta\" href=\"#\">Start the roadmap <svg viewBox=\"0 0 24 24\" width=\"1em\" height=\"1em\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12h14M13 6l6 6-6 6\"/></svg></a> <a class=\"ds-cta-ghost\" href=\"#\">Browse 73 exercises</a>",
+      "css": ".ds-cta,.ds-cta-ghost{display:inline-flex;align-items:center;gap:0.5rem;padding:0.85rem 1.5rem;border-radius:999px;font:600 1rem Inter,system-ui,sans-serif;text-decoration:none;transition:transform 0.2s cubic-bezier(0.2,0.7,0.2,1),background 0.15s,border-color 0.15s}.ds-cta{background:#5ea3ff;color:#0b0e14;box-shadow:0 6px 20px -8px rgba(94,163,255,0.7)}.ds-cta svg{transition:transform 0.2s cubic-bezier(0.2,0.7,0.2,1)}.ds-cta:hover{background:#7bb3ff;transform:translateY(-1px)}.ds-cta:hover svg{transform:translateX(3px)}.ds-cta-ghost{border:1px solid #303948;color:#e7ebf3}.ds-cta-ghost:hover{border-color:#5ea3ff}.ds-cta:focus-visible,.ds-cta-ghost:focus-visible{outline:none;box-shadow:0 0 0 2px #0b0e14,0 0 0 4px #5ea3ff;}"
+    },
+    {
+      "name": "Filter Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Status filters on the Exercises page. Selected inverts to paper on ink.",
+      "html": "<nav style=\"display:flex;gap:0.5rem\"><a class=\"ds-chip\" href=\"#\" aria-current=\"true\">All</a><a class=\"ds-chip\" href=\"#\">To do</a><a class=\"ds-chip\" href=\"#\">In progress</a><a class=\"ds-chip\" href=\"#\">Passed</a></nav>",
+      "css": ".ds-chip{padding:0.35rem 0.9rem;border-radius:999px;border:1px solid #242b38;color:#8f99ab;font:500 0.9rem Inter,system-ui,sans-serif;text-decoration:none;transition:color 0.15s,background 0.15s,border-color 0.15s}.ds-chip:hover{color:#e7ebf3;border-color:#303948}.ds-chip[aria-current]{background:#e7ebf3;color:#0b0e14;border-color:#e7ebf3}.ds-chip:focus-visible{outline:none;box-shadow:0 0 0 2px #0b0e14,0 0 0 4px #5ea3ff;}"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "badge-passed",
+      "description": "Passed, In progress, To do. Tinted at 8%, bordered at 40%, text carries the color.",
+      "html": "<span class=\"ds-badge ds-badge-passed\"><svg viewBox=\"0 0 24 24\" width=\"1em\" height=\"1em\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12.5l4.5 4.5L19 7.5\"/></svg>Passed</span> <span class=\"ds-badge ds-badge-attempted\"><svg viewBox=\"0 0 24 24\" width=\"1em\" height=\"1em\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"4\" fill=\"currentColor\"/></svg>In progress</span> <span class=\"ds-badge\">To do</span>",
+      "css": ".ds-badge{display:inline-flex;align-items:center;gap:0.3rem;font:600 0.75rem Inter,system-ui,sans-serif;padding:0.2rem 0.6rem;border-radius:999px;border:1px solid #242b38;color:#8f99ab;white-space:nowrap}.ds-badge-passed{color:#3dd68c;border-color:rgba(61,214,140,0.4);background:rgba(61,214,140,0.08)}.ds-badge-attempted{color:#f5b942;border-color:rgba(245,185,66,0.4);background:rgba(245,185,66,0.08)}"
+    },
+    {
+      "name": "Exercise Card",
+      "kind": "card",
+      "refersTo": "problem-card",
+      "description": "The one lifted surface: title with badge, description, editor frame, action bar, results.",
+      "html": "<section class=\"ds-problem\"><h3>Sum a list <span class=\"ds-badge ds-badge-attempted\"><svg viewBox=\"0 0 24 24\" width=\"1em\" height=\"1em\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"4\" fill=\"currentColor\"/></svg>In progress</span></h3><p>Return the total of every number in <code>xs</code>.</p><div class=\"ds-editor\">Loading editor…</div><div class=\"ds-bar\"><button class=\"ds-btn-primary\"><svg viewBox=\"0 0 24 24\" width=\"0.95em\" height=\"0.95em\" aria-hidden=\"true\"><path d=\"M7 5.5v13l11-6.5z\" fill=\"currentColor\"/></svg><span>Run tests</span></button><button class=\"ds-btn-secondary\"><svg viewBox=\"0 0 24 24\" width=\"0.95em\" height=\"0.95em\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M4 12a8 8 0 1 0 2.5-5.8M4 4v5h5\"/></svg><span>Reset</span></button><kbd>Ctrl</kbd><kbd>Enter</kbd></div><ul class=\"ds-results\"><li class=\"ok\"><svg viewBox=\"0 0 24 24\" width=\"1em\" height=\"1em\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12.5l4.5 4.5L19 7.5\"/></svg><span>Type checks pass</span></li><li class=\"fail\"><svg viewBox=\"0 0 24 24\" width=\"1em\" height=\"1em\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"M6.5 6.5l11 11M17.5 6.5l-11 11\"/></svg><span>sums an empty list</span><div class=\"detail\">Expected 0, received undefined</div></li></ul></section>",
+      "css": ".ds-problem{max-width:640px;border:1px solid #242b38;border-radius:16px;padding:1.25rem 1.5rem 1.5rem;background:#0e1219;color:#e7ebf3;font:16px/1.65 Inter,system-ui,sans-serif;box-shadow:0 8px 24px -12px rgba(0,0,0,0.6),0 2px 6px -2px rgba(0,0,0,0.4)}.ds-problem h3{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;margin:0 0 0.5rem;font:700 1.15rem/1.1 'Bricolage Grotesque',Inter,sans-serif;letter-spacing:-0.02em}.ds-problem p{margin:0.5rem 0;color:#c3cad6}.ds-problem code{font:500 0.85em 'JetBrains Mono',ui-monospace,monospace;background:#151a23;border:1px solid #242b38;border-radius:6px;padding:0.08em 0.4em}.ds-editor{display:grid;place-items:center;height:120px;margin-top:1rem;border:1px solid #242b38;border-radius:12px;background:#151a23;color:#8f99ab;font:500 0.85rem 'JetBrains Mono',ui-monospace,monospace}.ds-bar{display:flex;gap:0.5rem;align-items:center;margin:0.75rem 0;flex-wrap:wrap}.ds-bar kbd{font:500 0.72rem/1 'JetBrains Mono',ui-monospace,monospace;color:#8f99ab;border:1px solid #303948;border-bottom-width:2px;border-radius:5px;padding:0.25rem 0.4rem;background:#0e1219}.ds-bar kbd:first-of-type{margin-left:0.35rem}.ds-results{list-style:none;padding:0;margin:0.5rem 0 0;font-size:0.95rem}.ds-results li{display:grid;grid-template-columns:1.25rem 1fr;column-gap:0.4rem;padding:0.35rem 0;align-items:baseline}.ds-results li svg{align-self:center}.ds-results li.ok svg{color:#3dd68c}.ds-results li.fail svg{color:#ff6b6b}.ds-results .detail{grid-column:2;color:#8f99ab;font:13px/1.5 'JetBrains Mono',ui-monospace,monospace;white-space:pre-wrap;margin-top:0.15rem}.ds-btn-primary{display:inline-flex;align-items:center;gap:0.45rem;font:600 0.9rem Inter,system-ui,sans-serif;padding:0.5rem 1rem;border-radius:999px;cursor:pointer;transition:background 0.15s,border-color 0.15s,transform 0.15s cubic-bezier(0.2,0.7,0.2,1);background:#5ea3ff;color:#0b0e14;border:1px solid #5ea3ff}.ds-btn-primary:hover{background:#7bb3ff}.ds-btn-secondary{display:inline-flex;align-items:center;gap:0.45rem;font:600 0.9rem Inter,system-ui,sans-serif;padding:0.5rem 1rem;border-radius:999px;cursor:pointer;transition:background 0.15s,border-color 0.15s,transform 0.15s cubic-bezier(0.2,0.7,0.2,1);background:#151a23;color:#e7ebf3;border:1px solid #303948}.ds-btn-secondary:hover{background:#1b2130;border-color:#5ea3ff}.ds-badge{display:inline-flex;align-items:center;gap:0.3rem;font:600 0.75rem Inter,system-ui,sans-serif;padding:0.2rem 0.6rem;border-radius:999px;border:1px solid #242b38;color:#8f99ab;white-space:nowrap}.ds-badge-attempted{color:#f5b942;border-color:rgba(245,185,66,0.4);background:rgba(245,185,66,0.08)}"
+    },
+    {
+      "name": "Top Navigation",
+      "kind": "nav",
+      "refersTo": "nav-link",
+      "description": "Sticky blurred bar: mark, links, progress pill.",
+      "html": "<header class=\"ds-nav\"><a class=\"ds-brand\" href=\"#\"><span class=\"ds-mark\">TS</span>Roadmap</a><nav><a href=\"#\" aria-current=\"page\">Roadmap</a><a href=\"#\">Learn</a><a href=\"#\">Exercises</a></nav><a class=\"ds-pill\" href=\"#\"><svg viewBox=\"0 0 24 24\" width=\"1em\" height=\"1em\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12.5l4.5 4.5L19 7.5\"/></svg><span>12</span><span class=\"sep\">/</span><span class=\"den\">73</span></a></header>",
+      "css": ".ds-nav{display:flex;align-items:center;gap:1.5rem;padding:0 1.5rem;height:60px;background:rgba(11,14,20,0.82);backdrop-filter:blur(12px);border-bottom:1px solid #242b38;font-family:Inter,system-ui,sans-serif}.ds-brand{display:inline-flex;align-items:center;gap:0.55rem;font:700 1.05rem 'Bricolage Grotesque',Inter,sans-serif;color:#e7ebf3;letter-spacing:-0.01em;text-decoration:none}.ds-mark{display:grid;place-items:center;width:26px;height:26px;border-radius:6px;background:#3178c6;color:#fff;font:700 0.72rem Inter,sans-serif}.ds-nav nav{display:flex;gap:0.15rem;flex:1}.ds-nav nav a{color:#8f99ab;padding:0.45rem 0.8rem;border-radius:8px;font-weight:500;font-size:0.95rem;text-decoration:none;transition:color 0.15s,background 0.15s}.ds-nav nav a:hover,.ds-nav nav a[aria-current]{color:#e7ebf3;background:#151a23}.ds-nav nav a:focus-visible{outline:none;box-shadow:0 0 0 2px #0b0e14,0 0 0 4px #5ea3ff;}.ds-pill{display:inline-flex;align-items:center;gap:0.3rem;font-size:0.85rem;font-weight:600;color:#3dd68c;border:1px solid #242b38;border-radius:999px;padding:0.3rem 0.75rem 0.3rem 0.6rem;text-decoration:none;font-variant-numeric:tabular-nums;transition:border-color 0.15s}.ds-pill .sep{color:#8f99ab;font-weight:400}.ds-pill .den{color:#8f99ab;font-weight:500}.ds-pill:hover{border-color:#3dd68c}"
+    },
+    {
+      "name": "Roadmap Node",
+      "kind": "custom",
+      "refersTo": "graphite-panel",
+      "description": "Graph node states: default, next, done. Edges in Hairline Strong turn green once their source is done.",
+      "html": "<svg viewBox=\"0 0 600 70\" width=\"600\" height=\"70\" class=\"ds-graph\" font-family=\"Inter, system-ui, sans-serif\" font-size=\"14\" font-weight=\"500\"><path class=\"edge\" d=\"M100,58 C100,80 300,-10 300,12\"/><path class=\"edge done\" d=\"M300,58 C300,80 500,-10 500,12\"/><a class=\"node done\" href=\"#\"><g transform=\"translate(12,12)\"><rect width=\"176\" height=\"46\" rx=\"12\"/><text x=\"88\" y=\"24\" text-anchor=\"middle\" dominant-baseline=\"middle\">Basic types</text><circle cx=\"162\" cy=\"14\" r=\"7\"/><path class=\"tick\" d=\"M158.5,14 l2.5,2.5 l5,-5\"/></g></a><a class=\"node next\" href=\"#\"><g transform=\"translate(212,12)\"><rect width=\"176\" height=\"46\" rx=\"12\"/><text x=\"88\" y=\"24\" text-anchor=\"middle\" dominant-baseline=\"middle\">Functions</text></g></a><a class=\"node\" href=\"#\"><g transform=\"translate(412,12)\"><rect width=\"176\" height=\"46\" rx=\"12\"/><text x=\"88\" y=\"24\" text-anchor=\"middle\" dominant-baseline=\"middle\">Generics</text></g></a></svg>",
+      "css": ".ds-graph{display:block;max-width:100%;height:auto;overflow:visible}.ds-graph .edge{fill:none;stroke:#303948;stroke-width:2}.ds-graph .edge.done{stroke:#3dd68c;opacity:0.55}.ds-graph .node rect{fill:#151a23;stroke:#242b38;stroke-width:1.5;transition:stroke 0.15s,fill 0.15s}.ds-graph .node text{fill:#e7ebf3}.ds-graph .node:hover rect{stroke:#5ea3ff;fill:#1b2130}.ds-graph .node.next rect{stroke:#5ea3ff;stroke-width:2}.ds-graph .node.done rect{stroke:#3dd68c}.ds-graph .node.done circle{fill:#3dd68c}.ds-graph .node.done .tick{fill:none;stroke:#0b0e14;stroke-width:2}.ds-graph .node:focus-visible{outline:none}.ds-graph .node:focus-visible rect{stroke:#5ea3ff;stroke-width:2.5}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Lit Blueprint",
+    "overview": "The site is a dark drafting table and the dependency graph is the drawing on it. Everything else exists to keep that drawing legible: four steps of near-black grey for surfaces, hairline borders instead of shadows, and one cornflower blue that is spent only where the learner should act next. The graph literally draws itself on arrival, edge by edge, top to bottom, and that is the one authored moment. Nothing else moves for its own sake.\n\nDensity is medium and reading-first. Content columns cap at 780px for prose and 1040px for the shell. The display face, Bricolage Grotesque at its widest optical size, gives headings a slightly engineered, technical-drawing character that Inter's body text does not compete with. Code is a first-class citizen, so the mono face appears inline in headings and prose without apology.\n\nMotion is a stroke tool, not a mood. Route changes lift content in with a short stagger, test results slide in one by one, a passing badge springs, the progress counter counts. All of it is skipped under reduced motion. The system rejects gradients as decoration, glassmorphism beyond the sticky nav's blur, and any colored surface that is not a status.",
+    "keyCharacteristics": [
+      "Four-step tonal dark palette; borders separate, shadows almost never.",
+      "One accent blue, rationed to \"act here\" and \"this is next\".",
+      "Three status colors that mean exactly one thing each: green passed, amber in progress, coral failed.",
+      "Bricolage Grotesque display over Inter body over JetBrains Mono code.",
+      "Pills for anything clickable and small; 12 to 16px corners for containers.",
+      "The graph draws itself; everything else moves only in response to the learner."
+    ],
+    "rules": [
+      {
+        "name": "The One Signal Rule",
+        "body": "Cornflower Signal appears on at most one primary action per viewport plus links and the next node. If two things are blue, one of them is wrong.",
+        "section": "colors"
+      },
+      {
+        "name": "The Status Is Not Decoration Rule",
+        "body": "Green, amber, and coral only ever report the state of the learner's work. No green headings, no amber highlights, no coral warnings in prose.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tint, Don't Fill Rule",
+        "body": "Status backgrounds are the status color at 8% alpha with a 40% alpha border, never a solid fill. Text carries the color.",
+        "section": "colors"
+      },
+      {
+        "name": "The Balanced Heading Rule",
+        "body": "Every h1 to h3 uses text-wrap: balance, negative tracking, and zero margin by default. Spacing is applied by the parent, never the heading.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Number Rule",
+        "body": "Any count that can change (progress, exercise totals, pager positions) uses tabular figures so it never shifts layout when it updates.",
+        "section": "typography"
+      },
+      {
+        "name": "The Two Shadows Rule",
+        "body": "New surfaces get a hairline border and a tonal step, not a shadow. The exercise card and hero CTA are the only lifted objects.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do separate surfaces with a 1px Hairline border and one tonal step, not a shadow.",
+      "Do put every small clickable thing in a full pill and every content container in 12px or 16px corners.",
+      "Do spend Cornflower Signal on one primary action per view, plus links and the next graph node.",
+      "Do set counts in tabular figures and let changing numbers tween rather than snap.",
+      "Do keep reading text in Paper Soft and headings in Paper White.",
+      "Do guard every entrance animation with a reduced-motion check.",
+      "Do make the same shell change in both apps; the stylesheet is shared by copy."
+    ],
+    "donts": [
+      "Don't introduce a second accent hue. Blueprint Blue is a brand mark and a background glow, not an interactive color.",
+      "Don't use green, amber, or coral for anything other than the state of the learner's work.",
+      "Don't add shadows to panels, lists, code blocks, or nav. The exercise card and hero CTA are the only lifted objects.",
+      "Don't fill status badges solid. Tint at 8%, border at 40%, color the text.",
+      "Don't add hover motion to graph nodes or list rows beyond a color or stroke change.",
+      "Don't ship a light theme; every token is tuned for color-scheme: dark only."
+    ]
+  }
+}

@@ -1,0 +1,10 @@
+I built two free coding roadmaps: one for TypeScript, one for Python.
+
+Each one is a map, not a list. 20 modules laid out by what they build on, every module with an article, a live editor, and exercises with real tests you solve right in the browser. Real Python and real TypeScript running in the page. No install, no sign-up, no paywall.
+
+TypeScript: https://ts-roadmap-puce.vercel.app
+Python: https://py-roadmap-ten.vercel.app
+
+Open source: https://github.com/sipelepis/roadmaps
+
+Try it, break it, tell me what's missing.

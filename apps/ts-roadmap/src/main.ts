@@ -1,6 +1,7 @@
 import './style.css'
 import { modules, type Problem } from './content'
 import { nodes, renderGraph } from './graph'
+import { enter, reveal, pop, count } from './motion'
 import { mountEditor, compile, run, disposeAll, colorize, onRunKey } from './editor'
 
 const app = document.getElementById('app')!
@@ -105,9 +106,10 @@ function wireProblem(id: string, i: number, p: Problem) {
       if (logs.length) row(true, 'Console output', logs.join('\n'))
       const ok = !errors.length && results.every(r => r.ok)
       ok ? localStorage.setItem(passedKey(id, i), '1') : localStorage.removeItem(passedKey(id, i))
+      reveal(list.children)
       stat.innerHTML = badge(ok ? 'passed' : 'attempted')
-      const done = exercises.filter(e => passed(e.id, e.i)).length
-      app.querySelector('.pill .num')!.textContent = String(done)
+      pop(stat.firstElementChild!)
+      count(app.querySelector('.pill .num')!, exercises.filter(e => passed(e.id, e.i)).length)
     } finally {
       runBtn.disabled = false
       runBtn.innerHTML = `${icon('play')}<span>Run tests</span>`
@@ -248,6 +250,7 @@ function route() {
   else if (a in modules) modulePage(a)
   else home()
   window.scrollTo(0, 0)
+  enter(app.querySelector('main')!)
 }
 addEventListener('hashchange', route)
 route()
