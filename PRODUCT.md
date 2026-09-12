@@ -51,7 +51,7 @@ Source: `social/caption.txt`, the launch copy.
 
 ## Evidence on Hand
 
-- Live sites: `https://ts-roadmap-puce.vercel.app` and `https://py-roadmap-ten.vercel.app`.
+- Live sites: `https://ts-roadmap-puce.vercel.app`, `https://py-roadmap-ten.vercel.app`, and `https://rag-roadmap.vercel.app`.
 - Launch post: `social/caption.txt` and six carousel slides `social/slide-1.png` through `social/slide-6.png`.
 - 20 finished modules per language with articles, playgrounds, and exercises, under each app's `src/content/`.
 - No testimonials, user counts, completion metrics, or press. Do not invent any.

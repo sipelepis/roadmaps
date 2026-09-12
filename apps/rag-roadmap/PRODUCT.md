@@ -22,7 +22,7 @@ Teach RAG and OCR in dependency order, from a page that is a picture to an answe
 - Module labels: What RAG actually is, Documents to text, OCR: pages as pictures, Cleaning extracted text, Chunking, Structure & metadata, Embeddings, Storing vectors, Keyword search & BM25, Retrieval, Grounded prompts, Reranking & diversity, Evaluating retrieval, Injection & limits, At 10 million documents, Build the OCR → RAG pipeline.
 - Runtime: the Python roadmap's shell unchanged. Pyodide from jsDelivr on first run; Monaco with Python highlighting; `test_*` functions with `assert`.
 - Source material: `apps/rag-pet`. The articles restate its Learn section and Flow steps; the exercises reimplement its pipeline functions. Its live console at `https://rag-pet.fly.dev` is the place to see the real thing run.
-- Not yet deployed. No Vercel project exists for this app.
+- Live at `https://rag-roadmap.vercel.app`, Vercel project `rag-roadmap`.
 
 ## Capabilities and Constraints
 
