@@ -72,38 +72,52 @@ type Out = (line: string, kind?: string) => void
 const show = (v: unknown) => typeof v === 'string' ? v : typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v)
 const fakeConsole = (out: Out) => new Proxy({}, { get: (_, level) => (...a: unknown[]) => out(a.map(show).join(' '), String(level)) })
 
-interface Harness { test(name: string, fn: () => unknown): void; expect(actual: unknown): Record<string, (e?: unknown) => void> }
-type TestResult = { name: string; ok: boolean; error?: string }
+/** Like show, but strings keep their quotes and objects are pretty-printed, so "5" and 5 look different. */
+const repr = (v: unknown) => typeof v === 'string' ? JSON.stringify(v) : typeof v === 'object' && v !== null ? JSON.stringify(v, null, 2) : String(v)
 
-const fail = (msg: string) => { throw new Error(msg) }
+interface Harness { test(name: string, fn: () => unknown): void; expect(actual: unknown): Record<string, (e?: unknown) => void> }
+type Compared = { expected: string; actual: string }
+export type TestResult = { name: string; ok: boolean; error?: string; logs?: string } & Partial<Compared>
+
+const fail = (msg: string, cmp?: Compared) => { throw Object.assign(new Error(msg), cmp) }
+const differ = (e: unknown, a: unknown) => fail(`expected ${show(e)}, got ${show(a)}`, { expected: repr(e), actual: repr(a) })
 const harness = (queue: { name: string; fn: () => unknown }[]): Harness => ({
   test: (name, fn) => queue.push({ name, fn }),
   expect: (actual: unknown) => ({
-    toBe: e => Object.is(actual, e) || fail(`expected ${show(e)}, got ${show(actual)}`),
-    toEqual: e => JSON.stringify(actual) === JSON.stringify(e) || fail(`expected ${show(e)}, got ${show(actual)}`), // ponytail: key-order-sensitive deep equal
-    toBeTruthy: () => actual || fail(`expected truthy, got ${show(actual)}`),
-    toBeFalsy: () => !actual || fail(`expected falsy, got ${show(actual)}`),
+    toBe: e => Object.is(actual, e) || differ(e, actual),
+    toEqual: e => JSON.stringify(actual) === JSON.stringify(e) || differ(e, actual), // ponytail: key-order-sensitive deep equal
+    toBeTruthy: () => actual || fail(`expected truthy, got ${show(actual)}`, { expected: 'a truthy value', actual: repr(actual) }),
+    toBeFalsy: () => !actual || fail(`expected falsy, got ${show(actual)}`, { expected: 'a falsy value', actual: repr(actual) }),
     toThrow: (msg) => {
       try { (actual as () => void)() } catch (e) {
-        if (msg && !String((e as Error).message).includes(String(msg))) fail(`expected error containing "${msg}", got "${(e as Error).message}"`)
+        const got = String((e as Error).message)
+        if (msg && !got.includes(String(msg))) fail(`expected error containing "${msg}", got "${got}"`, { expected: `an error containing ${repr(msg)}`, actual: repr(got) })
         return
       }
-      fail('expected function to throw')
+      fail('expected function to throw', { expected: 'a thrown error', actual: 'returned without throwing' })
     },
   }),
 })
 
-/** Run emitted JS as an ES module. console + test/expect are injected as module-scoped bindings. */
+/** Run emitted JS as an ES module. console + test/expect are injected as module-scoped bindings.
+ *  Console output inside a test goes to that test's result; everything else goes to out. */
 export async function run(js: string, out: Out): Promise<TestResult[]> {
   const queue: { name: string; fn: () => unknown }[] = []
+  let sink = out
   const g = globalThis as unknown as Record<string, unknown>
-  g.__play = { console: fakeConsole(out), ...harness(queue) }
+  g.__play = { console: fakeConsole((line, kind) => sink(line, kind)), ...harness(queue) }
   const url = URL.createObjectURL(new Blob([`const { console, test, expect } = globalThis.__play;\n${js}`], { type: 'text/javascript' }))
   try { await import(/* @vite-ignore */ url) } catch (e) { out(`Uncaught ${(e as Error).name}: ${(e as Error).message}`, 'error') } finally { URL.revokeObjectURL(url) }
   const results: TestResult[] = []
   for (const t of queue) {
-    try { await t.fn(); results.push({ name: t.name, ok: true }) } catch (e) { results.push({ name: t.name, ok: false, error: (e as Error).message }) }
+    const logs: string[] = []
+    sink = line => logs.push(line)
+    try { await t.fn(); results.push({ name: t.name, ok: true, logs: logs.join('\n') }) } catch (e) {
+      const { message, expected, actual } = e as Error & Partial<Compared>
+      results.push({ name: t.name, ok: false, error: message, logs: logs.join('\n'), expected, actual })
+    }
   }
+  sink = out
   return results
 }
 

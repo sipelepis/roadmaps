@@ -39,9 +39,37 @@ interface Pyodide { runPython(code: string): unknown; globals: { get(name: strin
 declare global { function loadPyodide(opts: { indexURL: string }): Promise<Pyodide> }
 
 // Runs user code, then the test file, in one fresh namespace. Reports stdout, the first
-// uncaught error, and one result per `test_*` function (its docstring is the label).
+// uncaught error, and one result per `test_*` function (its docstring is the label) with
+// what it printed and, when an `assert a <op> b` fails, both sides as they were compared.
 const HARNESS = `
-import sys, io, json, traceback, linecache
+import sys, io, json, traceback, linecache, ast, pprint
+
+_RM_OPS = {ast.Eq: '', ast.NotEq: '!= ', ast.Lt: '< ', ast.LtE: '<= ', ast.Gt: '> ', ast.GtE: '>= ',
+         ast.Is: 'is ', ast.IsNot: 'is not ', ast.In: 'in ', ast.NotIn: 'not in '}
+
+# Rewrites assert a == b to assert (_rm_actual := a) == (_rm_expected := b), so a failing
+# assert can report both values without evaluating anything twice.
+class __Capture(ast.NodeTransformer):
+    def __init__(self):
+        self.ops = {}  # line -> operator prefix for the expected side
+    def visit_Assert(self, node):
+        t = node.test
+        if isinstance(t, ast.Compare) and len(t.ops) == 1:
+            t.left = ast.NamedExpr(ast.Name('_rm_actual', ast.Store()), t.left)
+            t.comparators[0] = ast.NamedExpr(ast.Name('_rm_expected', ast.Store()), t.comparators[0])
+            for line in range(node.lineno, node.end_lineno + 1):
+                self.ops[line] = _RM_OPS.get(type(t.ops[0]), '')
+        return node
+
+def __compared(e, ops):
+    tb = e.__traceback__
+    while tb.tb_next:
+        tb = tb.tb_next
+    loc = tb.tb_frame.f_locals
+    if not isinstance(e, AssertionError) or tb.tb_frame.f_code.co_filename != 'tests.py' or tb.tb_lineno not in ops or '_rm_actual' not in loc:
+        return {}
+    show = lambda v: pprint.pformat(v, width=60)
+    return {'expected': ops[tb.tb_lineno] + show(loc['_rm_expected']), 'actual': show(loc['_rm_actual'])}
 
 def __label(name, fn):
     return (fn.__doc__ or name[5:].replace('_', ' ')).strip()
@@ -70,23 +98,27 @@ def __run(code, tests):
         except BaseException as e:
             error = __fmt(e)
         if error is None and tests:
+            capture = __Capture()
             try:
-                exec(compile(tests, 'tests.py', 'exec'), ns)
+                tree = ast.fix_missing_locations(capture.visit(ast.parse(tests, 'tests.py')))
+                exec(compile(tree, 'tests.py', 'exec'), ns)
             except BaseException as e:
                 error = 'in tests, ' + __fmt(e)
             for name, fn in list(ns.items()):
                 if name.startswith('test_') and callable(fn):
+                    sys.stdout = sys.stderr = log = io.StringIO()
                     try:
                         fn()
-                        results.append({'name': __label(name, fn), 'ok': True})
+                        results.append({'name': __label(name, fn), 'ok': True, 'logs': log.getvalue()})
                     except BaseException as e:
-                        results.append({'name': __label(name, fn), 'ok': False, 'error': __fmt(e)})
+                        results.append({'name': __label(name, fn), 'ok': False, 'error': __fmt(e), 'logs': log.getvalue(), **__compared(e, capture.ops)})
     finally:
         sys.stdout, sys.stderr = old_out, old_err
     return json.dumps({'stdout': out.getvalue(), 'error': error, 'results': results})
 `
 
-export interface RunResult { stdout: string; error: string | null; results: { name: string; ok: boolean; error?: string }[] }
+export interface TestResult { name: string; ok: boolean; error?: string; logs?: string; expected?: string; actual?: string }
+export interface RunResult { stdout: string; error: string | null; results: TestResult[] }
 
 let runner: Promise<(code: string, tests: string) => string> | undefined
 export let pythonReady = false

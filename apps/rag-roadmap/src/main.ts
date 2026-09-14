@@ -2,7 +2,7 @@ import './style.css'
 import { modules, type Problem } from './content'
 import { nodes, renderGraph } from './graph'
 import { enter, reveal, pop, count } from './motion'
-import { mountEditor, run, disposeAll, colorize, onRunKey, syncEditorTheme, pythonReady } from './editor'
+import { mountEditor, run, disposeAll, colorize, onRunKey, syncEditorTheme, pythonReady, type TestResult } from './editor'
 
 const app = document.getElementById('app')!
 const GITHUB = 'https://github.com/sipelepis'
@@ -91,6 +91,19 @@ function problemHtml(id: string, i: number, p: Problem, showTitle = true) {
   </section>`
 }
 
+const lines = (s: string) => { const n = s.trimEnd().split('\n').length; return `${n} line${n === 1 ? '' : 's'}` }
+
+/** Collapsible panel under a test result. Text goes in via textContent: it is whatever the learner's code produced. */
+function panel(title: string, blocks: [label: string, text: string][], open = false) {
+  const d = document.createElement('details'); d.className = 'more'; d.open = open
+  d.innerHTML = `<summary>${title}</summary>`
+  for (const [label, text] of blocks) {
+    if (label) { const k = document.createElement('span'); k.className = `k ${label.toLowerCase()}`; k.textContent = label; d.append(k) }
+    const pre = document.createElement('pre'); pre.textContent = text; d.append(pre)
+  }
+  return d
+}
+
 function wireProblem(id: string, i: number, p: Problem) {
   const ed = mountEditor(document.getElementById(`ed-${i}`)!, localStorage.getItem(draftKey(id, i)) ?? p.starter, `${id}-ex${i}`)
   ed.onDidChangeModelContent(() => localStorage.setItem(draftKey(id, i), ed.getValue()))
@@ -105,15 +118,17 @@ function wireProblem(id: string, i: number, p: Problem) {
     list.replaceChildren()
     try {
       const { stdout, error, results } = await run(ed.getValue(), p.tests)
-      const row = (ok: boolean, text: string, detail?: string) => {
+      const row = (ok: boolean, text: string, detail?: string, r?: TestResult) => {
         const li = document.createElement('li'); li.className = ok ? 'ok' : 'fail'
         li.innerHTML = `${icon(ok ? 'check' : 'x')}<span class="rt"></span>`
         li.querySelector('.rt')!.textContent = text
         if (detail) { const d = document.createElement('div'); d.className = 'detail'; d.textContent = detail; li.append(d) }
+        if (r?.expected !== undefined) li.append(panel('Expected vs actual', [['Expected', r.expected], ['Actual', r.actual ?? '']], true))
+        if (r?.logs) li.append(panel(`Console output (${lines(r.logs)})`, [['', r.logs.trimEnd()]]))
         list.append(li)
       }
       if (error) row(false, 'Error', error)
-      results.forEach(r => row(r.ok, r.name, r.error))
+      results.forEach(r => row(r.ok, r.name, r.error, r))
       if (stdout) row(true, 'Output', stdout.trimEnd())
       const ok = !error && results.length > 0 && results.every(r => r.ok)
       ok ? localStorage.setItem(passedKey(id, i), '1') : localStorage.removeItem(passedKey(id, i))

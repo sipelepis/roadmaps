@@ -236,6 +236,14 @@ button:disabled .ic { animation: spin 0.8s linear infinite; }
 .results li.fail .ic { color: var(--fail); }
 .results li.fail .rt { color: var(--text); }
 .results .detail { grid-column: 2; color: var(--muted); font: 13px/1.5 var(--mono); white-space: pre-wrap; margin-top: 0.15rem; }
+.results .more { grid-column: 2; margin-top: 0.35rem; font-size: 0.85rem; color: var(--muted); }
+.results .more summary { cursor: pointer; width: max-content; padding: 0.15rem 0; }
+.results .more summary:hover { color: var(--text); }
+.results .more .k { display: block; margin: 0.5rem 0 0.2rem; font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; }
+.results .more .k.expected { color: var(--ok); }
+.results .more .k.actual { color: var(--fail); }
+.results .more pre { margin: 0.35rem 0 0; background: var(--panel); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 0.5rem 0.75rem; font: 13px/1.5 var(--mono); color: var(--text-2); white-space: pre-wrap; overflow-x: auto; }
+.results .more .k + pre { margin-top: 0; }
 .exercises.single { margin-top: 1rem; }
 .problem-status { display: flex; justify-content: flex-end; margin-bottom: 0.25rem; }
 
