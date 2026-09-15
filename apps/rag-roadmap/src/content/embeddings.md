@@ -86,6 +86,21 @@ def test_cosine():
     assert abs(cosine([1, 1], [1, 0]) - math.sqrt(0.5)) < 1e-9
 ```
 
+#### Uses
+- [Embeddings › Measuring nearness](#/embeddings/measuring-nearness)
+
+#### Hints
+- You need three sums: the dot product `a · b`, and the squares of each vector for its length.
+- `zip(a, b)` pairs up the elements for the dot product. `math.sqrt` turns a sum of squares into a length.
+- Check for a zero length before dividing, and return `0.0` if you find one.
+
+#### Tips
+- `math.sumprod(a, b)` is the dot product in one call, and `math.hypot(*v)` is the length.
+
+#### Docs
+- [Python docs: `zip()`](https://docs.python.org/3/library/functions.html#zip)
+- [Python docs: `math.sqrt`](https://docs.python.org/3/library/math.html#math.sqrt)
+
 ### 2. Unit length
 
 `normalize(v)` returns the vector scaled to length 1. A zero vector is returned unchanged.
@@ -105,6 +120,20 @@ def test_normalize():
     assert normalize([0.0, 0.0]) == [0.0, 0.0]
     assert abs(math.sqrt(sum(x * x for x in normalize([1, 1, 1]))) - 1.0) < 1e-9
 ```
+
+#### Uses
+- [Embeddings › Measuring nearness](#/embeddings/measuring-nearness)
+- [Embeddings › A toy you can run offline](#/embeddings/a-toy-you-can-run-offline)
+
+#### Hints
+- The length is the square root of the sum of squares.
+- If the length is 0, return `v` unchanged. Otherwise divide every element by it.
+
+#### Tips
+- Once every vector has unit length, cosine is just the dot product. That is why embedding APIs usually return normalised vectors.
+
+#### Docs
+- [Python docs: `math.hypot`](https://docs.python.org/3/library/math.html#math.hypot)
 
 ### 3. Nearest vector
 
@@ -129,3 +158,17 @@ def test_nearest():
     assert nearest([1, 1], [[1, 1], [2, 2]]) == 0
     assert nearest([0, 1], [[1, 0], [0, 5]]) == 1
 ```
+
+#### Uses
+- [Embeddings › Measuring nearness](#/embeddings/measuring-nearness)
+
+#### Hints
+- Score every vector with `cosine(query, v)` and keep the best index so far.
+- Only replace the best on a strictly greater score. That keeps ties on the earliest.
+- In one line: `max` over `range(len(vectors))` with a `key`, since `max` returns the first of equal maxima.
+
+#### Tips
+- `[1, 1]` and `[2, 2]` score the same against `[1, 1]`. That is what "cosine ignores length" means.
+
+#### Docs
+- [Python docs: `max()`](https://docs.python.org/3/library/functions.html#max)

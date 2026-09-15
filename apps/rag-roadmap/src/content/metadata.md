@@ -2,6 +2,8 @@
 
 A chunk on its own is a passage with no idea where it came from. It cannot be cited, cannot be deleted with its document, and cannot be filtered. Every chunk needs to carry at least two things: which document it belongs to and where in that document it sits.
 
+## Filename and ordinal
+
 ```python
 {"filename": "handbook.pdf", "ordinal": 7, "text": "Employees accrue 1.5 days…"}
 ```
@@ -70,6 +72,21 @@ def test_headings():
     assert attach_headings([]) == []
 ```
 
+#### Uses
+- [Structure & metadata › Headings as breadcrumbs](#/metadata/headings-as-breadcrumbs)
+
+#### Hints
+- Keep a `heading` variable that starts as `""`, and walk the lines in order.
+- A line starting with `#` updates `heading` and is not emitted. Any other line is emitted as `(heading, line)`.
+- `line.lstrip("#").strip()` removes the hashes and the space after them.
+
+#### Tips
+- `lstrip("#")` treats its argument as a set of characters, so it removes any number of `#`s. That covers `##` and `###` with no extra code.
+
+#### Docs
+- [Python docs: `str.lstrip`](https://docs.python.org/3/library/stdtypes.html#str.lstrip)
+- [Python docs: `str.startswith`](https://docs.python.org/3/library/stdtypes.html#str.startswith)
+
 ### 2. Chunks with metadata
 
 `with_metadata(chunks, filename)` turns a list of chunk strings into dicts with `filename`, `ordinal` (starting at 0) and `text`.
@@ -86,6 +103,17 @@ def test_metadata():
     assert out == [{"filename": "doc.pdf", "ordinal": 0, "text": "a"}, {"filename": "doc.pdf", "ordinal": 1, "text": "b"}]
     assert with_metadata([], "x") == []
 ```
+
+#### Uses
+- [Structure & metadata › Filename and ordinal](#/metadata/filename-and-ordinal)
+- [Documents to text › The filename is not just a label](#/documents/the-filename-is-not-just-a-label)
+
+#### Hints
+- `enumerate(chunks)` gives you the ordinal and the text together, starting at 0.
+- Build one dict per chunk with the three keys. A list comprehension does it in one line.
+
+#### Docs
+- [Python docs: `enumerate()`](https://docs.python.org/3/library/functions.html#enumerate)
 
 ### 3. Which page?
 
@@ -106,3 +134,17 @@ def test_page_of():
     assert page_of(300, starts) == 3
     assert page_of(5, [0]) == 1
 ```
+
+#### Uses
+- [Structure & metadata › Pages for citations](#/metadata/pages-for-citations)
+
+#### Hints
+- The page containing `offset` is the last one whose start is `<= offset`.
+- Counting the starts that are `<= offset` gives the 1-based page number directly. A loop works.
+- `bisect.bisect_right(page_starts, offset)` counts the same thing with a binary search.
+
+#### Tips
+- `bisect_right`, not `bisect_left`: an offset exactly at a page start belongs to that page, not the one before.
+
+#### Docs
+- [Python docs: `bisect.bisect_right`](https://docs.python.org/3/library/bisect.html#bisect.bisect_right)

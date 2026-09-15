@@ -121,6 +121,21 @@ def test_empty():
     assert count_lines("empty.txt") == 0
 ```
 
+#### Uses
+- [Files and JSON › `open` and `with`](#/files-json/open-and-with)
+- [Files and JSON › Reading line by line](#/files-json/reading-line-by-line)
+- [What is Python? › `if` and `for`](#/intro/if-and-for)
+
+#### Hints
+- Open the file with `with open(path) as f:` so it gets closed for you.
+- Looping over `f` gives you one line per pass. Count the passes with a variable that starts at `0`.
+
+#### Tips
+- `len(f.read().splitlines())` also works, but it reads the whole file into memory first. The loop copes with files of any size.
+
+#### Docs
+- [Python tutorial: Methods of file objects](https://docs.python.org/3/tutorial/inputoutput.html#methods-of-file-objects)
+
 ### 2. Append a log entry
 
 `log(path, message)` appends `message` plus a newline to the file, creating it if needed. Calling it twice leaves two lines.
@@ -140,6 +155,19 @@ def test_append():
     log("app.log", "stopped")
     assert Path("app.log").read_text() == "started\nstopped\n"
 ```
+
+#### Uses
+- [Files and JSON › `open` and `with`](#/files-json/open-and-with)
+
+#### Hints
+- Mode `"a"` opens a file for appending, and creates it when it doesn't exist yet.
+- `f.write` adds no newline of its own. An f-string such as `f"{message}\n"` puts one on the end.
+
+#### Tips
+- Mode `"w"` would wipe the file on every call and leave only the last message.
+
+#### Docs
+- [Built-in functions: `open`](https://docs.python.org/3/library/functions.html#open)
 
 ### 3. Load settings with defaults
 
@@ -178,6 +206,24 @@ def test_invalid():
     assert False, "expected ValueError"
 ```
 
+#### Uses
+- [Files and JSON › JSON](#/files-json/json)
+- [Files and JSON › Errors](#/files-json/errors)
+- [Errors and exceptions › `try` / `except`](#/errors/try-except)
+- [Dicts and sets › Merging and updating](#/dicts-sets/merging-and-updating)
+
+#### Hints
+- Put the `open` and `json.load` inside `try`, and catch `FileNotFoundError` to return a copy of the defaults (`dict(DEFAULTS)`).
+- Invalid JSON raises `json.JSONDecodeError`, which is already a `ValueError`. Let it through: no handler needed.
+- `{**DEFAULTS, **loaded}` builds a new dict where the file's values win.
+
+#### Tips
+- Returning `DEFAULTS` itself would let a caller change your defaults by accident. That's what the `is not` in the test guards against.
+
+#### Docs
+- [`json.load`](https://docs.python.org/3/library/json.html#json.load)
+- [Built-in exceptions: `FileNotFoundError`](https://docs.python.org/3/library/exceptions.html#FileNotFoundError)
+
 ### 4. CSV totals
 
 `total_by_category(path)` reads a CSV with `category,amount` columns and returns a dict of category to summed amount (as floats).
@@ -195,3 +241,19 @@ def test_totals():
     Path("spend.csv").write_text("category,amount\nfood,10.5\nrent,800\nfood,4.5\n")
     assert total_by_category("spend.csv") == {"food": 15.0, "rent": 800.0}
 ```
+
+#### Uses
+- [Files and JSON › CSV](#/files-json/csv)
+- [Dicts and sets › Counting and grouping](#/dicts-sets/counting-and-grouping)
+- [Variables and types › Conversions](#/variables-types/conversions)
+
+#### Hints
+- `import csv`, open the file with `newline=""`, and loop over `csv.DictReader(f)`. Each row is a dict keyed by the header names.
+- Every value in a row is a string, so convert the amount with `float()`.
+- Add into a totals dict with `totals.get(category, 0) + amount`, the same idea as counting words.
+
+#### Tips
+- `DictReader` takes the column names from the first line, so the header never shows up as a data row.
+
+#### Docs
+- [`csv.DictReader`](https://docs.python.org/3/library/csv.html#csv.DictReader)

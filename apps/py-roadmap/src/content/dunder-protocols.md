@@ -43,6 +43,8 @@ class Version:
     def __eq__(self, other): ...
 ```
 
+Tuples compare element by element, left to right, and a tuple that runs out first is the smaller one: `(1, 2) < (1, 10)` and `(1, 0) < (1, 0, 1)`. So comparing tuples of fields is the usual way to write `__lt__`.
+
 ## Arithmetic
 
 ```python
@@ -152,6 +154,24 @@ def test_eq_hash_add():
     assert False
 ```
 
+#### Uses
+- [Dunder methods and protocols › Representation](#/dunder-protocols/representation)
+- [Dunder methods and protocols › Equality and hashing](#/dunder-protocols/equality-and-hashing)
+- [Dunder methods and protocols › Arithmetic](#/dunder-protocols/arithmetic)
+- [Classes › Properties](#/classes/properties)
+
+#### Hints
+- `__repr__` and `__str__` are in the article almost as written: `!r` puts quotes around the currency, `:.2f` gives two decimals.
+- Compare and hash the same tuple, `(self.cents, self.currency)`, so equal objects always hash equal.
+- In `__add__`, raise `ValueError` when the currencies differ; otherwise return a new `Money` with the summed cents.
+
+#### Tips
+- `str(x)` falls back to `__repr__` when there's no `__str__`, which is why `__repr__` is the one to always write.
+
+#### Docs
+- [Data model: `__repr__`](https://docs.python.org/3/reference/datamodel.html#object.__repr__)
+- [Data model: `__hash__`](https://docs.python.org/3/reference/datamodel.html#object.__hash__)
+
 ### 2. A sequence
 
 `Deck` holds cards and supports `len(deck)`, `deck[i]`, slicing, iteration, and `"AS" in deck`, by implementing the sequence protocol on top of a private list.
@@ -171,6 +191,21 @@ def test_sequence():
     assert list(d) == ["2H", "3H", "AS"] and "AS" in d and "KD" not in d
 ```
 
+#### Uses
+- [Dunder methods and protocols › Container protocol](#/dunder-protocols/container-protocol)
+- [Dunder methods and protocols › Duck typing](#/dunder-protocols/duck-typing)
+
+#### Hints
+- `__len__` and `__getitem__` pass the work straight on to `self._cards`.
+- A list already understands negative indexes and slices, so `self._cards[i]` covers `d[-1]` and `d[1:]` too.
+- `__contains__` answers `in` by asking the list. Iteration comes free with `__getitem__`, or add `__iter__` to be explicit.
+
+#### Tips
+- Wrapping a private list like this is composition: a `Deck` *has* a list rather than *being* one, so you choose exactly what it exposes.
+
+#### Docs
+- [Data model: Emulating container types](https://docs.python.org/3/reference/datamodel.html#emulating-container-types)
+
 ### 3. Ordering
 
 `Version("1.2.10")` compares numerically part by part, so `1.2.10 > 1.2.9`. Implement `__eq__` and `__lt__` and use `functools.total_ordering`.
@@ -189,6 +224,22 @@ def test_ordering():
     assert Version("1.0") == Version("1.0") and Version("1.0") != Version("1.1")
     assert sorted([Version("1.10"), Version("1.2")])[0] == Version("1.2")
 ```
+
+#### Uses
+- [Dunder methods and protocols › Ordering](#/dunder-protocols/ordering)
+- [Dunder methods and protocols › Equality and hashing](#/dunder-protocols/equality-and-hashing)
+
+#### Hints
+- `self.parts` is already a tuple of ints, so both methods can compare `self.parts` with `other.parts`.
+- Tuples compare element by element, which is exactly the numeric, part-by-part order you want.
+- Put `@total_ordering` (from `functools`) above the class to get `<=`, `>` and `>=` from your two methods.
+
+#### Tips
+- Comparing the original strings would be wrong: `"1.2.10" < "1.2.9"` is `True`, because strings compare character by character.
+
+#### Docs
+- [`functools.total_ordering`](https://docs.python.org/3/library/functools.html#functools.total_ordering)
+- [Data model: rich comparison methods](https://docs.python.org/3/reference/datamodel.html#object.__lt__)
 
 ### 4. Context manager
 
@@ -220,3 +271,16 @@ def test_exception_propagates():
         return
     assert False, "exception was swallowed"
 ```
+
+#### Uses
+- [Dunder methods and protocols › Callable and context manager](#/dunder-protocols/callable-and-context-manager)
+
+#### Hints
+- `__enter__(self)` appends `"enter"`. `__exit__(self, exc_type, exc, tb)` appends `"exit"`.
+- `__exit__` runs even when the block raises. Returning `False` (or nothing) lets the exception carry on to the caller.
+
+#### Tips
+- Returning `True` from `__exit__` swallows the exception. That's rarely what you want, and it's what the second test checks you didn't do.
+
+#### Docs
+- [Data model: With statement context managers](https://docs.python.org/3/reference/datamodel.html#with-statement-context-managers)

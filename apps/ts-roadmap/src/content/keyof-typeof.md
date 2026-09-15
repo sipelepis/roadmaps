@@ -112,6 +112,23 @@ type _1 = Expect<Equal<ReturnType<typeof pluck<{ id: number; name: string }, 'na
 pluck(users, 'email')
 ```
 
+#### Uses
+- [keyof, typeof, and indexed access › Putting them together](#/keyof-typeof/putting-them-together)
+- [keyof, typeof, and indexed access › Indexed access types](#/keyof-typeof/indexed-access-types)
+- [Generics › Constraints](#/generics/constraints)
+
+#### Hints
+- You need two type parameters: `T` for the item type and `K` for the key, constrained so only real keys of `T` are accepted.
+- The return type is an array of whatever `T[K]` is.
+- `items.map(item => item[key])` does the work.
+
+#### Tips
+- `T[K][]` reads as "array of `T[K]`". `Array<T[K]>` is the same type if that reads better to you.
+
+#### Docs
+- [Generics: Using Type Parameters in Generic Constraints](https://www.typescriptlang.org/docs/handbook/2/generics.html#using-type-parameters-in-generic-constraints)
+- [Indexed Access Types](https://www.typescriptlang.org/docs/handbook/2/indexed-access-types.html)
+
 ### 2. Status codes
 
 Derive `StatusName` and `StatusCode` from the `HttpStatus` object without repeating the values.
@@ -127,6 +144,23 @@ type StatusCode = unknown
 type _1 = Expect<Equal<StatusName, 'OK' | 'NotFound' | 'ServerError'>>
 type _2 = Expect<Equal<StatusCode, 200 | 404 | 500>>
 ```
+
+#### Uses
+- [keyof, typeof, and indexed access › `keyof`](#/keyof-typeof/keyof)
+- [keyof, typeof, and indexed access › `typeof` in type positions](#/keyof-typeof/typeof-in-type-positions)
+- [keyof, typeof, and indexed access › Putting them together](#/keyof-typeof/putting-them-together)
+
+#### Hints
+- `HttpStatus` is a value, so you need `typeof HttpStatus` before any other type operator can touch it.
+- The names are the keys of that type. The codes are the values: index into it with the key union.
+- `(typeof HttpStatus)[StatusName]` reuses the answer to the first half.
+
+#### Tips
+- Without `as const` the values widen to `number` and `StatusCode` would be plain `number`.
+
+#### Docs
+- [Keyof Type Operator](https://www.typescriptlang.org/docs/handbook/2/keyof-types.html#the-keyof-type-operator)
+- [Indexed Access Types](https://www.typescriptlang.org/docs/handbook/2/indexed-access-types.html)
 
 ### 3. Type-safe setter
 
@@ -147,3 +181,19 @@ test('sets a property', () => {
 // @ts-expect-error value must be a number for `id`
 setProp({ id: 1, name: 'Ada' }, 'id', 'one')
 ```
+
+#### Uses
+- [keyof, typeof, and indexed access › Putting them together](#/keyof-typeof/putting-them-together)
+- [keyof, typeof, and indexed access › Indexed access types](#/keyof-typeof/indexed-access-types)
+- [Generics › Constraints](#/generics/constraints)
+
+#### Hints
+- Start from `getProp` in the article: one type parameter for the object, one constrained to its keys.
+- `value` is typed with indexed access, so it depends on which key was passed.
+- The body is two lines: assign `obj[key] = value`, then return `obj`.
+
+#### Tips
+- `K` is inferred as the literal `'id'`, not `string`, because it is constrained to `keyof T`. That is what makes `T[K]` precise.
+
+#### Docs
+- [Generics: Using Type Parameters in Generic Constraints](https://www.typescriptlang.org/docs/handbook/2/generics.html#using-type-parameters-in-generic-constraints)

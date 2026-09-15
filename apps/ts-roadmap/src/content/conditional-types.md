@@ -106,9 +106,22 @@ type _3 = Expect<Equal<IsString<number>, false>>
 type _4 = Expect<Equal<IsString<string[]>, false>>
 ```
 
+#### Uses
+- [Conditional types › The basic form](#/conditional-types/the-basic-form)
+
+#### Hints
+- Replace `unknown` with a conditional type that checks `T` against `string`.
+- Both branches are literal types: `true` and `false`.
+
+#### Tips
+- `'hi' extends string` holds because a literal type is a subtype of its primitive. And since `T` is a naked type parameter, `IsString<string | number>` distributes to `true | false`, which is `boolean`.
+
+#### Docs
+- [Conditional Types](https://www.typescriptlang.org/docs/handbook/2/conditional-types.html)
+
 ### 2. `ElementOf`
 
-`ElementOf<T>` gives the element type of an array (mutable or `readonly`), and leaves non-arrays unchanged. Use `infer`. Hint: `readonly (infer U)[]` matches both kinds of array.
+`ElementOf<T>` gives the element type of an array (mutable or `readonly`), and leaves non-arrays unchanged. Use `infer`.
 
 ```ts starter
 type ElementOf<T> = unknown
@@ -119,6 +132,17 @@ type _1 = Expect<Equal<ElementOf<string[]>, string>>
 type _2 = Expect<Equal<ElementOf<readonly number[]>, number>>
 type _3 = Expect<Equal<ElementOf<boolean>, boolean>>
 ```
+
+#### Uses
+- [Conditional types › `infer`](#/conditional-types/infer)
+- [Arrays and tuples › Readonly arrays](#/arrays-tuples/readonly-arrays)
+
+#### Hints
+- Start from `ElementType` in the article, which uses `(infer U)[]`. Try it: the `readonly number[]` test fails.
+- A mutable array is assignable to a readonly one, but not the other way round. So match against `readonly (infer U)[]` and both kinds fit.
+
+#### Docs
+- [Conditional Types: Inferring Within Conditional Types](https://www.typescriptlang.org/docs/handbook/2/conditional-types.html#inferring-within-conditional-types)
 
 ### 3. Your own `ReturnType`
 
@@ -134,9 +158,27 @@ type _2 = Expect<Equal<MyReturnType<(a: number) => Promise<void>>, Promise<void>
 type _3 = Expect<Equal<MyReturnType<string>, never>>
 ```
 
+#### Uses
+- [Conditional types › `infer`](#/conditional-types/infer)
+- [Functions › Function types](#/functions/function-types)
+- [Functions › Rest parameters](#/functions/rest-parameters)
+
+#### Hints
+- Check `F` against a function type and put `infer R` where the return type goes.
+- To accept any parameter list, write the parameters as a rest parameter: `(...args: any[])`.
+- The else branch is `never`.
+
+#### Tips
+- `(...args: unknown[])` looks safer but fails: a function that needs a `number` can't accept any `unknown` argument, so `(a: number) => void` doesn't match it. `any[]` sidesteps that.
+
+#### Docs
+- [Conditional Types: Inferring Within Conditional Types](https://www.typescriptlang.org/docs/handbook/2/conditional-types.html#inferring-within-conditional-types)
+
 ### 4. Non-distributive check
 
-`IsUnion<T>` should be `true` only when `T` is a union of two or more members. Hint: distribute over `T` while holding a non-distributed copy of it in a tuple.
+`IsUnion<T>` should be `true` only when `T` is a union of two or more members.
+
+One thing the article doesn't cover: a distributive conditional applied to `never` gives `never`, whatever its branches say, because the empty union has no members to run on. So `IsUnion<never>` needs its own check, and `[T] extends [never]` is the way to test for `never` without distributing.
 
 ```ts starter
 type IsUnion<T> = unknown
@@ -148,3 +190,18 @@ type _2 = Expect<Equal<IsUnion<string | number>, true>>
 type _3 = Expect<Equal<IsUnion<string>, false>>
 type _4 = Expect<Equal<IsUnion<never>, false>>
 ```
+
+#### Uses
+- [Conditional types › Distribution over unions](#/conditional-types/distribution-over-unions)
+- [Generics › Defaults](#/generics/defaults)
+
+#### Hints
+- Add a second type parameter with a default, `IsUnion<T, Whole = T>`. It keeps a copy of the full union that you never distribute over.
+- Inside `T extends unknown ? … : never`, `T` is one member at a time while `Whole` is still the whole union. If `[Whole] extends [T]`, the whole thing fits in a single member, so it was not a union.
+- Put the `[T] extends [never] ? false : …` check in front of everything else.
+
+#### Tips
+- `boolean` is secretly `true | false`, so `IsUnion<boolean>` is `true`.
+
+#### Docs
+- [Conditional Types: Distributive Conditional Types](https://www.typescriptlang.org/docs/handbook/2/conditional-types.html#distributive-conditional-types)

@@ -98,6 +98,20 @@ test('uses the last word when there are middle names', () => {
 type _1 = Expect<Equal<ReturnType<typeof splitName>, [string, string]>>
 ```
 
+#### Uses
+- [Arrays and tuples › Tuples](#/arrays-tuples/tuples)
+- [Arrays and tuples › Arrays](#/arrays-tuples/arrays)
+
+#### Hints
+- Annotate the return type as a two-element tuple of strings. Without it, returning `[a, b]` is inferred as `string[]`.
+- `full.split(' ')` gives the words. The first is at index `0`, the last at `length - 1`.
+
+#### Tips
+- Index access on a `string[]` is typed `string` even when nothing is there. That's why this compiles, and why `noUncheckedIndexedAccess` exists.
+
+#### Docs
+- [Object Types: Tuple types](https://www.typescriptlang.org/docs/handbook/2/objects.html#tuple-types)
+
 ### 2. Range
 
 Return the integers from `0` up to but not including `n`. `range(0)` is an empty array. Don't mutate any input.
@@ -116,6 +130,20 @@ test('zero gives an empty array', () => {
   expect(range(0)).toEqual([])
 })
 ```
+
+#### Uses
+- [Arrays and tuples › Arrays](#/arrays-tuples/arrays)
+- [Basic types › Inference rules of thumb](#/basic-types/inference-rules-of-thumb)
+
+#### Hints
+- Start from an empty array annotated as `number[]`, then fill it.
+- Loop `i` from `0` while `i < n`, pushing each `i`. When `n` is `0` the loop never runs and you return the empty array.
+
+#### Tips
+- `Array.from({ length: n }, (_, i) => i)` builds the same array in one expression.
+
+#### Docs
+- [Everyday Types: Arrays](https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#arrays)
 
 ### 3. Read-only parameter
 
@@ -137,3 +165,16 @@ test('handles empty', () => {
   expect(firstAndLast([])).toEqual([undefined, undefined])
 })
 ```
+
+#### Uses
+- [Arrays and tuples › Readonly arrays](#/arrays-tuples/readonly-arrays)
+
+#### Hints
+- A `readonly string[]` can't be passed where a `string[]` is expected, because the function might `push` to it.
+- Only the parameter type changes. The body just reads, so it compiles as is.
+
+#### Tips
+- The other direction is fine: a mutable array is assignable to a readonly one, so a readonly parameter accepts both.
+
+#### Docs
+- [Object Types: The ReadonlyArray type](https://www.typescriptlang.org/docs/handbook/2/objects.html#the-readonlyarray-type)

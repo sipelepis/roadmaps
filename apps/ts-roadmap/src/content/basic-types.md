@@ -113,6 +113,20 @@ test('formats a book', () => {
 })
 ```
 
+#### Uses
+- [Basic types › The primitives](#/basic-types/the-primitives)
+- [Basic types › `any` – turning the checker off](#/basic-types/any-turning-the-checker-off)
+
+#### Hints
+- Read how the body uses each parameter. The method you call on a value tells you its type.
+- `toUpperCase` lives on strings and `toFixed` on numbers. `inStock` only picks between two strings with `? :`, so it's a yes/no value.
+
+#### Tips
+- Use the lowercase names. `String`, `Number` and `Boolean` with capitals are wrapper object types.
+
+#### Docs
+- [Everyday Types: The primitives](https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#the-primitives-string-number-and-boolean)
+
 ### 2. Describe an unknown
 
 Implement `kindOf` so it accepts *anything* (use `unknown`, not `any`) and returns the JavaScript `typeof` string for it.
@@ -137,3 +151,18 @@ test('typeof null is object (a JavaScript quirk)', () => {
 type _1 = Expect<Equal<Parameters<typeof kindOf>[0], unknown>>
 type _2 = Expect<Equal<ReturnType<typeof kindOf>, string>>
 ```
+
+#### Uses
+- [Basic types › `unknown` – the safe `any`](#/basic-types/unknown-the-safe-any)
+- [What is TypeScript? › Annotations and inference](#/intro/annotations-and-inference)
+
+#### Hints
+- Annotate the parameter as `unknown`. The JavaScript `typeof` operator accepts any value, so you don't need to narrow first.
+- Add a `: string` return type. Left to inference, `typeof value` is the union `'string' | 'number' | …`, which isn't `string`, so the type test fails.
+
+#### Tips
+- `typeof null` is `'object'`. Check `=== null` separately when the difference matters.
+
+#### Docs
+- [More on Functions: unknown](https://www.typescriptlang.org/docs/handbook/2/functions.html#unknown)
+- [Narrowing: typeof type guards](https://www.typescriptlang.org/docs/handbook/2/narrowing.html#typeof-type-guards)

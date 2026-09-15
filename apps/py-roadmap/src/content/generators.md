@@ -127,6 +127,20 @@ def test_is_generator():
     assert isinstance(countdown(3), types.GeneratorType)
 ```
 
+#### Uses
+- [Iterators and generators › Generator functions](#/generators/generator-functions)
+- [What is Python? › Functions and `return`](#/intro/functions-and-return)
+
+#### Hints
+- Any function with `yield` in its body is a generator. Instead of building a list, hand out one number at a time.
+- Loop while `n > 0`: yield `n`, then take one off it.
+
+#### Tips
+- `countdown(0)` should yield nothing at all. A loop whose condition is false from the start gets that right for free.
+
+#### Docs
+- [Python tutorial: Generators](https://docs.python.org/3/tutorial/classes.html#generators)
+
 ### 2. Chunks, lazily
 
 `chunks(iterable, size)` yields lists of at most `size` items from *any* iterable (including generators you can't index). The last chunk may be shorter.
@@ -145,6 +159,24 @@ def test_generator_input():
     """works on a generator input"""
     assert list(chunks((i for i in range(4)), 3)) == [[0, 1, 2], [3]]
 ```
+
+#### Uses
+- [Iterators and generators › The protocol](#/generators/the-protocol)
+- [Iterators and generators › Generator functions](#/generators/generator-functions)
+- [What is Python? › `if` and `for`](#/intro/if-and-for)
+- [Variables and types › Truthiness](#/variables-types/truthiness)
+
+#### Hints
+- You can't slice or index a generator, but you can always `for` over it. Collect items into a list as they arrive.
+- When that list holds `size` items, `yield` it and start a new empty list.
+- After the loop, a partly filled list may be left over. Yield it only if it isn't empty.
+
+#### Tips
+- Start a new list with `chunk = []` rather than emptying the old one: the caller may still be holding the list you just yielded.
+
+#### Docs
+- [Glossary: iterable](https://docs.python.org/3/glossary.html#term-iterable)
+- [Python tutorial: Generators](https://docs.python.org/3/tutorial/classes.html#generators)
 
 ### 3. Infinite primes
 
@@ -167,6 +199,24 @@ def test_lazy():
     assert next(p for p in primes() if p > 100) == 101
 ```
 
+#### Uses
+- [Iterators and generators › Infinite generators](#/generators/infinite-generators)
+- [Comprehensions › Generator expressions](#/comprehensions/generator-expressions)
+- [Lists and tuples › Useful built-ins](#/lists-tuples/useful-built-ins)
+- [Variables and types › Numbers](#/variables-types/numbers)
+
+#### Hints
+- Start at `n = 2` and count up forever with `while True`, like `naturals()` in the article.
+- Keep a list of the primes found so far. `n` is prime when none of them divides it evenly (`n % p` is never `0`).
+- `all(...)` over a generator expression does that check in one line. `all` of an empty sequence is `True`, which is what lets `2` through.
+
+#### Tips
+- Only primes up to the square root of `n` can divide it, so you can stop checking there if you want it faster.
+
+#### Docs
+- [Python tutorial: Generators](https://docs.python.org/3/tutorial/classes.html#generators)
+- [Built-in functions: `all`](https://docs.python.org/3/library/functions.html#all)
+
 ### 4. Flatten nested lists
 
 `flatten(nested)` yields every non-list element from arbitrarily nested lists, in order. Use recursion with `yield from`.
@@ -181,3 +231,19 @@ def test_flatten():
     """flattens any depth"""
     assert list(flatten([1, [2, [3, [4]], 5], []])) == [1, 2, 3, 4, 5]
 ```
+
+#### Uses
+- [Iterators and generators › `yield from`](#/generators/yield-from)
+- [Variables and types › The core types](#/variables-types/the-core-types)
+- [What is Python? › `if` and `for`](#/intro/if-and-for)
+
+#### Hints
+- Loop over `nested`. Each item is either a list or a plain value, and `isinstance(item, list)` tells them apart.
+- Yield plain values as they are.
+- For a list, call `flatten(item)` and pass on everything it yields with `yield from`.
+
+#### Tips
+- An empty inner list yields nothing, so `[]` disappears without any special case.
+
+#### Docs
+- [Language reference: Yield expressions](https://docs.python.org/3/reference/expressions.html#yield-expressions)

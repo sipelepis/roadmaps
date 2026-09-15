@@ -68,6 +68,19 @@ def test_dehyphenate():
     assert dehyphenate("re-\nceipt and deliv-\nery") == "receipt and delivery"
 ```
 
+#### Uses
+- [Cleaning extracted text › The usual suspects](#/cleaning/the-usual-suspects)
+
+#### Hints
+- This is a job for `re.sub`: match a word character, `-`, a newline, and another word character.
+- Capture the two word characters in groups and put them back without the `-\n` between them: `r"\1\2"`.
+
+#### Tips
+- `\w` matches letters, digits and `_`. In `x -\ny` the character before the dash is a space, so it is left alone.
+
+#### Docs
+- [Python docs: `re.sub`](https://docs.python.org/3/library/re.html#re.sub)
+
 ### 2. Collapse whitespace
 
 `collapse_whitespace(text)`: runs of spaces or tabs become one space, every line is stripped, three or more consecutive newlines become two, and the result is stripped at both ends.
@@ -84,6 +97,22 @@ def test_collapse():
     assert collapse_whitespace("  x  ") == "x"
     assert collapse_whitespace("p1\n\np2") == "p1\n\np2"
 ```
+
+#### Uses
+- [Cleaning extracted text › The usual suspects](#/cleaning/the-usual-suspects)
+- [Cleaning extracted text › Order](#/cleaning/order)
+
+#### Hints
+- Work line by line: split on `"\n"`, tidy each line, join back with `"\n"`.
+- On each line, replace `[ \t]+` with one space, then strip the line.
+- After joining, a regex with `{3,}` turns long runs of newlines into exactly two. Strip the ends last.
+
+#### Tips
+- Strip the lines before collapsing newlines. A line holding only spaces would otherwise break up the run of `\n`s.
+
+#### Docs
+- [Python docs: `re.sub`](https://docs.python.org/3/library/re.html#re.sub)
+- [Python docs: Regular expression syntax](https://docs.python.org/3/library/re.html#regular-expression-syntax)
 
 ### 3. Strip running headers and footers
 
@@ -103,6 +132,21 @@ def test_strip_repeated():
     assert strip_repeated_lines(["solo"]) == ["solo"]
 ```
 
+#### Uses
+- [Cleaning extracted text › The usual suspects](#/cleaning/the-usual-suspects)
+
+#### Hints
+- First pass: for each page, take the *set* of its stripped lines, and count how many pages each line appears on.
+- Second pass: rebuild each page from the lines whose count is below `min_pages`, joined with `"\n"`.
+- The set per page matters. A line printed twice on one page is still on only one page.
+
+#### Tips
+- "Page 1" and "Page 2" are different strings, so exact matching keeps page numbers. Catching those needs a pattern such as `Page \d+`.
+
+#### Docs
+- [Python docs: `collections.Counter`](https://docs.python.org/3/library/collections.html#collections.Counter)
+- [Python docs: `str.splitlines`](https://docs.python.org/3/library/stdtypes.html#str.splitlines)
+
 ### 4. Normalize unicode
 
 `normalize_unicode(text)` applies NFKC normalization so ligatures and compatibility characters become their plain equivalents.
@@ -119,3 +163,16 @@ def test_normalize():
     assert normalize_unicode("①") == "1"
     assert normalize_unicode("plain") == "plain"
 ```
+
+#### Uses
+- [Cleaning extracted text › The usual suspects](#/cleaning/the-usual-suspects)
+
+#### Hints
+- The `unicodedata` module is in the standard library. Import it.
+- `unicodedata.normalize(form, text)`, with the form `"NFKC"`.
+
+#### Tips
+- NFKC is lossy on purpose: `²` becomes `2`. Right for text you search, wrong for text you need to show exactly as written.
+
+#### Docs
+- [Python docs: `unicodedata.normalize`](https://docs.python.org/3/library/unicodedata.html#unicodedata.normalize)

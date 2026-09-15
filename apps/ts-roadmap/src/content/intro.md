@@ -85,9 +85,22 @@ type _1 = Expect<Equal<Parameters<typeof greet>[0], string>>
 type _2 = Expect<Equal<ReturnType<typeof greet>, string>>
 ```
 
+#### Uses
+- [What is TypeScript? › Annotations and inference](#/intro/annotations-and-inference)
+
+#### Hints
+- Parameters are the one place TypeScript won't infer a type. Annotate `name` with the type it should accept.
+- Write the type after the parameter name with a colon, as in the `greet` example. The return type is then inferred for you.
+
+#### Tips
+- Under `strict`, an unannotated parameter is an error (`noImplicitAny`), not a silent `any`.
+
+#### Docs
+- [Everyday Types: Parameter type annotations](https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#parameter-type-annotations)
+
 ### 2. Sum a list
 
-Implement `sum` so it adds every number in the array and returns `0` for an empty array. Annotate the parameter and the return type.
+Implement `sum` so it adds every number in the array and returns `0` for an empty array. Annotate the parameter and the return type. An array of numbers is written `number[]`, the same way `Item[]` means an array of `Item` in the example at the top.
 
 ```ts starter
 function sum(numbers) {
@@ -106,3 +119,18 @@ test('empty list is 0', () => {
 type _1 = Expect<Equal<Parameters<typeof sum>[0], number[]>>
 type _2 = Expect<Equal<ReturnType<typeof sum>, number>>
 ```
+
+#### Uses
+- [What is TypeScript? › Why bother?](#/intro/why-bother)
+- [What is TypeScript? › Annotations and inference](#/intro/annotations-and-inference)
+
+#### Hints
+- Annotate the parameter as `number[]`, and put `: number` after the parentheses for the return type.
+- The `total` example at the top of the article adds up prices with `reduce`. Do the same with the numbers themselves, starting from `0`.
+
+#### Tips
+- Always give `reduce` a starting value. Without one, an empty array throws a `TypeError` instead of returning `0`.
+
+#### Docs
+- [Everyday Types: Arrays](https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#arrays)
+- [Everyday Types: Return type annotations](https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#return-type-annotations)

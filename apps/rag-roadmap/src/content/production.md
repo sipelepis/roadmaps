@@ -98,6 +98,21 @@ def test_route():
     assert route("hire a contractor") == "retrieve"
 ```
 
+#### Uses
+- [At 10 million documents › Pillar 3: routing, safety, and knowing whether it works](#/production/pillar-3-routing-safety-and-knowing-whether-it-works)
+
+#### Hints
+- Two regexes: one for a greeting at the start, one for a message made only of the allowed characters.
+- End the greeting alternatives with `\b` so `hire` doesn't count as `hi`.
+- The calc rule has two parts: the whole message matches the character class, and at least one character is a digit.
+
+#### Tips
+- Inside a character class `-` needs escaping (or goes last). `*`, `+`, `(`, `)` and `.` are literal there already.
+
+#### Docs
+- [Python docs: `re.match`](https://docs.python.org/3/library/re.html#re.match)
+- [Python docs: `str.isdigit`](https://docs.python.org/3/library/stdtypes.html#str.isdigit)
+
 ### 2. Filter, then search
 
 `filter_then_search(chunks, filters, query, k)` keeps only chunks whose `meta` dict matches every key/value in `filters`, then returns the `k` most similar of those by cosine of `vector` to `query`, highest first. `cosine` is provided.
@@ -128,6 +143,22 @@ def test_filter_search():
     assert filter_then_search(chunks, {}, [1, 0], 1)[0]["id"] == 1
 ```
 
+#### Uses
+- [At 10 million documents › Pillar 2: retrieval as a funnel](#/production/pillar-2-retrieval-as-a-funnel)
+- [Retrieval › Choosing k](#/retrieval/choosing-k)
+- [Embeddings › Measuring nearness](#/embeddings/measuring-nearness)
+
+#### Hints
+- A chunk passes when every `key, value` in `filters.items()` equals `c["meta"].get(key)`. `all(...)` is `True` for an empty filter.
+- Sort the chunks that pass by `cosine(query, c["vector"])`, highest first, and slice to `k`.
+
+#### Tips
+- `.get(key)` rather than `[key]` means a chunk missing a metadata field is filtered out instead of crashing the search.
+
+#### Docs
+- [Python docs: `all()`](https://docs.python.org/3/library/functions.html#all)
+- [Python docs: `dict.items`](https://docs.python.org/3/library/stdtypes.html#dict.items)
+
 ### 3. Symptom to fix
 
 `fix_for(symptom)` maps `"exact identifiers fail"` to `"hybrid search"`, `"plausible but wrong ranking"` to `"reranker"`, `"slow queries"` to `"hnsw index"`, and `"cites the wrong section"` to `"chunking"`. Anything else returns `"look at the retrieved chunks first"`.
@@ -146,3 +177,13 @@ def test_fix_for():
     assert fix_for("plausible but wrong ranking") == "reranker"
     assert fix_for("the model is bad") == "look at the retrieved chunks first"
 ```
+
+#### Uses
+- [At 10 million documents › What to actually do with this](#/production/what-to-actually-do-with-this)
+
+#### Hints
+- A dict from symptom to fix holds the four pairs.
+- `dict.get(key, default)` returns the default for anything it doesn't know.
+
+#### Docs
+- [Python docs: `dict.get`](https://docs.python.org/3/library/stdtypes.html#dict.get)

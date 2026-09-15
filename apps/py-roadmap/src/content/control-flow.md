@@ -119,6 +119,19 @@ def test_boundaries():
     assert grade(69) == "F"
 ```
 
+#### Uses
+- [Control flow › `if` / `elif` / `else`](#/control-flow/if-elif-else)
+
+#### Hints
+- Check the highest band first: `if score >= 90`, then `elif score >= 80`, and so on down.
+- Once one branch runs, the rest are skipped, so each check only needs a lower bound. `else` catches everything below 70.
+
+#### Tips
+- A chained comparison like `80 <= score < 90` also works, but ordered `elif`s make the upper bounds unnecessary.
+
+#### Docs
+- [Python tutorial: `if` statements](https://docs.python.org/3/tutorial/controlflow.html#if-statements)
+
 ### 2. Collatz steps
 
 Starting from `n`, repeatedly apply: if even, halve it; if odd, triple it and add one. Return how many steps it takes to reach `1`. `collatz(1)` is `0`.
@@ -135,6 +148,21 @@ def test_known_values():
     assert collatz(6) == 8
     assert collatz(27) == 111
 ```
+
+#### Uses
+- [Control flow › `while`](#/control-flow/while)
+- [Control flow › `if` / `elif` / `else`](#/control-flow/if-elif-else)
+- [Variables and types › Numbers](#/variables-types/numbers)
+
+#### Hints
+- You don't know in advance how many steps it takes, so loop with `while n != 1:` and count as you go.
+- `n % 2 == 0` tests for even. Halve with `n // 2` so `n` stays an int.
+
+#### Tips
+- `n / 2` gives a float (`3.0`). It happens to work here, but `//` keeps integers integers.
+
+#### Docs
+- [Language reference: The `while` statement](https://docs.python.org/3/reference/compound_stmts.html#the-while-statement)
 
 ### 3. First duplicate
 
@@ -154,3 +182,20 @@ def test_none_when_unique():
     """None when everything is unique"""
     assert first_duplicate([1, 2, 3]) is None
 ```
+
+#### Uses
+- [Control flow › `for` iterates over things](#/control-flow/for-iterates-over-things)
+- [Control flow › `else` on loops](#/control-flow/else-on-loops)
+- [What is Python? › `if` and `for`](#/intro/if-and-for)
+
+#### Hints
+- Keep a list of the values you've already seen. It starts empty.
+- For each item: if it's already `in` that list, it's your answer. Otherwise append it.
+- If the loop finishes without finding one, return `None`.
+
+#### Tips
+- `in` on a list checks every element, which gets slow on big inputs. Dicts and sets introduces a faster tool for "have I seen this?".
+
+#### Docs
+- [Python tutorial: `for` statements](https://docs.python.org/3/tutorial/controlflow.html#for-statements)
+- [Python tutorial: `else` clauses on loops](https://docs.python.org/3/tutorial/controlflow.html#else-clauses-on-loops)

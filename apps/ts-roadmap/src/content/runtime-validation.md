@@ -124,6 +124,21 @@ test('reports invalid JSON', () => {
 })
 ```
 
+#### Uses
+- [Validating unknown data › `JSON.parse` lies](#/runtime-validation/json-parse-lies)
+- [Async and Promises › Errors are `unknown`](#/async-types/errors-are-unknown)
+
+#### Hints
+- Wrap the `JSON.parse` call in `try`, and return the success object from inside it.
+- In `catch`, the error is `unknown`. Narrow it with `instanceof Error` before reading `message`, and fall back to `String(e)`.
+
+#### Tips
+- Put only the risky call inside `try`. A `try` around a lot of code catches bugs you didn't mean to hide.
+
+#### Docs
+- [MDN: `JSON.parse()`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse)
+- [MDN: `try...catch`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/try...catch)
+
 ### 2. Array guard
 
 Write `isStringArray` as a type predicate, then use it in `tags`, which returns the parsed value when it is an array of strings and `[]` otherwise.
@@ -155,6 +170,23 @@ function typeOnly(probe: unknown) {
 }
 ```
 
+#### Uses
+- [Narrowing › Type predicates](#/narrowing/type-predicates)
+- [Validating unknown data › Composing guards](#/runtime-validation/composing-guards)
+- [Basic types › `unknown` – the safe `any`](#/basic-types/unknown-the-safe-any)
+
+#### Hints
+- Give `isStringArray` the return type `v is string[]`.
+- The body has two checks joined by `&&`: `Array.isArray(v)`, then `every` element has `typeof` `'string'`.
+- In `tags`, return `data` when the guard passes and `[]` otherwise. Inside the passing branch `data` is already `string[]`.
+
+#### Tips
+- TypeScript 5.5+ can infer this predicate on its own, because the `every` callback is itself an inferred predicate. Writing `v is string[]` still documents the intent. The compiler never checks an explicit predicate against the body, so keep the two in sync.
+
+#### Docs
+- [Narrowing: Using type predicates](https://www.typescriptlang.org/docs/handbook/2/narrowing.html#using-type-predicates)
+- [MDN: `Array.prototype.every()`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/every)
+
 ### 3. Decode a user
 
 Implement `decodeUser`. Return `{ ok: true, value }` with a *fresh* object containing only `id` and `name`, or `{ ok: false, error }` naming the first bad field: `'expected an object'`, `'id must be a number'`, `'name must be a string'`.
@@ -178,6 +210,23 @@ test('explains failures', () => {
   expect(decodeUser({ id: 1 })).toEqual({ ok: false, error: 'name must be a string' })
 })
 ```
+
+#### Uses
+- [Validating unknown data › Decoding instead of guarding](#/runtime-validation/decoding-instead-of-guarding)
+- [Validating unknown data › Guards for objects](#/runtime-validation/guards-for-objects)
+- [Narrowing › `in` and `instanceof`](#/narrowing/in-and-instanceof)
+
+#### Hints
+- Rule out non-objects first: `typeof v !== 'object' || v === null`. `typeof null` is `'object'`, so the second half matters.
+- Then check each field in order: `'id' in v` makes `v.id` readable, and `typeof v.id === 'number'` checks it. Return the matching error as soon as one fails.
+- On success, build a new object from `v.id` and `v.name` instead of returning `v`.
+
+#### Tips
+- Returning `v` itself won't compile: narrowing `v.id` doesn't change the type of `v`, which is still `object & Record<'id', unknown> & …`. Building a fresh object is also what strips the extra `admin` field.
+
+#### Docs
+- [Narrowing: The `in` operator narrowing](https://www.typescriptlang.org/docs/handbook/2/narrowing.html#the-in-operator-narrowing)
+- [TypeScript 4.9: Unlisted Property Narrowing with the `in` Operator](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-4-9.html#unlisted-property-narrowing-with-the-in-operator)
 
 ### 4. Generic array decoder
 
@@ -208,3 +257,21 @@ test('rejects non-arrays and bad items', () => {
 
 type _1 = Expect<Equal<typeof decodeNumbers, Decoder<number[]>>>
 ```
+
+#### Uses
+- [Validating unknown data › Decoding instead of guarding](#/runtime-validation/decoding-instead-of-guarding)
+- [Validating unknown data › Composing guards](#/runtime-validation/composing-guards)
+- [Generics › Generic functions](#/generics/generic-functions)
+- [Functions › Function types](#/functions/function-types)
+
+#### Hints
+- The signature is the whole trick: `decodeArray<T>(item: Decoder<T>): Decoder<T[]>`. Like `isArrayOf` in the article, it returns a function.
+- Inside the returned `v => { … }`, reject non-arrays with `Array.isArray`, then loop with an index so you can put it in the error message.
+- Call `item` on each element. If a result has `ok` false, return its error prefixed with `` `[${i}]: ` ``. Otherwise push its `value` into a `T[]`.
+
+#### Tips
+- Annotating the return type as `Decoder<T[]>` lets TypeScript type `v` as `unknown` and check each returned object literal for you.
+
+#### Docs
+- [Generics: Generic Types](https://www.typescriptlang.org/docs/handbook/2/generics.html#generic-types)
+- [More on Functions: Function Type Expressions](https://www.typescriptlang.org/docs/handbook/2/functions.html#function-type-expressions)

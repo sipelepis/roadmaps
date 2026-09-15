@@ -40,9 +40,13 @@ name, total = "Ada", 1234.5
 f"{name}: {total:.2f}"        # 'Ada: 1234.50'
 f"{total:,}"                  # '1,234.5'
 f"{name:>10}"                 # '       Ada'
+f"{name:<10}|"                # 'Ada       |'
+f"{total:>10.2f}"             # '   1234.50'
 f"{0.256:.1%}"                # '25.6%'
 f"{name=}"                    # "name='Ada'"  handy for debugging
 ```
+
+A number before the precision is a minimum width. `>` right-aligns the value in that width and `<` left-aligns it, and they combine with a precision, as in `>10.2f`.
 
 ## Membership and comparison
 
@@ -104,6 +108,23 @@ def test_ignores_noise():
     assert is_palindrome("A man, a plan, a canal: Panama")
 ```
 
+#### Uses
+- [Strings › Everyday methods](#/strings/everyday-methods)
+- [Strings › Slicing](#/strings/slicing)
+- [What is Python? › `if` and `for`](#/intro/if-and-for)
+
+#### Hints
+- First build a cleaned-up copy: lowercase the text, then keep only its letters and digits.
+- Loop over the characters and keep those where `ch.isalpha() or ch.isdigit()` is true.
+- A string is a palindrome when it equals its own reverse, `s[::-1]`.
+
+#### Tips
+- `str.isalnum()` checks for a letter or digit in one call.
+
+#### Docs
+- [Library reference: `str.isalpha`](https://docs.python.org/3/library/stdtypes.html#str.isalpha)
+- [Library reference: Common sequence operations](https://docs.python.org/3/library/stdtypes.html#common-sequence-operations)
+
 ### 2. Snake to camel
 
 Convert `snake_case_names` to `camelCase`. Leading and trailing underscores are removed, and repeated underscores count as one.
@@ -125,9 +146,24 @@ def test_edge_cases():
     assert to_camel("a__b") == "aB"
 ```
 
+#### Uses
+- [Strings › Everyday methods](#/strings/everyday-methods)
+- [What is Python? › `if` and `for`](#/intro/if-and-for)
+
+#### Hints
+- `name.split("_")` gives the pieces. Leading or doubled underscores leave empty strings in that list; skip them.
+- Keep the first real word as it is, run every later one through `.title()`, and glue them together.
+
+#### Tips
+- `split("_")` with an explicit separator keeps empty pieces. Plain `split()` on whitespace drops them.
+
+#### Docs
+- [Library reference: `str.split`](https://docs.python.org/3/library/stdtypes.html#str.split)
+- [Library reference: `str.title`](https://docs.python.org/3/library/stdtypes.html#str.title)
+
 ### 3. Receipt lines
 
-Given a list of `(name, price)` pairs, return a list of strings where the name is left-aligned in 12 characters and the price right-aligned in 8 with two decimals, e.g. `"Coffee          3.50"`.
+Given a list of `(name, price)` pairs, return a list of strings where the name is left-aligned in 12 characters and the price right-aligned in 8 with two decimals, e.g. `"Coffee          3.50"`. Each pair unpacks right in the loop header: `for name, price in items:` gives you both parts.
 
 ```python starter
 def receipt_lines(items):
@@ -141,3 +177,18 @@ def test_format():
     assert lines == ["Coffee          3.50", "Bagel          12.00"]
     assert all(len(line) == 20 for line in lines)
 ```
+
+#### Uses
+- [Strings › Formatting](#/strings/formatting)
+- [What is Python? › `if` and `for`](#/intro/if-and-for)
+
+#### Hints
+- Start an empty list, loop over the pairs, and append one formatted line per pair.
+- Two format specs do all the padding: `<` with a width for the name, and `>` with a width plus `.2f` for the price.
+- Put the two fields side by side with no space between them. The widths add up to 20.
+
+#### Tips
+- The `f` in `.2f` also turns an int like `12` into `12.00`.
+
+#### Docs
+- [Library reference: Format specification mini-language](https://docs.python.org/3/library/string.html#format-specification-mini-language)

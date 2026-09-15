@@ -121,9 +121,24 @@ def test_annotations():
     assert clamp.__annotations__ == {"value": float, "lo": float, "hi": float, "return": float}
 ```
 
+#### Uses
+- [Type hints › Basics](#/type-hints/basics)
+
+#### Hints
+- Each parameter gets its type after a colon: `value: float`.
+- The return type goes between the `)` and the final `:`, written `-> float`.
+
+#### Tips
+- `clamp(5, 0, 3)` passes ints and still works: annotations are never checked at runtime, and type checkers accept an `int` where a `float` is expected.
+
+#### Docs
+- [Glossary: function annotation](https://docs.python.org/3/glossary.html#term-function-annotation)
+
 ### 2. Optional return
 
 `parse_port(text)` returns an `int` when `text` is a number between 1 and 65535, otherwise `None`. Annotate the return type as `int | None`.
+
+To spot text that isn't a number before converting it, use `isdigit()`: `"8080".isdigit()` is `True`, while `"abc".isdigit()` and `"".isdigit()` are `False`.
 
 ```python starter
 def parse_port(text):
@@ -142,9 +157,28 @@ def test_annotation():
     assert parse_port.__annotations__["return"] == (int | None)
 ```
 
+#### Uses
+- [Type hints › Optional and union](#/type-hints/optional-and-union)
+- [Variables and types › Conversions](#/variables-types/conversions)
+- [Control flow › `if` / `elif` / `else`](#/control-flow/if-elif-else)
+
+#### Hints
+- Check `text.isdigit()` first and return `None` when it's false, so `int()` never sees letters.
+- Convert with `int(text)`, then test the range with a chained comparison: `1 <= port <= 65535`.
+- The return annotation is `-> int | None`.
+
+#### Tips
+- The other common approach is to call `int(text)` and catch the `ValueError` it raises for bad input. That's the Errors and exceptions module's territory.
+
+#### Docs
+- [`str.isdigit`](https://docs.python.org/3/library/stdtypes.html#str.isdigit)
+- [Union types](https://docs.python.org/3/library/stdtypes.html#types-union)
+
 ### 3. TypedDict and a protocol
 
-Define a `TypedDict` called `Movie` with `title: str` and `year: int`, and a `Protocol` called `HasTitle` with a `title` attribute of type `str`. Then implement `titles(items)` returning the title of each item, which may be a `Movie` dict or any object with a `.title`.
+Define a `TypedDict` called `Movie` with `title: str` and `year: int`, and a `Protocol` called `HasTitle` with a `title` attribute of type `str`. Then implement `titles(items)` returning a list with the title of each item, which may be a `Movie` dict or any object with a `.title`.
+
+A protocol lists attributes the same way a `TypedDict` lists keys: an annotated name in the class body, like `title: str`.
 
 ```python starter
 from typing import TypedDict, Protocol
@@ -164,3 +198,21 @@ def test_titles():
     assert titles([{"title": "Alien", "year": 1979}, Book()]) == ["Alien", "Dune"]
     assert "title" in HasTitle.__annotations__
 ```
+
+#### Uses
+- [Type hints › `Any`, `object`, and `TypedDict`](#/type-hints/any-object-and-typeddict)
+- [Type hints › Literal and Protocol](#/type-hints/literal-and-protocol)
+- [Variables and types › The core types](#/variables-types/the-core-types)
+- [What is Python? › `if` and `for`](#/intro/if-and-for)
+
+#### Hints
+- `Movie` is shaped like the article's `User`: a class based on `TypedDict` with two annotated keys. `HasTitle` is a class based on `Protocol` whose body is just `title: str`.
+- In `titles`, loop over the items and collect each title in a list.
+- `isinstance(item, dict)` tells you whether to read `item["title"]` or `item.title`.
+
+#### Tips
+- `isinstance(item, Movie)` raises `TypeError`: at runtime a TypedDict is just a plain dict, so check for `dict` instead.
+
+#### Docs
+- [`typing.TypedDict`](https://docs.python.org/3/library/typing.html#typing.TypedDict)
+- [`typing.Protocol`](https://docs.python.org/3/library/typing.html#typing.Protocol)

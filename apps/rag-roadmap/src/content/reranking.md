@@ -80,6 +80,19 @@ def test_rerank():
     assert len(rerank(c, lambda x: x["s"], 10)) == 4
 ```
 
+#### Uses
+- [Reranking & diversity › Reranking](#/reranking/reranking)
+
+#### Hints
+- `sorted` takes a `key` function, and `score_fn` already is one.
+- Sort from high to low with `reverse=True`, then slice to `top_n`.
+
+#### Tips
+- `reverse=True` keeps the sort stable: equal scores stay in their original order rather than flipping.
+
+#### Docs
+- [Sorting HOWTO: Sort stability](https://docs.python.org/3/howto/sorting.html#sort-stability-and-complex-sorts)
+
 ### 2. A crude cross-encoder
 
 `overlap_score(question, text)` returns the fraction of distinct question tokens that also appear in the text, using lowercase alphanumeric tokens. An empty question scores `0.0`.
@@ -102,6 +115,17 @@ def test_overlap():
     assert abs(overlap_score("warranty period", "warranty claims") - 0.5) < 1e-9
     assert overlap_score("", "anything") == 0.0
 ```
+
+#### Uses
+- [Reranking & diversity › Reranking](#/reranking/reranking)
+- [Keyword search & BM25 › Tokenising](#/keyword-search/tokenising)
+
+#### Hints
+- The provided `tokenize` returns sets, so the shared tokens are the intersection `q & t`.
+- Divide the size of the intersection by the size of the question's set, after checking that set isn't empty.
+
+#### Docs
+- [Python docs: Set types](https://docs.python.org/3/library/stdtypes.html#set-types-set-frozenset)
 
 ### 3. Maximal marginal relevance
 
@@ -129,3 +153,18 @@ def test_mmr():
     assert mmr(q, cands, 5, lam=0.7)[0] == "a" and len(mmr(q, cands, 5)) == 3
     assert mmr(q, {}, 2) == []
 ```
+
+#### Uses
+- [Reranking & diversity › Diversity](#/reranking/diversity)
+- [Embeddings › Measuring nearness](#/embeddings/measuring-nearness)
+
+#### Hints
+- Loop until you have `k` ids or run out of candidates. Each round, score every candidate not yet chosen and append the best.
+- A candidate's score is `lam * cosine(query, v) - (1 - lam) * novelty`, where novelty is its highest cosine to anything already chosen.
+- In the first round nothing is chosen yet. `max(..., default=0.0)` handles the empty case.
+
+#### Tips
+- Replace the best only on a strictly higher score, so ties go to the earlier candidate and the result is deterministic.
+
+#### Docs
+- [Python docs: `max()`](https://docs.python.org/3/library/functions.html#max)

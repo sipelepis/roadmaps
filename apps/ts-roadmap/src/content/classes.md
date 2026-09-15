@@ -145,6 +145,22 @@ function neverCalled() {
 }
 ```
 
+#### Uses
+- [Classes › Visibility](#/classes/visibility)
+- [Classes › Fields and constructors](#/classes/fields-and-constructors)
+
+#### Hints
+- Declare the field with an initial value and mark it `private` (or use a `#count` field).
+- `increment()` adds one to `this.count` and returns `this`. Annotate the return type as `this`, like `Counter` in the article.
+- For `value`, write a getter (`get value() { … }`) and no setter, so assigning to it is a compile error.
+
+#### Tips
+- `private` is checked only at compile time. A `#count` field is private at runtime too.
+
+#### Docs
+- [Classes: Getters / Setters](https://www.typescriptlang.org/docs/handbook/2/classes.html#getters--setters)
+- [Classes: this Types](https://www.typescriptlang.org/docs/handbook/2/classes.html#this-types)
+
 ### 2. Abstract shapes
 
 `Shape` is abstract with a `name` and an abstract `area()`. Implement `Rect extends Shape` (name `'rect'`, constructed with width and height) so the inherited `describe()` works.
@@ -175,9 +191,26 @@ function neverCalled() {
 }
 ```
 
+#### Uses
+- [Classes › Inheritance and `abstract`](#/classes/inheritance-and-abstract)
+- [Classes › Parameter properties](#/classes/parameter-properties)
+
+#### Hints
+- `class Rect extends Shape`. Its constructor takes a width and a height and must call `super('rect')` before anything else.
+- Parameter properties (`private width: number` in the constructor) store the arguments as fields in one step.
+- Implement `area()`. `describe()` is inherited, so don't write it.
+
+#### Tips
+- Leave out `area()` and the compiler reports that `Rect` doesn't implement the abstract member. That's what `abstract` is for.
+
+#### Docs
+- [Classes: abstract Classes and Members](https://www.typescriptlang.org/docs/handbook/2/classes.html#abstract-classes-and-members)
+
 ### 3. Implement an interface
 
 Make `Queue<T>` implement `Container<T>`. `size` is a getter for the number of stored items; `dequeue` returns the oldest item or `undefined`.
+
+`Queue<T>` is generic, like `Registry<T>` in the article: `T` stands for whatever item type the caller picks (`new Queue<string>()`), and inside the class you use `T` like any other type, for example `items: T[]`. The Generics module covers this properly.
 
 ```ts starter
 interface Container<T> {
@@ -202,3 +235,19 @@ test('is first-in first-out', () => {
   expect(q.dequeue()).toBe(undefined)
 })
 ```
+
+#### Uses
+- [Classes › `implements`](#/classes/implements)
+- [Classes › Static members and generics](#/classes/static-members-and-generics)
+- [Classes › Visibility](#/classes/visibility)
+
+#### Hints
+- Add `implements Container<T>` after the class name. The compiler then lists every member you still owe.
+- Keep the items in a private `T[]` field. `push` adds to the end, and `shift` removes from the front and returns `undefined` when the array is empty.
+- `size` can be a getter: `get size() { … }` satisfies the interface's `readonly size`.
+
+#### Tips
+- `implements` only checks. You still write every member yourself; nothing is inherited.
+
+#### Docs
+- [Classes: implements Clauses](https://www.typescriptlang.org/docs/handbook/2/classes.html#implements-clauses)

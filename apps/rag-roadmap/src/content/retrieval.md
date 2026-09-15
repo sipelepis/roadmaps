@@ -105,6 +105,22 @@ def test_retrieve():
     assert retrieve([1, 0], [], 3) == []
 ```
 
+#### Uses
+- [Retrieval › Choosing k](#/retrieval/choosing-k)
+- [Retrieval › A threshold, or an honest model](#/retrieval/a-threshold-or-an-honest-model)
+- [Embeddings › Measuring nearness](#/embeddings/measuring-nearness)
+
+#### Hints
+- Score every chunk and make a copy that carries the score: `{**c, "score": s}` leaves the original untouched.
+- Drop the copies below `min_score`, sort the rest by score from high to low, and slice to `k`.
+
+#### Tips
+- `dict(c)` or `c.copy()` work too. Writing `c["score"] = ...` on the input fails the test that checks the input is unchanged.
+
+#### Docs
+- [Python docs: `dict.copy`](https://docs.python.org/3/library/stdtypes.html#dict.copy)
+- [Python docs: `sorted()`](https://docs.python.org/3/library/functions.html#sorted)
+
 ### 2. Diagnose the failure
 
 `diagnose(chunks, needle)` returns `"generation"` if any chunk's `text` contains `needle` (case-insensitive), otherwise `"retrieval"`.
@@ -123,6 +139,20 @@ def test_diagnose():
     assert diagnose([], "x") == "retrieval"
 ```
 
+#### Uses
+- [Retrieval › The diagnostic that matters](#/retrieval/the-diagnostic-that-matters)
+
+#### Hints
+- Lowercase both the needle and each chunk's text before using `in`.
+- `any(...)` over the chunks, then pick the string with a conditional expression.
+
+#### Tips
+- `casefold()` is the stricter `lower()` for comparing text: German `ß` casefolds to `ss`.
+
+#### Docs
+- [Python docs: `str.casefold`](https://docs.python.org/3/library/stdtypes.html#str.casefold)
+- [Python docs: `any()`](https://docs.python.org/3/library/functions.html#any)
+
 ### 3. One document, so many slots
 
 `dedupe_by_document(results, per_doc=1)` keeps at most `per_doc` results per `document_id`, preserving order.
@@ -140,3 +170,16 @@ def test_dedupe():
     assert [x["id"] for x in dedupe_by_document(r, per_doc=2)] == [1, 2, 3]
     assert dedupe_by_document([]) == []
 ```
+
+#### Uses
+- [Retrieval › Duplicates](#/retrieval/duplicates)
+
+#### Hints
+- Keep a count per `document_id` in a dict as you walk the results.
+- Append a result only while its document's count is below `per_doc`, and bump the count when you do.
+
+#### Tips
+- This runs on results that are already ranked, so the ones that survive are the best-scoring chunks of each document.
+
+#### Docs
+- [Python docs: `dict.get`](https://docs.python.org/3/library/stdtypes.html#dict.get)

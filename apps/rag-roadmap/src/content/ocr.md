@@ -97,6 +97,21 @@ def test_drop():
     assert drop_low_confidence([], 50) == []
 ```
 
+#### Uses
+- [OCR: pages as pictures › What an OCR engine gives you](#/ocr/what-an-ocr-engine-gives-you)
+- [OCR: pages as pictures › Reassembling text](#/ocr/reassembling-text)
+
+#### Hints
+- A list comprehension with two conditions keeps the order for free.
+- The two conditions: `conf` is at least `min_conf`, and `text.strip()` is not empty.
+
+#### Tips
+- The `-1` rows are structure, not words. The blank-text check drops them even if someone passes `min_conf=-1`.
+
+#### Docs
+- [Python tutorial: List comprehensions](https://docs.python.org/3/tutorial/datastructures.html#list-comprehensions)
+- [Tesseract: TSV output](https://tesseract-ocr.github.io/tessdoc/Command-Line-Usage.html#tsv-output)
+
 ### 2. Reading order
 
 `words_to_lines(words)` groups words into lines by `(block, par, line)`, orders lines in that order and words within a line by `left`, and returns each line as a single space-joined string. The input may arrive in any order.
@@ -120,6 +135,22 @@ def test_lines():
     assert words_to_lines([]) == []
 ```
 
+#### Uses
+- [OCR: pages as pictures › Reassembling text](#/ocr/reassembling-text)
+- [OCR: pages as pictures › What an OCR engine gives you](#/ocr/what-an-ocr-engine-gives-you)
+
+#### Hints
+- Sort the words with a tuple key: `(block, par, line, left)`.
+- Walk the sorted words and start a new line whenever `(block, par, line)` differs from the previous word's.
+- `itertools.groupby` does that walk for you, as long as the list is already sorted by the same key.
+
+#### Tips
+- `groupby` only merges *adjacent* items with equal keys. That is why the sort has to come first.
+
+#### Docs
+- [Python docs: `itertools.groupby`](https://docs.python.org/3/library/itertools.html#itertools.groupby)
+- [Sorting HOWTO: Key functions](https://docs.python.org/3/howto/sorting.html#key-functions)
+
 ### 3. OCR only what needs it
 
 `page_texts(pages, ocr)` takes the per-page result of the text layer (a string or `None`) and a function `ocr(index)` that recognises page `index`. Return one string per page, calling `ocr` only for pages whose text layer is blank.
@@ -141,6 +172,19 @@ def test_fallback():
     assert calls == [1, 2]
 ```
 
+#### Uses
+- [OCR: pages as pictures › When to run it](#/ocr/when-to-run-it)
+
+#### Hints
+- Use `enumerate(pages)` so you have the index to pass to `ocr`.
+- A page needs OCR when `(text or "").strip()` is empty. Otherwise keep its text as it is.
+
+#### Tips
+- Return the native text unstripped. Cleaning is a later step; this function only decides which pages go to OCR.
+
+#### Docs
+- [Python docs: `enumerate()`](https://docs.python.org/3/library/functions.html#enumerate)
+
 ### 4. How good was the scan?
 
 `ocr_quality(words)` returns the mean `conf` of rows with a non-blank `text` and `conf >= 0`, as a float. With nothing to average, return `0.0`.
@@ -158,3 +202,16 @@ def test_quality():
     assert ocr_quality([]) == 0.0
     assert ocr_quality([{"conf": -1, "text": ""}]) == 0.0
 ```
+
+#### Uses
+- [OCR: pages as pictures › What an OCR engine gives you](#/ocr/what-an-ocr-engine-gives-you)
+
+#### Hints
+- Collect the `conf` of every row that passes both checks: non-blank text and `conf >= 0`.
+- The mean is `sum(values) / len(values)`, but check for an empty list first.
+
+#### Tips
+- `statistics.fmean` does the division for you, but it raises on an empty list just like dividing by zero does.
+
+#### Docs
+- [Python docs: `statistics.fmean`](https://docs.python.org/3/library/statistics.html#statistics.fmean)

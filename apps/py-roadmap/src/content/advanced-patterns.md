@@ -170,6 +170,21 @@ def test_timer_on_error():
     assert False
 ```
 
+#### Uses
+- [Advanced patterns › `contextlib.contextmanager`](#/advanced-patterns/contextlib-contextmanager)
+- [Dunder methods and protocols › Callable and context manager](#/dunder-protocols/callable-and-context-manager)
+
+#### Hints
+- Write a generator function decorated with `@contextmanager`. Note `time.perf_counter()` before the `yield` and take the difference after it.
+- If the block raises, code after a bare `yield` never runs. Put the `yield` inside `try` and the append in `finally`, like `changed_dir` in the article.
+
+#### Tips
+- `perf_counter` is the clock for measuring durations. `time.time()` follows the wall clock, which can jump when the system time is adjusted.
+
+#### Docs
+- [`contextlib.contextmanager`](https://docs.python.org/3/library/contextlib.html#contextlib.contextmanager)
+- [`time.perf_counter`](https://docs.python.org/3/library/time.html#time.perf_counter)
+
 ### 2. Match on shapes
 
 `describe(value)` uses `match` to return: `"origin"` for `(0, 0)`, `"on x axis"` for `(x, 0)`, `"on y axis"` for `(0, y)`, `"point"` for any other 2-tuple, `"empty"` for `[]`, `"list of <n>"` for other lists, and `"unknown"` for anything else.
@@ -190,6 +205,22 @@ def test_describe():
     assert describe([1, 2, 3]) == "list of 3"
     assert describe("x") == "unknown"
 ```
+
+#### Uses
+- [Advanced patterns › Structural pattern matching](#/advanced-patterns/structural-pattern-matching)
+- [Control flow › `match`](#/control-flow/match)
+
+#### Hints
+- The first matching `case` wins, so go from specific to general: `(0, 0)`, then `(x, 0)` and `(0, y)`, then `(x, y)`.
+- Literal values in a pattern must be equal; plain names like `x` capture whatever is there.
+- `case []:` matches only an empty sequence. For any other list, the class pattern `case list():` checks the type, and `len(value)` gives the count. `case _:` catches the rest.
+
+#### Tips
+- Sequence patterns match lists and tuples alike, so `describe([0, 0])` also says `"origin"`. A class pattern such as `tuple((0, 0))` is how to insist on a tuple when it matters.
+
+#### Docs
+- [Python tutorial: `match` statements](https://docs.python.org/3/tutorial/controlflow.html#match-statements)
+- [Language reference: The `match` statement](https://docs.python.org/3/reference/compound_stmts.html#the-match-statement)
 
 ### 3. Memoised recursion
 
@@ -212,9 +243,24 @@ def test_fast():
     assert ways(90) == 4660046610375530309
 ```
 
+#### Uses
+- [Advanced patterns › `functools.cache` and `lru_cache`](#/advanced-patterns/functools-cache-and-lru-cache)
+- [Control flow › `if` / `elif` / `else`](#/control-flow/if-elif-else)
+
+#### Hints
+- Your last move was either 1 step or 2, so the ways to reach `n` are the ways to reach `n - 1` plus the ways to reach `n - 2`.
+- The base cases stop the recursion: `ways(1)` is 1 and `ways(2)` is 2.
+- Put `@cache` directly above `def ways`. Without it, `ways(90)` makes billions of calls.
+
+#### Tips
+- These are the Fibonacci numbers, shifted by one. A loop that keeps only the last two values also works, with no recursion and no cache.
+
+#### Docs
+- [`functools.cache`](https://docs.python.org/3/library/functools.html#functools.cache)
+
 ### 4. Single dispatch
 
-`to_text(value)` renders: numbers as-is via `str`, strings quoted with double quotes, lists as comma-separated rendered items in brackets, and dicts as `key: value` pairs in braces. Use `functools.singledispatch`.
+`to_text(value)` renders: numbers as-is via `str`, strings quoted with double quotes, lists as comma-separated rendered items in brackets, and dicts as `key: value` pairs in braces, with keys and values both rendered by `to_text`. Separate items and pairs with `", "`. Use `functools.singledispatch`.
 
 ```python starter
 from functools import singledispatch
@@ -232,3 +278,19 @@ def test_to_text():
     assert to_text([1, "a"]) == '[1, "a"]'
     assert to_text({"k": [1]}) == '{"k": [1]}'
 ```
+
+#### Uses
+- [Advanced patterns › `singledispatch`](#/advanced-patterns/singledispatch)
+- [Functions › `*args` and `**kwargs`](#/functions/args-and-kwargs)
+- [Dicts and sets › Iterating](#/dicts-sets/iterating)
+
+#### Hints
+- Register one function per type with `@to_text.register` and an annotated parameter (`value: str`), as in the article. Numbers need nothing new: the base function already handles them.
+- The list and dict versions call `to_text` on their contents, so nested values come out right.
+- `", ".join(...)` glues the rendered parts together; add the brackets or braces around the result with `+`.
+
+#### Tips
+- In an f-string a literal brace is written twice: `f"{{{inner}}}"` gives `{`, then `inner`, then `}`. Plain `+` is often easier to read.
+
+#### Docs
+- [`functools.singledispatch`](https://docs.python.org/3/library/functools.html#functools.singledispatch)

@@ -80,6 +80,19 @@ def test_pr():
     assert precision_at_k(got, want, 0) == 0.0
 ```
 
+#### Uses
+- [Evaluating retrieval › Retrieval metrics](#/evaluation/retrieval-metrics)
+
+#### Hints
+- Both count the hits in `retrieved[:k]`. `sum(r in relevant for r in top)` works because `True` counts as 1.
+- Precision divides by `k`, recall by `len(relevant)`. Check each divisor for 0 first.
+
+#### Tips
+- Precision divides by `k` even when fewer than `k` results came back. Missing results count against you.
+
+#### Docs
+- [Python docs: `sum()`](https://docs.python.org/3/library/functions.html#sum)
+
 ### 2. Mean reciprocal rank
 
 `mrr(rankings, relevant_sets)` takes parallel lists: for each question, an ordered list of retrieved ids and a set of relevant ids. Return the mean of `1 / rank` of the first relevant id per question, counting `0` for a question with no relevant hit. An empty input returns `0.0`.
@@ -97,6 +110,20 @@ def test_mrr():
     assert abs(mrr(r, s) - (0.5 + 1.0 + 0.0) / 3) < 1e-9
     assert mrr([], []) == 0.0
 ```
+
+#### Uses
+- [Evaluating retrieval › Retrieval metrics](#/evaluation/retrieval-metrics)
+
+#### Hints
+- For each question, find the first rank (starting at 1) whose id is in its relevant set. Its value is `1 / rank`, or 0 if there is none.
+- `zip(rankings, relevant_sets)` walks the pairs. Average the per-question values, checking for an empty input first.
+
+#### Tips
+- `enumerate(ranking, 1)` gives 1-based ranks directly, so there is no `+ 1` to forget.
+
+#### Docs
+- [Python docs: `zip()`](https://docs.python.org/3/library/functions.html#zip)
+- [Python docs: `enumerate()`](https://docs.python.org/3/library/functions.html#enumerate)
 
 ### 3. Check the citations
 
@@ -117,6 +144,19 @@ def test_bad_citations():
     assert bad_citations("none", 0) == []
 ```
 
+#### Uses
+- [Evaluating retrieval › Faithfulness](#/evaluation/faithfulness)
+
+#### Hints
+- Pull every `[n]` out with `re.findall(r"\[(\d+)\]", answer)` and convert each to `int`.
+- Keep the distinct numbers outside `1..n_sources`, then sort them.
+
+#### Tips
+- Sources are numbered from 1, so `[0]` is always invalid, however many sources there are.
+
+#### Docs
+- [Python docs: `re.findall`](https://docs.python.org/3/library/re.html#re.findall)
+
 ### 4. Waterfall
 
 `waterfall(trace)` takes a dict of stage name to milliseconds and returns a dict of stage name to its integer percentage of the total, rounded. An all-zero trace returns zero for every stage.
@@ -133,3 +173,17 @@ def test_waterfall():
     assert waterfall({"a": 0, "b": 0}) == {"a": 0, "b": 0}
     assert waterfall({"only": 5}) == {"only": 100}
 ```
+
+#### Uses
+- [Evaluating retrieval › Latency and cost](#/evaluation/latency-and-cost)
+
+#### Hints
+- Sum the values first. If the total is 0, every stage gets 0.
+- Otherwise each stage is `round(100 * ms / total)`. A dict comprehension keeps the keys in their original order.
+
+#### Tips
+- Rounded percentages don't always add up to 100: three equal stages give 33 each. Fine for a chart, not for a bill.
+
+#### Docs
+- [Python docs: `round()`](https://docs.python.org/3/library/functions.html#round)
+- [Python tutorial: Dictionaries](https://docs.python.org/3/tutorial/datastructures.html#dictionaries)

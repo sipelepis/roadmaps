@@ -124,6 +124,20 @@ def test_chunk_guard():
     assert chunk_text("x" * 50, 10, 3) != []
 ```
 
+#### Uses
+- [Chunking › The sliding window](#/chunking/the-sliding-window)
+
+#### Hints
+- Guard first: raise `ValueError` when `size <= overlap`, then strip the text.
+- Each window ends at `min(start + size, len(text))`. If that is not the end of the text, look for a space with `rfind` between `start + size // 2` and the end, and cut there if it lies past `start`.
+- After keeping the stripped piece, stop if you reached the end. Otherwise the next window starts at `max(end - overlap, start + 1)`.
+
+#### Tips
+- `rfind` returns `-1` when there is no space in range. `-1 > start` is false, so the window keeps its full width and cuts mid-word, which is the only way through a spaceless run.
+
+#### Docs
+- [Python docs: `str.rfind`](https://docs.python.org/3/library/stdtypes.html#str.rfind)
+
 ### 2. Measure the real overlap
 
 `shared_prefix(previous, current, limit)` returns the largest `n <= limit` such that `previous` ends with the first `n` characters of `current`, or `0`.
@@ -142,6 +156,20 @@ def test_shared_prefix():
     assert shared_prefix("", "abc", 3) == 0
 ```
 
+#### Uses
+- [Chunking › Measuring the overlap you actually got](#/chunking/measuring-the-overlap-you-actually-got)
+
+#### Hints
+- Try every `n` from the largest possible down to 1, and return the first one that fits.
+- The largest possible `n` is capped by `limit` and by the length of both strings.
+- One `n` fits when `previous.endswith(current[:n])`.
+
+#### Tips
+- Counting down means the first match is the largest, so you can return as soon as you find it.
+
+#### Docs
+- [Python docs: `str.endswith`](https://docs.python.org/3/library/stdtypes.html#str.endswith)
+
 ### 3. Pack paragraphs
 
 `chunk_paragraphs(text, size)` splits on blank lines and packs consecutive paragraphs, joined with `"\n\n"`, into chunks whose length does not exceed `size`. A paragraph longer than `size` on its own becomes its own chunk.
@@ -159,3 +187,18 @@ def test_paragraphs():
     assert chunk_paragraphs("one\n\ntwo\n\nthree", 100) == ["one\n\ntwo\n\nthree"]
     assert chunk_paragraphs("", 10) == []
 ```
+
+#### Uses
+- [Chunking › Paragraph-aware chunking](#/chunking/paragraph-aware-chunking)
+- [Cleaning extracted text › The usual suspects](#/cleaning/the-usual-suspects)
+
+#### Hints
+- Split on `"\n\n"`, strip each paragraph, and drop the empty ones.
+- Keep a `current` chunk. For each paragraph, work out how long `current` would be with `"\n\n"` and the paragraph added. If that exceeds `size`, emit `current` and start again from the paragraph.
+- Emit the last `current` after the loop, and don't put a separator in front of a chunk's first paragraph.
+
+#### Tips
+- An oversized paragraph needs no special case: it starts a fresh chunk, and nothing fits behind it.
+
+#### Docs
+- [Python docs: `str.split`](https://docs.python.org/3/library/stdtypes.html#str.split)

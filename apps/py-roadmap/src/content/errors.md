@@ -67,7 +67,7 @@ class PaymentError(Exception):
         self.code = code
 ```
 
-Subclass an existing type so callers can catch the general case. A module-level base exception (`class AppError(Exception)`) lets users of your library catch everything you raise in one clause.
+`class Name(Base): pass` is all a custom exception needs: a new type that behaves exactly like `Base` but has its own name. (The Classes module explains `class` fully.) Subclass an existing type so callers can catch the general case. A module-level base exception (`class AppError(Exception)`) lets users of your library catch everything you raise in one clause.
 
 ## Chaining
 
@@ -120,6 +120,20 @@ def test_default():
     assert safe_int(None, default=5) == 5
 ```
 
+#### Uses
+- [Errors and exceptions › `try` / `except`](#/errors/try-except)
+- [Errors and exceptions › Multiple handlers and the exception object](#/errors/multiple-handlers-and-the-exception-object)
+
+#### Hints
+- Put `return int(text)` inside a `try`, and return `default` from the `except`.
+- `int("abc")` raises `ValueError`, but `int(None)` raises `TypeError`. One `except` can catch both with a tuple.
+
+#### Tips
+- Don't widen it to `except Exception`. That would hide real bugs along with the bad input.
+
+#### Docs
+- [Python tutorial: Handling exceptions](https://docs.python.org/3/tutorial/errors.html#handling-exceptions)
+
 ### 2. Custom exception
 
 Define `InsufficientFunds` as a subclass of `ValueError`, and make `withdraw` raise it (with a helpful message) when `amount` exceeds `balance`.
@@ -144,6 +158,21 @@ def test_raises_custom():
     assert False, "expected InsufficientFunds"
 ```
 
+#### Uses
+- [Errors and exceptions › Custom exceptions](#/errors/custom-exceptions)
+- [Errors and exceptions › Raising](#/errors/raising)
+
+#### Hints
+- Define the exception above `withdraw`: `class InsufficientFunds(ValueError):` with `pass` as its body.
+- In `withdraw`, raise it with a message when `amount > balance`. Otherwise return the new balance.
+
+#### Tips
+- Because it subclasses `ValueError`, callers that already catch `ValueError` keep working.
+
+#### Docs
+- [Python tutorial: User-defined exceptions](https://docs.python.org/3/tutorial/errors.html#user-defined-exceptions)
+- [Python tutorial: Raising exceptions](https://docs.python.org/3/tutorial/errors.html#raising-exceptions)
+
 ### 3. Collect errors
 
 `parse_all(texts)` converts every string to an int and returns `(values, errors)`: the successfully parsed values, and a list of the inputs that failed. One bad input must not stop the rest.
@@ -158,6 +187,22 @@ def test_parse_all():
     """separates good and bad inputs"""
     assert parse_all(["1", "x", "3", ""]) == ([1, 3], ["x", ""])
 ```
+
+#### Uses
+- [Errors and exceptions › `try` / `except`](#/errors/try-except)
+- [Control flow › `for` iterates over things](#/control-flow/for-iterates-over-things)
+- [Functions › Returning multiple values](#/functions/returning-multiple-values)
+
+#### Hints
+- Start two empty lists, then loop over the inputs.
+- Put the `try` inside the loop, around the single conversion, so a failure only affects that one input.
+- Append to the values list on success and to the errors list in the `except`, then return both.
+
+#### Tips
+- `int(" 7 ")` is `7`: `int` ignores surrounding whitespace, so padded numbers aren't errors.
+
+#### Docs
+- [Python tutorial: Handling exceptions](https://docs.python.org/3/tutorial/errors.html#handling-exceptions)
 
 ### 4. Retry
 
@@ -194,3 +239,19 @@ def test_retry_gives_up():
         return
     assert False, "expected ValueError"
 ```
+
+#### Uses
+- [Errors and exceptions › Multiple handlers and the exception object](#/errors/multiple-handlers-and-the-exception-object)
+- [Errors and exceptions › The hierarchy](#/errors/the-hierarchy)
+- [Control flow › `for` iterates over things](#/control-flow/for-iterates-over-things)
+
+#### Hints
+- Loop `times` times with `range`, and `return fn()` inside a `try`. The first call that succeeds ends the function.
+- `fn` could raise anything, so this is one place where `except Exception` is the right catch.
+- On the last attempt, don't swallow the error: a bare `raise` inside the `except` re-raises it.
+
+#### Tips
+- The name in `except ... as e` is deleted when the block ends. To use the exception after the loop, copy it to another variable first.
+
+#### Docs
+- [Python tutorial: Handling exceptions](https://docs.python.org/3/tutorial/errors.html#handling-exceptions)

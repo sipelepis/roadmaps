@@ -2,6 +2,8 @@
 
 There is no separate vector database in a small RAG system, and there does not need to be one. The `vector` extension adds a column type and a set of distance operators to Postgres, and that is the whole of the infrastructure: chunks sit in a normal table, next to normal columns, covered by normal transactions and normal backups.
 
+## The schema
+
 ```sql
 CREATE EXTENSION IF NOT EXISTS vector;
 
@@ -117,6 +119,23 @@ def test_store():
     assert s.search([1, 0], 10) and len(s.search([1, 0], 10)) == 3
 ```
 
+#### Uses
+- [Storing vectors › The schema](#/vector-store/the-schema)
+- [Storing vectors › The search is one operator](#/vector-store/the-search-is-one-operator)
+- [Embeddings › Measuring nearness](#/embeddings/measuring-nearness)
+
+#### Hints
+- In `__init__`, keep `dims` and an empty list of `(chunk_id, vector)` pairs. `__len__` returns the length of that list.
+- `add` compares `len(vector)` with `self.dims` and raises before appending.
+- `search` scores every stored vector with `cosine`, sorts by score from high to low, and slices to `k`.
+
+#### Tips
+- Slicing past the end is safe: `[:10]` on three items gives three.
+
+#### Docs
+- [Python docs: `object.__len__`](https://docs.python.org/3/reference/datamodel.html#object.__len__)
+- [Python docs: `sorted()`](https://docs.python.org/3/library/functions.html#sorted)
+
 ### 2. Cascade the delete
 
 `delete_document(rows, document_id)` returns the rows that remain after every chunk of `document_id` is removed, in the original order.
@@ -133,6 +152,19 @@ def test_cascade():
     assert delete_document(rows, 1) == [{"id": 2, "document_id": 2}]
     assert delete_document(rows, 9) == rows
 ```
+
+#### Uses
+- [Storing vectors › The schema](#/vector-store/the-schema)
+
+#### Hints
+- Keep the rows whose `document_id` is not the one being deleted.
+- A list comprehension keeps the order and returns a new list.
+
+#### Tips
+- Build a new list rather than removing from `rows` while looping over it. Removing during iteration skips the element after each one you remove.
+
+#### Docs
+- [PostgreSQL: Foreign keys and `ON DELETE CASCADE`](https://www.postgresql.org/docs/current/ddl-constraints.html#DDL-CONSTRAINTS-FK)
 
 ### 3. Distance and score
 
@@ -153,3 +185,16 @@ def test_score():
     assert abs(to_score(0.35) - 0.65) < 1e-9
     assert abs(to_distance(to_score(0.42)) - 0.42) < 1e-9
 ```
+
+#### Uses
+- [Storing vectors › The search is one operator](#/vector-store/the-search-is-one-operator)
+
+#### Hints
+- The article gives the conversion: the score a console shows is `1 - distance`.
+- The reverse is the same subtraction the other way round.
+
+#### Tips
+- Floats don't always round-trip exactly, which is why the tests compare with a tolerance instead of `==`.
+
+#### Docs
+- [pgvector README: distance operators](https://github.com/pgvector/pgvector)

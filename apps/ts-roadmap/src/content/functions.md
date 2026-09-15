@@ -109,6 +109,21 @@ type _1 = Expect<Equal<Parameters<typeof applyTwice>, [fn: (n: number) => number
 type _2 = Expect<Equal<ReturnType<typeof applyTwice>, number>>
 ```
 
+#### Uses
+- [Functions › Function types](#/functions/function-types)
+- [Functions › Parameters and return types](#/functions/parameters-and-return-types)
+
+#### Hints
+- `fn` takes a number and returns a number. Write its type with the arrow syntax from the Function types section.
+- Annotate `value` and the return type as `number` too.
+- Call `fn` on `value`, then pass that result straight into `fn` again.
+
+#### Tips
+- The parameter name inside a function type is documentation only. `(x: number) => number` is the same type as `(n: number) => number`.
+
+#### Docs
+- [More on Functions: Function type expressions](https://www.typescriptlang.org/docs/handbook/2/functions.html#function-type-expressions)
+
 ### 2. Optional last name
 
 `fullName` takes a required first name and an optional last name. It returns `"First Last"` when both are given and just `"First"` otherwise.
@@ -130,6 +145,19 @@ test('last name is optional', () => {
 type _1 = Expect<Equal<Parameters<typeof fullName>, [first: string, last?: string | undefined]>>
 ```
 
+#### Uses
+- [Functions › Optional and default parameters](#/functions/optional-and-default-parameters)
+
+#### Hints
+- A `?` after a parameter name makes it optional for callers.
+- Inside the body `last` is `string | undefined`. Check it, and return just `first` when it's missing.
+
+#### Tips
+- Optional parameters must come after the required ones.
+
+#### Docs
+- [More on Functions: Optional parameters](https://www.typescriptlang.org/docs/handbook/2/functions.html#optional-parameters)
+
 ### 3. Average of any number of values
 
 Implement `average` with a rest parameter. The average of no numbers is `0`.
@@ -150,3 +178,16 @@ test('no values is zero', () => {
 
 type _1 = Expect<Equal<Parameters<typeof average>, number[]>>
 ```
+
+#### Uses
+- [Functions › Rest parameters](#/functions/rest-parameters)
+
+#### Hints
+- Add a rest parameter, `...nums: number[]`. Inside the body `nums` is an ordinary array.
+- Handle the empty case first (`nums.length === 0`), then divide the sum by `nums.length`. `reduce` starting from `0` gives the sum.
+
+#### Tips
+- Without the empty check you'd compute `0 / 0`, which is `NaN`, not `0`.
+
+#### Docs
+- [More on Functions: Rest parameters](https://www.typescriptlang.org/docs/handbook/2/functions.html#rest-parameters)

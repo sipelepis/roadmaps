@@ -87,6 +87,20 @@ def test_prompt():
     assert build_prompt("Q?", []) == "\n\nQuestion: Q?"
 ```
 
+#### Uses
+- [Grounded prompts › The f-string that is "augmented generation"](#/prompting/the-f-string-that-is-augmented-generation)
+
+#### Hints
+- Number the sources with `enumerate(sources, 1)` and format each as `[i] (filename) text`.
+- Join those with `"\n\n"`, then add two newlines, `Question: ` and the question.
+
+#### Tips
+- With no sources the context is `""`, so the prompt starts with two newlines. The short-circuit in exercise 4 keeps that prompt from ever reaching a model.
+
+#### Docs
+- [Python tutorial: Formatted string literals](https://docs.python.org/3/tutorial/inputoutput.html#formatted-string-literals)
+- [Python docs: `enumerate()`](https://docs.python.org/3/library/functions.html#enumerate)
+
 ### 2. Parse citations
 
 `parse_citations(answer)` returns the sorted list of distinct source numbers cited as `[n]` in the answer.
@@ -105,6 +119,19 @@ def test_citations():
     assert parse_citations("No sources.") == []
     assert parse_citations("[10] beats [9]") == [9, 10]
 ```
+
+#### Uses
+- [Grounded prompts › Citations are not decoration](#/prompting/citations-are-not-decoration)
+
+#### Hints
+- `re.findall(r"\[(\d+)\]", answer)` returns the numbers inside the brackets, as strings.
+- Convert them to `int`, remove duplicates with a `set`, and sort.
+
+#### Tips
+- Convert before sorting. As strings, `"10"` sorts before `"9"`.
+
+#### Docs
+- [Python docs: `re.findall`](https://docs.python.org/3/library/re.html#re.findall)
 
 ### 3. Fit the budget
 
@@ -125,9 +152,22 @@ def test_fit():
     assert fit_sources([], 10) == []
 ```
 
+#### Uses
+- [Grounded prompts › Fitting the budget](#/prompting/fitting-the-budget)
+
+#### Hints
+- Walk the sources in order, keeping a running total of `len(s["text"])`.
+- As soon as the next source would push the total past `budget_chars`, stop, and return the sources before it.
+
+#### Tips
+- Stop at the first source that doesn't fit, even if a shorter one further down would. You drop from the bottom of the ranking, you don't skip around in it.
+
+#### Docs
+- [Python tutorial: `break` and `continue`](https://docs.python.org/3/tutorial/controlflow.html#break-and-continue-statements)
+
 ### 4. Answer or refuse
 
-`answer(question, sources, call)` returns the fixed string `"Nothing indexed yet — upload a document first."` when there are no sources, and otherwise returns `call(build_prompt(question, sources))`. Reuse your `build_prompt`.
+`answer(question, sources, call)` returns the fixed string `"Nothing indexed yet — upload a document first."` when there are no sources, and otherwise returns `call(build_prompt(question, sources))`. `build_prompt` is provided.
 
 ```python starter
 def build_prompt(question, sources):
@@ -150,3 +190,16 @@ def test_answer():
     assert answer("Q?", [{"filename": "f", "text": "t"}], fake_model) == "ok [1]"
     assert seen == ["[1] (f) t\n\nQuestion: Q?"]
 ```
+
+#### Uses
+- [Grounded prompts › The short-circuit](#/prompting/the-short-circuit)
+
+#### Hints
+- Check `if not sources:` first, and return the fixed string without touching `call`.
+- Otherwise build the prompt and return whatever `call` gives back for it.
+
+#### Tips
+- Copy the message exactly, em dash `—` included. The test compares the strings character by character.
+
+#### Docs
+- [Python docs: Truth value testing](https://docs.python.org/3/library/stdtypes.html#truth-value-testing)

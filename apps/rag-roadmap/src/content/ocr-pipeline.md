@@ -104,9 +104,25 @@ def test_extract_clean():
     assert clean("re-\nceipt  here ﬁne") == "receipt here fine"
 ```
 
+#### Uses
+- [OCR: pages as pictures › When to run it](#/ocr/when-to-run-it)
+- [Cleaning extracted text › The usual suspects](#/cleaning/the-usual-suspects)
+- [Build the OCR → RAG pipeline › Order of operations](#/ocr-pipeline/order-of-operations)
+
+#### Hints
+- `extract` is the fallback from the OCR module: enumerate the pages and call `ocr(i)` only when `(p or "").strip()` is empty.
+- `clean` is three steps in order: NFKC with `unicodedata.normalize`, `re.sub` to join `-\n` between word characters, then another `re.sub` for runs of spaces and tabs, and a final strip.
+
+#### Tips
+- Collapse `[ \t]+`, not `\s+`. `\s` matches newlines too, and would flatten the paragraph breaks chunkers rely on.
+
+#### Docs
+- [Python docs: `unicodedata.normalize`](https://docs.python.org/3/library/unicodedata.html#unicodedata.normalize)
+- [Python docs: `re.sub`](https://docs.python.org/3/library/re.html#re.sub)
+
 ### 2. Ingest
 
-`ingest(filename, pages, ocr, size=80, overlap=20)` runs extract, joins the pages with `"\n"`, cleans, chunks with the provided `chunk_text`, and returns a list of dicts with `filename`, `ordinal`, `text` and `vector` (from the provided `embed`). Reuse your `extract` and `clean`.
+`ingest(filename, pages, ocr, size=80, overlap=20)` runs extract, joins the pages with `"\n"`, cleans, chunks with the provided `chunk_text`, and returns a list of dicts with `filename`, `ordinal`, `text` and `vector` (from the provided `embed`). Fill in `extract` and `clean` again, as in exercise 1.
 
 ```python starter
 import math, re, unicodedata, zlib
@@ -159,6 +175,23 @@ def test_ingest():
     assert "warranty" in joined
 ```
 
+#### Uses
+- [Build the OCR → RAG pipeline › Order of operations](#/ocr-pipeline/order-of-operations)
+- [Structure & metadata › Filename and ordinal](#/metadata/filename-and-ordinal)
+- [Chunking › The sliding window](#/chunking/the-sliding-window)
+- [Embeddings › A toy you can run offline](#/embeddings/a-toy-you-can-run-offline)
+
+#### Hints
+- Copy your `extract` and `clean` from exercise 1. The rest is plumbing.
+- Chain them in the article's order: extract, join with `"\n"`, clean, then `chunk_text` with `size` and `overlap`.
+- `enumerate` the chunks to build the dicts, with `vector` set to `embed` of the chunk's text.
+
+#### Tips
+- Clean before chunking. Chunk first and `re-` and `ceipt` can land in different chunks, where no regex will ever join them.
+
+#### Docs
+- [Python docs: `enumerate()`](https://docs.python.org/3/library/functions.html#enumerate)
+
 ### 3. Ask
 
 `ask(question, chunks, k=2)` embeds the question with the same `embed`, picks the `k` most similar chunks by cosine, and returns a dict with `sources` (those chunks, each with a `score` added, highest first) and `prompt` (numbered from 1, `[n] (filename) text`, joined by blank lines, then a blank line and `Question: …`).
@@ -195,3 +228,20 @@ def test_ask():
     assert out["prompt"].endswith("\n\nQuestion: how long is the warranty period")
     assert ask("receipt", chunks, k=1)["sources"][0]["ordinal"] == 1
 ```
+
+#### Uses
+- [Build the OCR → RAG pipeline › Order of operations](#/ocr-pipeline/order-of-operations)
+- [Retrieval › Choosing k](#/retrieval/choosing-k)
+- [Grounded prompts › The f-string that is "augmented generation"](#/prompting/the-f-string-that-is-augmented-generation)
+
+#### Hints
+- Embed the question once, then score each chunk with `cosine` against its `vector`, making a copy that carries the `score`.
+- Sort the copies by score from high to low and keep the first `k`. Those are the `sources`.
+- Build the prompt exactly like `build_prompt` in the prompting module: numbered from 1 with `enumerate`, joined with blank lines, then the question.
+
+#### Tips
+- Embed the question with the same function as the chunks. Any other function still returns results, just the wrong ones, with no error.
+
+#### Docs
+- [Python docs: `sorted()`](https://docs.python.org/3/library/functions.html#sorted)
+- [Python tutorial: Formatted string literals](https://docs.python.org/3/tutorial/inputoutput.html#formatted-string-literals)

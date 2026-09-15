@@ -90,6 +90,20 @@ def test_odd_squares():
     assert odd_squares([2, 4]) == []
 ```
 
+#### Uses
+- [Comprehensions › List comprehensions](#/comprehensions/list-comprehensions)
+- [Variables and types › Numbers](#/variables-types/numbers)
+
+#### Hints
+- Filter with an `if` after the `for`, and put the transformation in the expression before it.
+- `n % 2 == 1` picks out odd numbers; `n * n` squares one.
+
+#### Tips
+- `n % 2 == 1` holds for negative odd numbers too: `%` takes the sign of the divisor, so `-3 % 2` is `1`.
+
+#### Docs
+- [Python tutorial: List comprehensions](https://docs.python.org/3/tutorial/datastructures.html#list-comprehensions)
+
 ### 2. Index by key
 
 `index_by(items, key)` returns a dict mapping `item[key]` to the item, using a dict comprehension. Later items with the same key win.
@@ -105,6 +119,20 @@ def test_index():
     users = [{"id": 1, "name": "Ada"}, {"id": 2, "name": "Bob"}]
     assert index_by(users, "id") == {1: users[0], 2: users[1]}
 ```
+
+#### Uses
+- [Comprehensions › Dict and set comprehensions](#/comprehensions/dict-and-set-comprehensions)
+- [Dicts and sets › Dict basics](#/dicts-sets/dict-basics)
+
+#### Hints
+- A dict comprehension has the shape `{key_expr: value_expr for item in items}`.
+- The key is `item[key]` and the value is the whole `item`. A repeated key overwrites the earlier entry, so later items win without extra work.
+
+#### Tips
+- `key` here is a field name, not a function. `item[key]` looks that field up in each dict.
+
+#### Docs
+- [Python tutorial: Dictionaries](https://docs.python.org/3/tutorial/datastructures.html#dictionaries)
 
 ### 3. Flatten
 
@@ -122,6 +150,19 @@ def test_flatten():
     assert flatten([]) == []
 ```
 
+#### Uses
+- [Comprehensions › Nested data](#/comprehensions/nested-data)
+
+#### Hints
+- Picture it as two nested `for` loops: for each inner list, for each item in it, keep the item.
+- A comprehension lists those `for` clauses in the same order, outer first and inner second.
+
+#### Tips
+- Empty inner lists contribute nothing, so they need no special case.
+
+#### Docs
+- [Python tutorial: List comprehensions](https://docs.python.org/3/tutorial/datastructures.html#list-comprehensions)
+
 ### 4. Transpose
 
 Return the transpose of a rectangular matrix (list of lists).
@@ -136,3 +177,16 @@ def test_transpose():
     """swaps rows and columns"""
     assert transpose([[1, 2, 3], [4, 5, 6]]) == [[1, 4], [2, 5], [3, 6]]
 ```
+
+#### Uses
+- [Comprehensions › Nested data](#/comprehensions/nested-data)
+
+#### Hints
+- Row `i` of the result is column `i` of the input: `[row[i] for row in matrix]`.
+- Wrap that in an outer comprehension over every column index. The number of columns is `len(matrix[0])`.
+
+#### Tips
+- `zip(*matrix)` also transposes, giving tuples: `[list(col) for col in zip(*matrix)]`.
+
+#### Docs
+- [Python tutorial: Nested list comprehensions](https://docs.python.org/3/tutorial/datastructures.html#nested-list-comprehensions)

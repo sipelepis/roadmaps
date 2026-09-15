@@ -66,6 +66,20 @@ def test_decode():
     assert decode_bytes(b"") == ""
 ```
 
+#### Uses
+- [Documents to text › Where this fails, and it does fail](#/documents/where-this-fails-and-it-does-fail)
+
+#### Hints
+- `bytes` has a `.decode()` method that takes the encoding name.
+- Its `errors` argument decides what happens to invalid bytes. The default raises; you want the one that substitutes `�`.
+
+#### Tips
+- `errors="ignore"` also avoids the crash, but it silently deletes characters. `"replace"` leaves a visible mark where the damage was.
+
+#### Docs
+- [Python docs: `bytes.decode`](https://docs.python.org/3/library/stdtypes.html#bytes.decode)
+- [Python docs: Error handlers](https://docs.python.org/3/library/codecs.html#error-handlers)
+
 ### 2. Join the pages
 
 `extract_text(pages)` takes what a PDF parser returns per page, a string or `None`, and joins them with newlines. `None` becomes an empty string so page count is preserved.
@@ -82,6 +96,19 @@ def test_extract():
     assert extract_text([None, None]) == "\n"
     assert extract_text([]) == ""
 ```
+
+#### Uses
+- [Documents to text › The text layer](#/documents/the-text-layer)
+
+#### Hints
+- `"\n".join(...)` joins a list of strings, but it fails on `None`.
+- Turn each page into a string first: `p or ""` gives `""` for `None`.
+
+#### Tips
+- Don't drop the `None` pages. Keeping one entry per page is what lets you map text back to page numbers later.
+
+#### Docs
+- [Python docs: `str.join`](https://docs.python.org/3/library/stdtypes.html#str.join)
 
 ### 3. Is there a text layer?
 
@@ -100,6 +127,18 @@ def test_text_layer():
     assert has_text_layer([]) is False
     assert has_text_layer(["\n\n"]) is False
 ```
+
+#### Uses
+- [Documents to text › The text layer](#/documents/the-text-layer)
+
+#### Hints
+- `.strip()` of a whitespace-only string is `""`, which is falsy.
+- `None` has no `.strip()`, so write `(p or "").strip()`.
+- `any(...)` over the pages is `False` for an empty list, which is what the last case wants.
+
+#### Docs
+- [Python docs: `str.strip`](https://docs.python.org/3/library/stdtypes.html#str.strip)
+- [Python docs: `any()`](https://docs.python.org/3/library/functions.html#any)
 
 ### 4. Check the upload
 
@@ -123,3 +162,15 @@ def test_check_upload():
     else:
         raise AssertionError("oversize upload must raise ValueError")
 ```
+
+#### Uses
+- [Documents to text › Caps](#/documents/caps)
+
+#### Hints
+- Check the size first and `raise ValueError(...)` before looking at the name.
+- "Exceeds" means strictly greater: a file of exactly `max_bytes` is allowed.
+- Lowercase the name before calling `.endswith(".pdf")`, so `Contract.PDF` counts.
+
+#### Docs
+- [Python docs: `str.endswith`](https://docs.python.org/3/library/stdtypes.html#str.endswith)
+- [Python docs: `ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)

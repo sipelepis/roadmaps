@@ -98,6 +98,20 @@ test('is a string enum', () => {
 })
 ```
 
+#### Uses
+- [Enums › String enums](#/enums/string-enums)
+
+#### Hints
+- Declare `enum LogLevel { Debug = 'debug', … }`, one member per level.
+- The string values don't sort by severity (`'error' < 'warn'` alphabetically), so spell the order out: put the four members in an array from least to most severe.
+- Compare positions: `level` passes when its `indexOf` in that array is at least the index of `min`.
+
+#### Tips
+- For a string enum, `Object.values(LogLevel)` returns the values in declaration order. Numeric enums also include the reverse-mapped names, so don't rely on it there.
+
+#### Docs
+- [Enums: String enums](https://www.typescriptlang.org/docs/handbook/enums.html#string-enums)
+
 ### 2. Reverse mapping
 
 Given a numeric enum, implement `colorName` returning the member name for a value, e.g. `colorName(Color.Blue)` is `'Blue'`.
@@ -119,3 +133,16 @@ test('members are numbers', () => {
   expect(Color.Green).toBe(1)
 })
 ```
+
+#### Uses
+- [Enums › Numeric enums](#/enums/numeric-enums)
+
+#### Hints
+- Numeric enums get a reverse mapping: the enum object also maps each value back to its name.
+- The article's `Direction[2]` returns `'Left'`. Index `Color` the same way, with `c`.
+
+#### Tips
+- String enums have no reverse mapping, so this only works for numeric ones.
+
+#### Docs
+- [Enums: Reverse mappings](https://www.typescriptlang.org/docs/handbook/enums.html#reverse-mappings)

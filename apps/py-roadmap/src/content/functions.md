@@ -73,9 +73,15 @@ def apply(fn, value):
 
 apply(len, "abc")           # 3
 apply(lambda x: x * 2, 4)   # 8
+
+def make_multiplier(n):
+    return lambda x: x * n  # a new function that remembers n
+
+triple = make_multiplier(3)
+triple(5)                   # 15
 ```
 
-`lambda` creates a small anonymous function for one expression. Anything longer deserves a `def`.
+`lambda` creates a small anonymous function for one expression. Anything longer deserves a `def`. A function can also build and return another function, and the returned one still sees the outer function's parameters. Closures & decorators explains how.
 
 ## Returning multiple values
 
@@ -130,6 +136,21 @@ def test_keyword_only():
     assert False, "expected TypeError"
 ```
 
+#### Uses
+- [Functions › Defining and calling](#/functions/defining-and-calling)
+- [Functions › Keyword-only and positional-only](#/functions/keyword-only-and-positional-only)
+
+#### Hints
+- Add `greeting="Hello"` as a second parameter with a default.
+- A bare `*` in the parameter list makes everything after it keyword-only. Put `punctuation="!"` there.
+
+#### Tips
+- Keyword-only options keep call sites readable: `greet("Ada", punctuation="?")` says what the `"?"` is for.
+
+#### Docs
+- [Python tutorial: Default argument values](https://docs.python.org/3/tutorial/controlflow.html#default-argument-values)
+- [Python tutorial: Keyword-only arguments](https://docs.python.org/3/tutorial/controlflow.html#keyword-only-arguments)
+
 ### 2. Variadic average
 
 `average(*values)` returns the mean of any number of values, and `None` when called with no arguments.
@@ -149,6 +170,21 @@ def test_none_for_empty():
     """None with no arguments"""
     assert average() is None
 ```
+
+#### Uses
+- [Functions › `*args` and `**kwargs`](#/functions/args-and-kwargs)
+- [Control flow › `if` / `elif` / `else`](#/control-flow/if-elif-else)
+
+#### Hints
+- Change the signature to `average(*values)`. Inside the function, `values` is a tuple.
+- An empty tuple is falsy, so `if not values:` catches the no-argument call.
+- `sum(values) / len(values)` gives the mean.
+
+#### Tips
+- Return `None` explicitly for the empty case. Falling off the end also returns `None`, but saying it reads better.
+
+#### Docs
+- [Python tutorial: Arbitrary argument lists](https://docs.python.org/3/tutorial/controlflow.html#arbitrary-argument-lists)
 
 ### 3. Fix the shared default
 
@@ -173,6 +209,20 @@ def test_explicit_target():
     assert lst == [0, 1]
 ```
 
+#### Uses
+- [Functions › Mutable default arguments](#/functions/mutable-default-arguments)
+
+#### Hints
+- The default `[]` is created once, when `def` runs, and every call shares it.
+- Use `None` as the default and make a fresh list inside the function when `target is None`.
+
+#### Tips
+- Test `is None`, not truthiness. `if not target:` would also swap a caller's empty list for a new one, so their list would never see the append.
+
+#### Docs
+- [Python tutorial: Default argument values](https://docs.python.org/3/tutorial/controlflow.html#default-argument-values)
+- [Python FAQ: Why are default values shared between objects?](https://docs.python.org/3/faq/programming.html#why-are-default-values-shared-between-objects)
+
 ### 4. Compose
 
 `compose(f, g)` returns a new function that applies `g` first, then `f`.
@@ -190,3 +240,16 @@ def test_compose():
     assert compose(inc, double)(5) == 11
     assert compose(double, inc)(5) == 12
 ```
+
+#### Uses
+- [Functions › Functions are values](#/functions/functions-are-values)
+
+#### Hints
+- `compose` doesn't call `f` or `g` itself. It returns a new function.
+- That new function takes one argument `x` and returns `f(g(x))`. A `lambda` is enough.
+
+#### Tips
+- A nested `def` inside `compose` works too, and gets a real name in tracebacks.
+
+#### Docs
+- [Python tutorial: Lambda expressions](https://docs.python.org/3/tutorial/controlflow.html#lambda-expressions)

@@ -52,6 +52,8 @@ class Circle:
         self._radius = value
 ```
 
+The assignment in `__init__` (`self.radius = radius`) goes through the setter too, so the check covers construction as well as later changes. A property with no setter is read-only: `Circle(1).area = 5` raises `AttributeError`. And `raise ValueError(...)` stops the setter with an error, which is how it rejects a bad value.
+
 Start with a plain attribute. Add a property only when you need the logic; users won't notice the change.
 
 ## Class and static methods
@@ -91,7 +93,21 @@ Python supports multiple inheritance; keep hierarchies shallow and prefer compos
 
 ## Equality
 
-By default `==` compares identity. Define `__eq__` (and `__hash__` if instances go in sets or dict keys) to compare by value. Dataclasses, a later module, generate these for you.
+By default `==` compares identity. Define `__eq__` (and `__hash__` if instances go in sets or dict keys) to compare by value:
+
+```python
+class Coin:
+    def __init__(self, value):
+        self.value = value
+
+    def __eq__(self, other):             # called for coin == other
+        return self.value == other.value
+
+Coin(5) == Coin(5)    # True
+Coin(5) != Coin(1)    # True, != uses __eq__ and flips the answer
+```
+
+Dataclasses, a later module, generate these for you.
 
 ```python playground
 class Stack:
@@ -152,6 +168,22 @@ def test_read_only():
     assert False, "expected AttributeError"
 ```
 
+#### Uses
+- [Classes › Defining a class](#/classes/defining-a-class)
+- [Classes › Properties](#/classes/properties)
+- [Functions › Defining and calling](#/functions/defining-and-calling)
+
+#### Hints
+- `__init__(self, start=0)` stores the count on the instance. Use a name like `_value`, since `value` will be the property.
+- `increment` adds one to that attribute and ends with `return self`, which is what lets the calls chain.
+- Put `@property` on a `value` method that returns the stored count, and give it no setter.
+
+#### Tips
+- The leading underscore in `_value` tells readers "internal". The property is the public way in.
+
+#### Docs
+- [Built-in functions: `property`](https://docs.python.org/3/library/functions.html#property)
+
 ### 2. Validated property
 
 `Rectangle(width, height)` with an `area` property. Assigning a negative or zero width or height raises `ValueError`, both in `__init__` and later.
@@ -185,9 +217,26 @@ def test_validation():
     assert False, "expected ValueError"
 ```
 
+#### Uses
+- [Classes › Properties](#/classes/properties)
+- [Classes › Defining a class](#/classes/defining-a-class)
+
+#### Hints
+- Give `width` and `height` each a `@property` getter and a matching `@width.setter` / `@height.setter`, like `radius` in the article.
+- Each setter checks the value, raises `ValueError` when it's `<= 0`, and otherwise stores it on an underscore attribute (`self._width`).
+- In `__init__`, assign `self.width = width`, not `self._width`, so construction goes through the setter. `area` is a read-only property that multiplies the two.
+
+#### Tips
+- Storing the real value under a different name matters: a setter that does `self.width = value` calls itself forever.
+
+#### Docs
+- [Built-in functions: `property`](https://docs.python.org/3/library/functions.html#property)
+
 ### 3. Alternative constructor
 
-Give `Point` a `from_string` classmethod that parses `"3,4"` into `Point(3, 4)`, and a `distance_to` method. Points with the same coordinates should compare equal.
+Give `Point` a `from_string` classmethod that parses `"3,4"` into `Point(3, 4)`, and a `distance_to` method that returns the straight-line distance. Points with the same coordinates should compare equal.
+
+To take the text apart, `"3,4".split(",")` gives the list `["3", "4"]`.
 
 ```python starter
 class Point:
@@ -208,6 +257,24 @@ def test_distance_and_eq():
     assert Point(1, 2) == Point(1, 2)
     assert Point(1, 2) != Point(2, 1)
 ```
+
+#### Uses
+- [Classes › Class and static methods](#/classes/class-and-static-methods)
+- [Classes › Equality](#/classes/equality)
+- [Variables and types › Conversions](#/variables-types/conversions)
+- [Variables and types › Numbers](#/variables-types/numbers)
+
+#### Hints
+- In `from_string(cls, text)`, split on the comma, unpack into two names, convert each with `int()`, and `return cls(x, y)`.
+- The distance is the square root of `dx ** 2 + dy ** 2`. Raising to the power `0.5` takes a square root.
+- `__eq__(self, other)` returns `True` when both `x` and `y` match. `!=` then works on its own.
+
+#### Tips
+- Return `cls(...)`, not `Point(...)`, so a subclass calling `from_string` gets an instance of the subclass.
+
+#### Docs
+- [Built-in functions: `classmethod`](https://docs.python.org/3/library/functions.html#classmethod)
+- [Data model: `__eq__` and other rich comparisons](https://docs.python.org/3/reference/datamodel.html#object.__eq__)
 
 ### 4. Inheritance
 
@@ -237,3 +304,20 @@ def test_circle():
     assert Circle(1).describe() == "circle with area 3.14"
     assert isinstance(Circle(1), Shape)
 ```
+
+#### Uses
+- [Classes › Inheritance](#/classes/inheritance)
+- [Classes › Defining a class](#/classes/defining-a-class)
+- [Variables and types › Numbers](#/variables-types/numbers)
+
+#### Hints
+- `describe` belongs on `Shape` and works for every subclass: build the string from `self.name` and `self.area()` with an f-string.
+- Each subclass sets its own class attribute `name`, stores its size in `__init__`, and overrides `area()`.
+- `round(value, 2)` rounds to two decimals. A circle's area is `math.pi * radius ** 2`.
+
+#### Tips
+- `round(9, 2)` stays the int `9`, which is why the square reads `"area 9"` and not `"area 9.0"`.
+
+#### Docs
+- [Python tutorial: Inheritance](https://docs.python.org/3/tutorial/classes.html#inheritance)
+- [Built-in functions: `round`](https://docs.python.org/3/library/functions.html#round)

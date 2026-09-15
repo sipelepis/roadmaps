@@ -153,6 +153,21 @@ test('validates', () => {
 send('ada@x.io')
 ```
 
+#### Uses
+- [Advanced patterns › Branded types](#/advanced-patterns/branded-types)
+- [Unions, literals, and intersections › Intersections](#/unions/intersections)
+
+#### Hints
+- Redefine `Email` as `string` intersected with an object type holding a readonly `__brand` property, just like `UserId` in the article.
+- In `toEmail`, check the input with `raw.includes('@')` and throw an `Error` when it fails.
+- A plain string still isn't an `Email`, so the last step is the cast: `return raw as Email`.
+
+#### Tips
+- Keep the `as Email` cast inside `toEmail` and nowhere else. If every `Email` comes through that function, every `Email` has been validated.
+
+#### Docs
+- [Everyday Types: Type Assertions](https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#type-assertions)
+
 ### 2. `Result`
 
 Implement `safeDivide` returning a `Result<number, string>`: an error `'division by zero'` when `b` is `0`, otherwise the quotient. Then implement `unwrapOr`.
@@ -180,6 +195,20 @@ test('unwraps with a fallback', () => {
 })
 ```
 
+#### Uses
+- [Advanced patterns › `Result` instead of exceptions](#/advanced-patterns/result-instead-of-exceptions)
+- [Narrowing › Discriminated unions](#/narrowing/discriminated-unions)
+
+#### Hints
+- `safeDivide` returns one of two object literals: `{ ok: false, error: … }` when `b` is `0`, `{ ok: true, value: … }` otherwise.
+- In `unwrapOr`, check `r.ok`. When it is `true`, TypeScript knows `r.value` exists; otherwise return `fallback`.
+
+#### Tips
+- Try reading `r.value` before checking `r.ok`. The compiler refuses, and that refusal is the whole point of `Result`.
+
+#### Docs
+- [Narrowing: Discriminated unions](https://www.typescriptlang.org/docs/handbook/2/narrowing.html#discriminated-unions)
+
 ### 3. Assertion function
 
 Write `assertDefined` as an assertion function so that after calling it a `T | null | undefined` value is usable as `T`. Throw when the value is `null` or `undefined`.
@@ -201,6 +230,22 @@ test('narrows afterwards', () => {
   expect(maybe.toUpperCase()).toBe('HELLO')   // compiles only if narrowed to string
 })
 ```
+
+#### Uses
+- [Advanced patterns › Assertion functions](#/advanced-patterns/assertion-functions)
+- [Utility types › Union transformers](#/utility-types/union-transformers)
+- [Narrowing › Truthiness and equality](#/narrowing/truthiness-and-equality)
+
+#### Hints
+- Make it generic, `<T>(value: T)`, and give it the return type `asserts value is NonNullable<T>`.
+- `value == null` is true for both `null` and `undefined`. Throw in that case and do nothing otherwise.
+
+#### Tips
+- Use `== null`, not a falsy check. `assertDefined(0)` and `assertDefined('')` should pass.
+
+#### Docs
+- [Narrowing: Assertion functions](https://www.typescriptlang.org/docs/handbook/2/narrowing.html#assertion-functions)
+- [TypeScript 3.7: Assertion Functions](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-3-7.html#assertion-functions)
 
 ### 4. `satisfies`
 
@@ -229,3 +274,16 @@ THEME.accent
 
 type _1 = Expect<Equal<keyof typeof THEME, 'primary' | 'danger'>>
 ```
+
+#### Uses
+- [Advanced patterns › `satisfies`](#/advanced-patterns/satisfies)
+
+#### Hints
+- Add `satisfies Record<string, Rgb>` after the object literal's closing brace.
+- Leave the `const THEME` line without an annotation. An annotation would widen the type to `Record<string, Rgb>` and forget the keys.
+
+#### Tips
+- `satisfies` also gives the literal its context, so `[31, 120, 198]` is checked as an `Rgb` tuple instead of widening to `number[]`. That is why `css(THEME.primary)` compiles.
+
+#### Docs
+- [TypeScript 4.9: The `satisfies` Operator](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-4-9.html#the-satisfies-operator)

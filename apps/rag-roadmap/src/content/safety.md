@@ -80,6 +80,21 @@ def test_injection():
     assert looks_injected("Do not ignore the instructions in section 2.") is False
 ```
 
+#### Uses
+- [Injection & limits › Prompt injection through the corpus](#/safety/prompt-injection-through-the-corpus)
+
+#### Hints
+- One regex with three alternatives joined by `|`, matched case-insensitively with `re.I`.
+- The first alternative: `ignore`, whitespace, an optional group for `all`, `any` or `the` plus whitespace, then `previous`, `prior` or `above`, whitespace, `instructions`.
+- `re.search` looks anywhere in the text. It returns a match object or `None`, so wrap it in `bool(...)` to return `True` or `False`.
+
+#### Tips
+- Use `\s+` between words. It also catches double spaces and line breaks, which is how injected text often arrives after extraction.
+
+#### Docs
+- [Python docs: `re.search`](https://docs.python.org/3/library/re.html#re.search)
+- [Python docs: `re.IGNORECASE`](https://docs.python.org/3/library/re.html#re.IGNORECASE)
+
 ### 2. Constant-time write key
 
 `check_write_key(provided, expected)` returns `True` when no key is configured (`expected` is empty), otherwise compares in constant time.
@@ -100,6 +115,19 @@ def test_write_key():
     assert check_write_key("secre", "secret") is False
     assert check_write_key("", "secret") is False
 ```
+
+#### Uses
+- [Injection & limits › A public app with no accounts](#/safety/a-public-app-with-no-accounts)
+
+#### Hints
+- If `expected` is empty, return `True` straight away.
+- Otherwise let `hmac.compare_digest` compare the two strings.
+
+#### Tips
+- `==` stops at the first differing character, so its timing leaks how much of a guess was right. `compare_digest` does not.
+
+#### Docs
+- [Python docs: `hmac.compare_digest`](https://docs.python.org/3/library/hmac.html#hmac.compare_digest)
 
 ### 3. Enforce the caps
 
@@ -126,6 +154,17 @@ def test_limits():
         assert "200,000" in str(e)
 ```
 
+#### Uses
+- [Injection & limits › A public app with no accounts](#/safety/a-public-app-with-no-accounts)
+- [Documents to text › Caps](#/documents/caps)
+
+#### Hints
+- Compare `len(text)` with `max_chars`. Only text that is strictly longer fails.
+- The `,` format option adds thousands separators: `f"{n:,}"`.
+
+#### Docs
+- [Python docs: Format specification mini-language](https://docs.python.org/3/library/string.html#format-specification-mini-language)
+
 ### 4. Redact the provider's message
 
 `redact(message)` replaces every API key of the form `sk-` followed by letters, digits, `_` or `-` with `sk-***`.
@@ -144,3 +183,16 @@ def test_redact():
     assert redact("no keys here") == "no keys here"
     assert redact("sk-a and sk-b") == "sk-*** and sk-***"
 ```
+
+#### Uses
+- [Injection & limits › Do not leak the provider's message](#/safety/do-not-leak-the-providers-message)
+
+#### Hints
+- `re.sub` with a pattern for `sk-` followed by one or more of letters, digits, `_` and `-`.
+- The replacement is the literal string `sk-***`.
+
+#### Tips
+- Put `-` last inside a character class, as in `[A-Za-z0-9_-]`, so it reads as a dash and not a range.
+
+#### Docs
+- [Python docs: `re.sub`](https://docs.python.org/3/library/re.html#re.sub)

@@ -77,6 +77,20 @@ def test_tokens():
     assert estimate_tokens("a" * 401) == 101
 ```
 
+#### Uses
+- [What RAG actually is › When not to bother](#/what-is-rag/when-not-to-bother)
+
+#### Hints
+- Tokens are characters divided by four, and "rounding up" means 5 characters cost 2 tokens, not 1.
+- Ceiling division without floats: `-(-n // 4)`. Or `math.ceil(n / 4)` after `import math`.
+- An empty string has length 0, and either formula already gives 0 for it.
+
+#### Tips
+- Four characters per token is an average for English prose. Code, URLs and non-Latin scripts cost more tokens per character.
+
+#### Docs
+- [Python docs: `math.ceil`](https://docs.python.org/3/library/math.html#math.ceil)
+
 ### 2. Working budget
 
 `working_budget(advertised, trust=0.25)` returns the number of tokens you should plan against: the advertised window multiplied by the fraction you trust, as an integer.
@@ -93,6 +107,19 @@ def test_budget():
     assert working_budget(200_000, 0.5) == 100_000
     assert isinstance(working_budget(10), int)
 ```
+
+#### Uses
+- [What RAG actually is › When not to bother](#/what-is-rag/when-not-to-bother)
+
+#### Hints
+- Multiply `advertised` by `trust`.
+- The product is a float (`250000.0`). Wrap it in `int()` to pass the type check.
+
+#### Tips
+- `int()` truncates toward zero. For a budget, rounding down is the safe direction.
+
+#### Docs
+- [Python docs: `int()`](https://docs.python.org/3/library/functions.html#int)
 
 ### 3. Paste it in, or RAG?
 
@@ -111,3 +138,16 @@ def test_needs_rag():
     assert needs_rag(0, 1) is False
     assert needs_rag(5, 1) is True
 ```
+
+#### Uses
+- [What RAG actually is › When not to bother](#/what-is-rag/when-not-to-bother)
+
+#### Hints
+- Turn the characters into tokens first, rounding up, the same way as in exercise 1.
+- Return the comparison itself: `tokens > budget_tokens` is already `True` or `False`.
+
+#### Tips
+- A corpus of exactly the budget fits. Only strictly more needs RAG.
+
+#### Docs
+- [Python docs: Comparisons](https://docs.python.org/3/library/stdtypes.html#comparisons)

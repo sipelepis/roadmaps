@@ -14,6 +14,7 @@ nums.sort()             # in place, returns None!
 sorted(nums)            # new sorted list, original untouched
 nums.reverse(); nums[::-1]
 len(nums); nums.index(2); 2 in nums
+[1, 2] + [3, 4]         # [1, 2, 3, 4], a new list
 ```
 
 A classic mistake is `result = nums.sort()`, which leaves `result` as `None`. In-place methods return `None` by convention.
@@ -23,6 +24,8 @@ A classic mistake is `result = nums.sort()`, which leaves `result` as `None`. In
 Slices produce new lists. `nums[:]` or `list(nums)` is a shallow copy: the list is new but the elements are shared.
 
 ```python
+nums[-2:]                # the last two items
+nums[:-2]                # everything except the last two
 nums[1:3] = [10, 20]     # slice assignment replaces a range
 del nums[0]
 ```
@@ -53,8 +56,10 @@ for name, score in [("a", 1), ("b", 2)]:
 people = [("Ada", 36), ("Bob", 25)]
 sorted(people, key=lambda p: p[1])           # by age
 sorted(words, key=str.lower)                 # case-insensitive
-sorted(items, key=lambda i: (-i.score, i.name))   # descending score, then name
+sorted(people, key=lambda p: (-p[1], p[0]))  # oldest first, then by name
 ```
+
+`key` takes a function, calls it on every item, and sorts by what it returns. `lambda p: p[1]` is a one-line function: it takes `p` and returns `p[1]`. (The Functions module covers `lambda` in full.) When the key returns a tuple, items sort by its first element and ties fall through to the next one. Negating a number flips that part to descending.
 
 Sorts are stable: equal keys keep their original order.
 
@@ -104,6 +109,23 @@ def test_pure():
     assert src == [1, 2, 3]
 ```
 
+#### Uses
+- [Lists and tuples › Slicing and copying](#/lists-tuples/slicing-and-copying)
+- [Lists and tuples › Lists](#/lists-tuples/lists)
+- [Variables and types › Numbers](#/variables-types/numbers)
+
+#### Hints
+- Rotating right by `k` moves the last `k` items to the front.
+- `k % len(items)` brings a `k` that's bigger than the list back into range.
+- Slice off the tail and the head, then join them with `+`. Slices are new lists, so the input stays untouched.
+
+#### Tips
+- `-0` is just `0`, so with `k` of 0, `items[-k:]` is the whole list and `items[:-k]` is empty. The rotation still comes out right.
+- `k % len(items)` raises `ZeroDivisionError` on an empty list. Guard it if empty input matters.
+
+#### Docs
+- [Library reference: Common sequence operations](https://docs.python.org/3/library/stdtypes.html#common-sequence-operations)
+
 ### 2. Chunk
 
 Split `items` into lists of at most `size` elements, keeping order. The last chunk may be shorter.
@@ -123,6 +145,20 @@ def test_empty():
     assert chunk([], 3) == []
 ```
 
+#### Uses
+- [Lists and tuples › Slicing and copying](#/lists-tuples/slicing-and-copying)
+- [What is Python? › `if` and `for`](#/intro/if-and-for)
+
+#### Hints
+- Each chunk starts at a multiple of `size`: `0`, `size`, `2 * size`, … A `range` with a step gives you exactly those.
+- `items[start:start + size]` is one chunk. Slices clamp at the end, so the short last chunk needs no special case.
+
+#### Tips
+- An empty list makes the `range` empty too, so `[]` comes back without an extra check.
+
+#### Docs
+- [Built-in functions: `range`](https://docs.python.org/3/library/functions.html#func-range)
+
 ### 3. Top scorers
 
 `top(scores, n)` takes a list of `(name, score)` tuples and returns the names of the `n` highest scores, ties broken alphabetically.
@@ -139,3 +175,19 @@ def test_top():
     assert top(scores, 2) == ["Ada", "Cy"]
     assert top(scores, 3) == ["Ada", "Cy", "Di"]
 ```
+
+#### Uses
+- [Lists and tuples › Sorting with a key](#/lists-tuples/sorting-with-a-key)
+- [Lists and tuples › Unpacking](#/lists-tuples/unpacking)
+- [Lists and tuples › Slicing and copying](#/lists-tuples/slicing-and-copying)
+
+#### Hints
+- Sort the pairs so the best score comes first and ties go alphabetically. One tuple key does both.
+- Negate the score inside the key to get descending scores while names stay ascending.
+- Slice the first `n` pairs off the sorted list, then loop over them and collect just the names.
+
+#### Tips
+- `reverse=True` would reverse the names on ties as well. Negating only the score avoids that.
+
+#### Docs
+- [Sorting HOWTO: Key functions](https://docs.python.org/3/howto/sorting.html#key-functions)

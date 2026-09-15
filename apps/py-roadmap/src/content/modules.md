@@ -111,6 +111,19 @@ def test_uses_math():
     assert "math" in sys.modules
 ```
 
+#### Uses
+- [Modules and imports › Importing](#/modules/importing)
+
+#### Hints
+- `import math` at the top of your code, then call its functions as `math.name(...)`.
+- `math.hypot(a, b)` computes the hypotenuse directly; `math.sqrt(a ** 2 + b ** 2)` works too.
+
+#### Tips
+- `math.hypot` takes any number of coordinates: `math.hypot(1, 2, 2)` is `3.0`.
+
+#### Docs
+- [Library reference: `math.hypot`](https://docs.python.org/3/library/math.html#math.hypot)
+
 ### 2. Main guard
 
 Write `main()` so that it appends `"ran"` to `LOG`, and call it under a `__name__ == "__main__"` guard. In this playground the file runs as `__main__`, so the guard fires, but the tests also check that `main` exists as an importable function.
@@ -130,9 +143,23 @@ def test_main_callable():
     assert LOG == ["ran", "ran"]
 ```
 
+#### Uses
+- [Modules and imports › `if __name__ == "__main__":`](#/modules/if-name-main)
+- [Functions › Scope](#/functions/scope)
+
+#### Hints
+- Define `main()` with a one-line body that appends `"ran"` to `LOG`.
+- Below it, at the top level, add the `if __name__ == "__main__":` guard and call `main()` inside it.
+
+#### Tips
+- `main` can append to `LOG` without `global`, because it changes the list rather than rebinding the name.
+
+#### Docs
+- [Library reference: `__main__`, idiomatic usage](https://docs.python.org/3/library/__main__.html#idiomatic-usage)
+
 ### 3. Random with a seed
 
-`shuffled_deck(seed)` returns the 52 cards `"2H"`, `"3H"`, … `"AS"` (ranks `2`–`10`, `J`, `Q`, `K`, `A`; suits `H`, `D`, `C`, `S`) shuffled with `random.Random(seed)` so the order is reproducible.
+`shuffled_deck(seed)` returns the 52 cards `"2H"`, `"3H"`, … `"AS"` (ranks `2`–`10`, `J`, `Q`, `K`, `A`; suits `H`, `D`, `C`, `S`) shuffled with `random.Random(seed)` so the order is reproducible. `rng = random.Random(seed)` gives you a random generator of your own, and `rng.shuffle(cards)` shuffles a list in place (it returns `None`).
 
 ```python starter
 def shuffled_deck(seed):
@@ -151,3 +178,19 @@ def test_reproducible():
     assert shuffled_deck(7) == shuffled_deck(7)
     assert shuffled_deck(7) != shuffled_deck(8)
 ```
+
+#### Uses
+- [Modules and imports › Importing](#/modules/importing)
+- [Control flow › `for` iterates over things](#/control-flow/for-iterates-over-things)
+
+#### Hints
+- Build the deck with two nested loops, one over ranks and one over suits, appending `rank + suit` each time.
+- Write the ranks out as a list of strings, `"10"` included, so every card is plain string concatenation.
+- Then shuffle the list with your own `random.Random(seed)` and return it.
+
+#### Tips
+- A private `random.Random(seed)` leaves the shared generator behind `random.random()` alone, unlike `random.seed(...)`.
+
+#### Docs
+- [Library reference: `random.Random`](https://docs.python.org/3/library/random.html#random.Random)
+- [Library reference: `random.shuffle`](https://docs.python.org/3/library/random.html#random.shuffle)

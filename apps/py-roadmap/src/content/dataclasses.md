@@ -122,6 +122,19 @@ def test_book():
     assert repr(Book("X", "Y")) == "Book(title='X', author='Y', year=2000)"
 ```
 
+#### Uses
+- [Dataclasses › The basics](#/dataclasses/the-basics)
+
+#### Hints
+- Put `@dataclass` above `class Book:` and list the fields as annotated names, like `title: str`.
+- A default goes after the annotation (`year: int = 2000`). Fields with defaults must come after the ones without.
+
+#### Tips
+- The generated `__repr__` and `__eq__` are built from the fields, which is why the repr test passes with no extra code.
+
+#### Docs
+- [`dataclasses.dataclass`](https://docs.python.org/3/library/dataclasses.html#dataclasses.dataclass)
+
 ### 2. Default factory
 
 `Playlist` has a `name` and a `songs` list that starts empty. `add(song)` appends and returns `self`. Two playlists must not share a list.
@@ -142,9 +155,32 @@ def test_independent_lists():
     assert a.songs == ["song 1", "song 2"] and b.songs == []
 ```
 
+#### Uses
+- [Dataclasses › Mutable defaults](#/dataclasses/mutable-defaults)
+- [Dataclasses › Methods and properties](#/dataclasses/methods-and-properties)
+- [Classes › Defining a class](#/classes/defining-a-class)
+
+#### Hints
+- `name: str` needs no default. `songs` needs a new list for every instance: `field(default_factory=list)`.
+- `add` is an ordinary method. Append to `self.songs` and `return self` so the calls chain.
+
+#### Tips
+- `songs: list = []` is refused with a `ValueError` as soon as the class is defined. That's the dataclass catching the shared-default bug for you.
+
+#### Docs
+- [Dataclasses: Mutable default values](https://docs.python.org/3/library/dataclasses.html#mutable-default-values)
+- [`dataclasses.field`](https://docs.python.org/3/library/dataclasses.html#dataclasses.field)
+
 ### 3. Frozen and hashable
 
 `Money(amount: int, currency: str)` is frozen. Define `__add__` so two `Money` of the same currency add up, and raise `ValueError` for mismatched currencies.
+
+`a + b` calls `a.__add__(b)`, so a method named `__add__` is what makes `+` work on your class:
+
+```python
+def __add__(self, other):      # inside the class; self is the left side, other the right
+    return ...                 # a new object holding the sum
+```
 
 ```python starter
 from dataclasses import dataclass
@@ -172,6 +208,23 @@ def test_add():
     assert False
 ```
 
+#### Uses
+- [Dataclasses › Frozen and ordered](#/dataclasses/frozen-and-ordered)
+- [Dataclasses › `__post_init__`](#/dataclasses/post-init)
+- [Classes › Defining a class](#/classes/defining-a-class)
+
+#### Hints
+- `@dataclass(frozen=True)` blocks assignment and makes instances hashable, which covers the first test.
+- In `__add__`, compare the two `currency` values first and `raise ValueError(...)` if they differ.
+- Return a new `Money` with the summed `amount`. A frozen instance can't be changed in place anyway.
+
+#### Tips
+- A frozen dataclass gets a `__hash__` built from its fields. That's safe only because the fields can't change once the object is in a set.
+
+#### Docs
+- [Dataclasses: Frozen instances](https://docs.python.org/3/library/dataclasses.html#frozen-instances)
+- [Data model: `__add__` and the other numeric methods](https://docs.python.org/3/reference/datamodel.html#object.__add__)
+
 ### 4. Validate in `__post_init__`
 
 `Temperature(celsius: float)` raises `ValueError` below absolute zero (−273.15) and exposes a `fahrenheit` property.
@@ -193,3 +246,17 @@ def test_validates():
         return
     assert False
 ```
+
+#### Uses
+- [Dataclasses › `__post_init__`](#/dataclasses/post-init)
+- [Classes › Properties](#/classes/properties)
+
+#### Hints
+- `__post_init__` runs right after the generated `__init__`. Check `self.celsius` there and raise `ValueError` when it's below `-273.15`.
+- `fahrenheit` is a `@property` that works out `celsius * 9 / 5 + 32`.
+
+#### Tips
+- A derived value like `fahrenheit` belongs in a property, not a field, so it can never disagree with `celsius`.
+
+#### Docs
+- [Dataclasses: Post-init processing](https://docs.python.org/3/library/dataclasses.html#post-init-processing)

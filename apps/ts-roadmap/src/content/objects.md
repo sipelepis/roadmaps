@@ -132,6 +132,19 @@ type _1 = Expect<Equal<User['id'], number>>
 type _2 = Expect<Equal<User['email'], string | undefined>>
 ```
 
+#### Uses
+- [Objects and interfaces › `interface` and `type`](#/objects/interface-and-type)
+
+#### Hints
+- Declare `interface User { … }` with `id: number` and `name: string`. A `?` after a property name makes it optional.
+- An optional property reads as `string | undefined`. Return `user.email` when it's set and `'no email'` otherwise. The `??` operator does that in one expression.
+
+#### Tips
+- `??` falls back only on `null` and `undefined`, while `||` would also replace an empty string.
+
+#### Docs
+- [Object Types: Optional properties](https://www.typescriptlang.org/docs/handbook/2/objects.html#optional-properties)
+
 ### 2. Read-only point
 
 Define `ReadonlyPoint` so that both `x` and `y` are `readonly` numbers. Then implement `distance` between two points.
@@ -159,6 +172,20 @@ function neverCalled() {
 type _1 = Expect<Equal<ReadonlyPoint, { readonly x: number; readonly y: number }>>
 ```
 
+#### Uses
+- [Objects and interfaces › `interface` and `type`](#/objects/interface-and-type)
+- [Objects and interfaces › Object type literals](#/objects/object-type-literals)
+
+#### Hints
+- Fill in the type literal with `x` and `y`, both `number`, each with `readonly` in front.
+- Distance is the square root of `dx² + dy²`: `Math.sqrt` of the squared differences, or `Math.hypot(dx, dy)`.
+
+#### Tips
+- `readonly` is compile-time only. It blocks assignment through this type but doesn't freeze the object at runtime.
+
+#### Docs
+- [Object Types: readonly properties](https://www.typescriptlang.org/docs/handbook/2/objects.html#readonly-properties)
+
 ### 3. Extend a shape
 
 `Employee` must have everything `Person` has plus a `role` string. Implement `intro` to return `"<name>, <role>"`.
@@ -184,3 +211,16 @@ test('introduces an employee', () => {
 type _1 = Expect<Equal<Employee['role'], string>>
 type _2 = Expect<Equal<Employee['age'], number>>
 ```
+
+#### Uses
+- [Objects and interfaces › Extending](#/objects/extending)
+
+#### Hints
+- Declare `Employee` as an interface that `extends Person`, and list only the new property.
+- `intro` is a template string built from `e.name` and `e.role`.
+
+#### Tips
+- `type Employee = Person & { role: string }` also works. `extends` reports clearer errors when properties conflict.
+
+#### Docs
+- [Object Types: Extending types](https://www.typescriptlang.org/docs/handbook/2/objects.html#extending-types)

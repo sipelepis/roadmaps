@@ -118,9 +118,24 @@ type _1 = Expect<Equal<ReturnType<typeof last<number>>, number | undefined>>
 type _2 = Expect<Equal<ReturnType<typeof last<string>>, string | undefined>>
 ```
 
+#### Uses
+- [Generics › Generic functions](#/generics/generic-functions)
+
+#### Hints
+- Add a type parameter after the function name, `last<T>`, and use `T` where the `any`s are.
+- The parameter is an array of `T`. The return type is `T | undefined`, since an empty array has no last element.
+
+#### Tips
+- With `any`, every caller loses the element type. With `T`, `last([1, 2])` is typed `number | undefined`.
+
+#### Docs
+- [Generics: Hello World of Generics](https://www.typescriptlang.org/docs/handbook/2/generics.html#hello-world-of-generics)
+
 ### 2. Generic stack
 
 Implement `Stack<T>` with `push`, `pop` (returns `T | undefined`), `peek` (same), and a `size` getter.
+
+A getter is a method with `get` in front, `get size() { … }`, that callers read like a property: `s.size`, no parentheses.
 
 ```ts starter
 class Stack<T> {
@@ -145,6 +160,21 @@ type _1 = Expect<Equal<ReturnType<Stack<number>['pop']>, number | undefined>>
 new Stack<number>().push('x')
 ```
 
+#### Uses
+- [Generics › Generic interfaces, types, and classes](#/generics/generic-interfaces-types-and-classes)
+
+#### Hints
+- Start from the `Stack<T>` in the article: a private `T[]` field, with `push` and `pop` handing off to the array.
+- `peek` returns the last element without removing it, at index `length - 1`.
+- `size` is a getter returning the array's `length`.
+
+#### Tips
+- Annotate `peek` as `T | undefined` yourself. Index access on `T[]` is typed plain `T`, even on an empty array.
+
+#### Docs
+- [Generics: Generic Classes](https://www.typescriptlang.org/docs/handbook/2/generics.html#generic-classes)
+- [Classes: Getters / Setters](https://www.typescriptlang.org/docs/handbook/2/classes.html#getters--setters)
+
 ### 3. Constrained generic
 
 `longest` should accept any two values that have a numeric `length` (strings, arrays, …) and return the longer one, typed as the input type. Constrain `T`; don't use `any`.
@@ -165,3 +195,16 @@ type _1 = Expect<Equal<ReturnType<typeof longest<string>>, string>>
 // @ts-expect-error numbers have no length
 longest(1, 2)
 ```
+
+#### Uses
+- [Generics › Constraints](#/generics/constraints)
+
+#### Hints
+- A plain `<T>` won't let you read `.length`, because `T` could be anything. Constrain it with `extends` to "anything with a numeric `length`".
+- Type both parameters and the return as `T`, then return whichever has the larger `length`.
+
+#### Tips
+- The constraint is a shape, not a list of types, so strings, arrays and any object with a numeric `length` all qualify.
+
+#### Docs
+- [Generics: Generic Constraints](https://www.typescriptlang.org/docs/handbook/2/generics.html#generic-constraints)

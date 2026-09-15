@@ -134,6 +134,19 @@ test('keeps only well-formed users', () => {
 type _1 = Expect<Equal<ReturnType<typeof onlyUsers>, User[]>>
 ```
 
+#### Uses
+- [Narrowing › Type predicates](#/narrowing/type-predicates)
+
+#### Hints
+- The body is already right. Only the return type changes.
+- Replace the inferred `boolean` with a predicate of the form `param is Type`. `filter` recognises predicate functions and narrows its result.
+
+#### Tips
+- The compiler trusts a predicate blindly. If the checks drift away from `User`, the types will lie.
+
+#### Docs
+- [Narrowing: Using type predicates](https://www.typescriptlang.org/docs/handbook/2/narrowing.html#using-type-predicates)
+
 ### 2. Exhaustive switch
 
 Implement `sound` for every animal. Add a `default` branch that assigns to a `never` so a missing case is a compile error. Dogs say `'woof'`, cats `'meow'`, birds `'tweet'`.
@@ -157,6 +170,20 @@ test('every animal has a sound', () => {
 })
 ```
 
+#### Uses
+- [Narrowing › Exhaustiveness with `never`](#/narrowing/exhaustiveness-with-never)
+- [Narrowing › Discriminated unions](#/narrowing/discriminated-unions)
+
+#### Hints
+- `switch (a.kind)` with a `case` that returns each sound.
+- In `default`, every variant has been handled, so `a` is `never`. Assign it to a `const` typed `never`, then throw.
+
+#### Tips
+- To see it work, add `| { kind: 'fish' }` to `Animal`: the `default` line turns red until you add a case.
+
+#### Docs
+- [Narrowing: Exhaustiveness checking](https://www.typescriptlang.org/docs/handbook/2/narrowing.html#exhaustiveness-checking)
+
 ### 3. Parse an unknown
 
 `parseAge` receives untrusted input. Return the number when the input is a finite number, or a string that parses to one; otherwise return `null`. Do not use `any`.
@@ -179,3 +206,18 @@ test('rejects everything else', () => {
   expect(parseAge(NaN)).toBe(null)
 })
 ```
+
+#### Uses
+- [Narrowing › `typeof`](#/narrowing/typeof)
+- [Basic types › `unknown` – the safe `any`](#/basic-types/unknown-the-safe-any)
+
+#### Hints
+- Narrow with `typeof`: handle `'number'` and `'string'`, and return `null` for everything else.
+- For a string, `Number(input)` converts it. `'abc'` becomes `NaN`.
+- `Number.isFinite(x)` is `false` for `NaN` and `Infinity`. Use it on both the number input and the converted string.
+
+#### Tips
+- `Number('')` is `0`, not `NaN`. Real validation would reject empty strings as well.
+
+#### Docs
+- [Narrowing: typeof type guards](https://www.typescriptlang.org/docs/handbook/2/narrowing.html#typeof-type-guards)

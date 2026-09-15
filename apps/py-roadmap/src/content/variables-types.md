@@ -120,6 +120,21 @@ def test_returns_float():
     assert isinstance(celsius_to_fahrenheit("0"), float)
 ```
 
+#### Uses
+- [Variables and types › Conversions](#/variables-types/conversions)
+- [Variables and types › Numbers](#/variables-types/numbers)
+- [What is Python? › Functions and `return`](#/intro/functions-and-return)
+
+#### Hints
+- The input is a string, so convert it first: `float(text)` turns `"100"` into `100.0`.
+- Then apply the formula with ordinary arithmetic and return the result.
+
+#### Tips
+- `/` always gives a float, so `9 / 5` is `1.8` even with ints on both sides.
+
+#### Docs
+- [Built-in functions: `float`](https://docs.python.org/3/library/functions.html#float)
+
 ### 2. Describe a value
 
 Write `describe(value)` returning one of `"empty"`, `"number"`, `"text"`, or `"other"`: numbers (int or float, but *not* bool) are `"number"`, strings are `"text"`, any falsy value that is not a number is `"empty"`, everything else is `"other"`.
@@ -151,6 +166,23 @@ def test_other():
     assert describe([1]) == "other"
 ```
 
+#### Uses
+- [Variables and types › The core types](#/variables-types/the-core-types)
+- [Variables and types › Truthiness](#/variables-types/truthiness)
+- [What is Python? › `if` and `for`](#/intro/if-and-for)
+
+#### Hints
+- Use an `if` / `elif` chain of `isinstance` checks, plus `not value` for the falsy case. The order of the checks matters.
+- `bool` is a subclass of `int`, so `isinstance(True, int)` is `True`. Rule out bools before you test for numbers.
+- Test for numbers before falsiness, or `0` lands in `"empty"`.
+
+#### Tips
+- `isinstance` also takes a tuple of types: `isinstance(value, (int, float))` checks both at once.
+
+#### Docs
+- [Built-in functions: `isinstance`](https://docs.python.org/3/library/functions.html#isinstance)
+- [Library reference: Truth value testing](https://docs.python.org/3/library/stdtypes.html#truth-value-testing)
+
 ### 3. Independent copies
 
 `make_pair` should return a list holding two *separate* empty lists, so that appending to one never changes the other.
@@ -169,3 +201,16 @@ def test_independent():
     assert pair[0] == [1]
     assert pair[1] == []
 ```
+
+#### Uses
+- [Variables and types › Names, not boxes](#/variables-types/names-not-boxes)
+
+#### Hints
+- `[inner, inner]` holds the same list twice: two names for one object.
+- Each slot needs its own list. Write two separate `[]` literals, or copy one with `list(inner)`.
+
+#### Tips
+- `[[]] * 2` has the same bug: `*` repeats references, not copies.
+
+#### Docs
+- [Python FAQ: Why did changing list y also change list x?](https://docs.python.org/3/faq/programming.html#why-did-changing-list-y-also-change-list-x)

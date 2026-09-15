@@ -95,7 +95,7 @@ console.log('instances created:', instances)
 
 ### 1. Configuration module
 
-Export an interface `Config` (`port: number`, `host: string`), a `defaults` constant, and `withOverrides` that merges a partial override on top of the defaults without mutating them.
+Export an interface `Config` (`port: number`, `host: string`), a `defaults` constant typed as `Config`, and `withOverrides`, which takes an object with the same fields, all optional, and merges it on top of the defaults without mutating them.
 
 ```ts starter
 export interface Config {
@@ -120,8 +120,24 @@ test('leaves the defaults alone', () => {
 })
 
 type _1 = Expect<Equal<typeof defaults, Config>>
-type _2 = Expect<Equal<Parameters<typeof withOverrides>[0], Partial<Config>>>
+type _2 = Expect<Equal<Parameters<typeof withOverrides>[0], { port?: number; host?: string }>>
 ```
+
+#### Uses
+- [Modules › Exports and imports](#/modules/exports-and-imports)
+- [Objects and interfaces › `interface` and `type`](#/objects/interface-and-type)
+
+#### Hints
+- Annotate `defaults` with `Config`, otherwise its type is an anonymous object literal type.
+- Type `overrides` as an object type where both properties are optional, written with `?` like `email?` in the Objects article.
+- Return a new object that spreads `defaults` first and `overrides` second: `{ ...a, ...b }` lets `b` win.
+
+#### Tips
+- The Utility types module has a shortcut for "every field optional": `Partial<Config>`. It produces the same type as the one you write by hand here.
+
+#### Docs
+- [Modules: ES Module Syntax](https://www.typescriptlang.org/docs/handbook/2/modules.html#es-module-syntax)
+- [Object Types: Optional Properties](https://www.typescriptlang.org/docs/handbook/2/objects.html#optional-properties)
 
 ### 2. Module-private counter
 
@@ -146,3 +162,16 @@ test('counts up and resets', () => {
   expect(nextId()).toBe(1)
 })
 ```
+
+#### Uses
+- [Modules › Module-private state](#/modules/module-private-state)
+
+#### Hints
+- Declare a `let` counter at the top of the file, outside both functions, and don't export it.
+- `nextId` increments and returns it. `resetIds` sets it back to `0`.
+
+#### Tips
+- `return ++count` increments first and returns the new value. `count++` would return the old one.
+
+#### Docs
+- [Modules: How JavaScript Modules are Defined](https://www.typescriptlang.org/docs/handbook/2/modules.html#how-javascript-modules-are-defined)

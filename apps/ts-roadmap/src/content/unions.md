@@ -112,6 +112,20 @@ test('rectangle area', () => {
 type _1 = Expect<Equal<Shape['kind'], 'circle' | 'rect'>>
 ```
 
+#### Uses
+- [Unions, literals, and intersections › Discriminated unions](#/unions/discriminated-unions)
+
+#### Hints
+- Write two object types joined with `|`. Each has a `kind` property with its own literal value.
+- `switch (shape.kind)`. Inside each `case` TypeScript knows which variant you have, so `shape.radius` or `shape.width` is allowed.
+- Circle area is `Math.PI * radius ** 2`, rectangle area `width * height`.
+
+#### Tips
+- Because the switch covers every `kind`, TypeScript knows the function always returns and doesn't ask for a trailing `return`.
+
+#### Docs
+- [Narrowing: Discriminated unions](https://www.typescriptlang.org/docs/handbook/2/narrowing.html#discriminated-unions)
+
 ### 2. Directions
 
 Define `Direction` as the four literal strings `'up' | 'down' | 'left' | 'right'`. Implement `move`, returning a *new* position (don't mutate) where `up` decreases `y`, `down` increases it, `left` decreases `x`, `right` increases it.
@@ -145,6 +159,20 @@ function neverCalled() {
 }
 ```
 
+#### Uses
+- [Unions, literals, and intersections › Literal unions](#/unions/literal-unions)
+- [Unions, literals, and intersections › Discriminated unions](#/unions/discriminated-unions)
+
+#### Hints
+- Join the four string literals with `|` in a `type` alias.
+- `switch (dir)` with one `case` per direction. Each returns a fresh object literal built from `pos.x` and `pos.y`.
+
+#### Tips
+- `{ ...pos, y: pos.y - 1 }` copies the object and overrides one property, which scales better than retyping every field.
+
+#### Docs
+- [Everyday Types: Literal types](https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#literal-types)
+
 ### 3. Combine shapes with an intersection
 
 Using `&`, define `Audited` as `Post` plus `Timestamps`. Implement `summary` returning `"<title> by <author> (<createdAt>)"`.
@@ -166,3 +194,16 @@ test('summarises', () => {
 
 type _1 = Expect<Equal<keyof Audited, 'title' | 'author' | 'createdAt' | 'updatedAt'>>
 ```
+
+#### Uses
+- [Unions, literals, and intersections › Intersections](#/unions/intersections)
+
+#### Hints
+- Join the two existing types with `&`. The result has every property of both.
+- `summary` is a template string using `p.title`, `p.author` and `p.createdAt`.
+
+#### Tips
+- `|` would mean *either* shape, and then you could only read properties they share. `&` means both.
+
+#### Docs
+- [Object Types: Intersection types](https://www.typescriptlang.org/docs/handbook/2/objects.html#intersection-types)

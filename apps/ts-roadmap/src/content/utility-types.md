@@ -121,6 +121,21 @@ test('does not mutate', () => {
 type _1 = Expect<Equal<Parameters<typeof updateUser>[1], Partial<User>>>
 ```
 
+#### Uses
+- [Utility types › Object transformers](#/utility-types/object-transformers)
+
+#### Hints
+- One utility from the table makes every property of `User` optional. Use it as the type of `patch`.
+- Build a new object instead of changing `user`: spread `user` first, then `patch`, into one object literal.
+- In `{ ...a, ...b }` later spreads win, so any field present in `patch` overrides the one from `user`.
+
+#### Tips
+- `Partial` is shallow. A nested object in the patch replaces the old one wholesale; it is not merged.
+
+#### Docs
+- [Utility Types: `Partial<Type>`](https://www.typescriptlang.org/docs/handbook/utility-types.html#partialtype)
+- [MDN: Spread in object literals](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax#spread_in_object_literals)
+
 ### 2. Strip the password
 
 Define `PublicUser` from `User` without the `password` field using a utility type, and implement `toPublic`.
@@ -142,6 +157,19 @@ test('removes the password', () => {
 
 type _1 = Expect<Equal<keyof PublicUser, 'id' | 'name'>>
 ```
+
+#### Uses
+- [Utility types › Object transformers](#/utility-types/object-transformers)
+
+#### Hints
+- Look for the utility that removes keys rather than keeping them.
+- `Omit<User, 'password'>` is the type. For the value, return a new object with just `id` and `name`.
+
+#### Tips
+- Returning `user` itself would type-check (an object with extra properties still fits `PublicUser`) but would leak the password at runtime. The type removes the field, the code has to as well.
+
+#### Docs
+- [Utility Types: `Omit<Type, Keys>`](https://www.typescriptlang.org/docs/handbook/utility-types.html#omittype-keys)
 
 ### 3. Inventory record
 
@@ -166,3 +194,18 @@ type _1 = Expect<Equal<Parameters<typeof totalStock>[0], Record<Fruit, number>>>
 // @ts-expect-error missing a fruit
 totalStock({ apple: 1, banana: 2 })
 ```
+
+#### Uses
+- [Utility types › Object transformers](#/utility-types/object-transformers)
+- [Basic types › Literal types](#/basic-types/literal-types)
+
+#### Hints
+- `Record<Fruit, number>` means "an object with exactly the keys `'apple'`, `'banana'` and `'cherry'`, each a number". Use it on both `inventory` and `inv`.
+- To add the values up, `Object.values(inv)` gives a `number[]`, and `reduce` sums it.
+
+#### Tips
+- `Record<string, number>` would accept a missing fruit. Keying by the union is what makes every fruit required.
+
+#### Docs
+- [Utility Types: `Record<Keys, Type>`](https://www.typescriptlang.org/docs/handbook/utility-types.html#recordkeys-type)
+- [MDN: `Object.values()`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/values)
