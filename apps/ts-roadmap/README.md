@@ -19,4 +19,6 @@ npm run build    # static site in dist/
    - Under `## Exercises`, each `### Title` has a description, a ```` ```ts starter ```` block, and a ```` ```ts test ```` block.
 3. Tests get `test`/`expect` for runtime checks and `Expect<Equal<A, B>>` plus `// @ts-expect-error` for type-level checks. A problem passes when the combined starter + tests compiles cleanly and every test passes.
 
+After the starter and test blocks, each exercise lists `#### Uses` (links to the article sections it relies on, as `[Module › Section](#/<module>/<section-slug>)`), `#### Hints` (revealed one at a time), and optionally `#### Tips` and `#### Docs` (official documentation). Uses links may only point to this module or modules it builds on; `npm run check:refs` from the repo root enforces that, so no exercise needs something the learner hasn't reached.
+
 Progress and drafts are stored in `localStorage`.

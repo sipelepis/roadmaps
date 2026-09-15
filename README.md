@@ -7,15 +7,18 @@ Projects built along the course, one Turborepo.
 | TypeScript Roadmap | `apps/ts-roadmap` | Dependency-graph roadmap of 20 modules, markdown articles, live Monaco editor, exercises with type-level and runtime tests. Runs code with Monaco's TypeScript worker | https://ts-roadmap-puce.vercel.app |
 | Python Roadmap | `apps/py-roadmap` | The same shell for Python. Runs code with Pyodide (CPython on WebAssembly) | https://py-roadmap-ten.vercel.app |
 | RAG Roadmap | `apps/rag-roadmap` | The same shell again for RAG and OCR: 16 modules from scanned pages through chunking, embeddings, retrieval, and grounded answers, with Python exercises run by Pyodide. Content drawn from rag-pet | https://rag-roadmap.vercel.app |
+| Go Roadmap | `apps/go-roadmap` | The same shell for Go: 18 modules from slices and maps through interfaces, generics, and goroutines. Code compiles and runs on the official Go Playground | https://go-roadmap-pink.vercel.app |
+| Rust Roadmap | `apps/rust-roadmap` | The same shell for Rust: 20 modules from ownership and borrowing through traits, iterators, lifetimes, and threads. Code compiles and runs on the official Rust Playground | https://rust-roadmap-two.vercel.app |
 | rag-pet | `apps/rag-pet` | RAG over your own documents: FastAPI + pgvector ingest and retrieval, a React console that shows the exact chunks behind every answer, and a Flow page that runs the pipeline step by step. OCR for scanned PDFs is the next piece | https://rag-pet.fly.dev |
 
-The three roadmaps are Vite + vanilla TypeScript sites; see each app's README for the content format. rag-pet keeps its own Nx workspace with a Python API; see `apps/rag-pet/README.md`.
+The five roadmaps are Vite + vanilla TypeScript sites; see each app's README for the content format. Every exercise lists the article sections it relies on (`#### Uses`) plus hints, tips, and docs; `npm run check:refs` fails if an exercise points at a module the learner hasn't reached yet. rag-pet keeps its own Nx workspace with a Python API; see `apps/rag-pet/README.md`.
 
 ```sh
 npm install                          # everything, including rag-pet's web and libs
-npm run dev                          # the three roadmaps plus the rag-pet console (vite only, no API)
-npm run build                        # turbo builds all four fronts into their dist/
-npm run check                        # typecheck all four
+npm run dev                          # the five roadmaps plus the rag-pet console (vite only, no API)
+npm run build                        # turbo builds every front into its dist/
+npm run check                        # typecheck them all
+npm run check:refs                   # every exercise's Uses links resolve and point backwards in its graph
 npx turbo dev --filter=py-roadmap    # one app
 cd apps/rag-pet && npm run stack     # rag-pet full stack: api :3300 + web :5300 (needs uv, Docker, keys)
 ```
@@ -24,7 +27,7 @@ cd apps/rag-pet && npm run stack     # rag-pet full stack: api :3300 + web :5300
 
 **Roadmaps on Vercel.** One Vercel project per app from this repository:
 
-1. Import the repo, set **Root Directory** to `apps/ts-roadmap`, `apps/py-roadmap`, or `apps/rag-roadmap`.
+1. Import the repo, set **Root Directory** to `apps/ts-roadmap`, `apps/py-roadmap`, `apps/rag-roadmap`, `apps/go-roadmap`, or `apps/rust-roadmap`. Or run `npx vercel deploy --prod` from the app directory (how go-roadmap and rust-roadmap were first deployed).
 2. Framework preset: Vite (auto-detected). Build command `vite build`, output `dist`. No environment variables.
 3. Repeat for the other apps.
 

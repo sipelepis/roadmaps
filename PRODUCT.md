@@ -2,7 +2,7 @@
 
 <!-- impeccable:product-schema 1 -->
 
-This file covers the roadmap apps, `apps/ts-roadmap`, `apps/py-roadmap`, and `apps/rag-roadmap`. `apps/rag-pet` is a separate project in the same monorepo and has its own README. They share one shell, one content format, and one purpose; only the language and its runtime differ. Facts marked *(inferred)* come from the repository and launch copy rather than a confirmed answer from the owner.
+This file covers the roadmap apps, `apps/ts-roadmap`, `apps/py-roadmap`, `apps/rag-roadmap`, `apps/go-roadmap`, and `apps/rust-roadmap`. `apps/rag-pet` is a separate project in the same monorepo and has its own README. They share one shell, one content format, and one purpose; only the language and its runtime differ. Facts marked *(inferred)* come from the repository and launch copy rather than a confirmed answer from the owner.
 
 ## Platform
 
@@ -20,7 +20,7 @@ Two free, open-source learning roadmaps, one per language. Each is a dependency 
 
 ## Positioning
 
-"A map, not a list." Modules are laid out by what they build on, so the order is explained by the graph rather than asserted by a table of contents. The second claim is that the language in the page is real: TypeScript runs through the actual TypeScript compiler in Monaco, Python runs through CPython compiled to WebAssembly (Pyodide). Tests are honest, not simulated.
+"A map, not a list." Modules are laid out by what they build on, so the order is explained by the graph rather than asserted by a table of contents. The second claim is that the language in the page is real: TypeScript runs through the actual TypeScript compiler in Monaco, Python runs through CPython compiled to WebAssembly (Pyodide), and Go and Rust are compiled and run by their official playgrounds. Tests are honest, not simulated.
 
 Source: `social/caption.txt`, the launch copy.
 
@@ -30,13 +30,15 @@ Source: `social/caption.txt`, the launch copy.
 - Editor is Monaco. Run with the button or Ctrl+Enter.
 - TypeScript checks with `strict: true`; each editor is its own module. Type-level assertions use `Expect<Equal<A, B>>` and `// @ts-expect-error`. A problem passes when starter plus tests compile cleanly and every runtime test passes.
 - Python loads Pyodide from the jsDelivr CDN on first run, so the first Run in a session shows "Loading Python…". Tests are `test_*` functions using `assert`; the docstring is the label.
+- Go and Rust send the code to the official Go Playground and Rust Playground on every Run; they need the network, and the first Run shows "Compiling…".
+- Every exercise carries a **Uses** row of links to the article sections that teach what it needs, and a **Hints and tips** tray (progressive hints, tips, official docs). Uses links may only point to the exercise's own module or modules it builds on; `npm run check:refs` enforces this, so an exercise never depends on something the learner hasn't reached.
 - Drafts and pass state are keyed in `localStorage`. Clearing site data resets progress.
-- Deployed as static `dist/` to Vercel, one project per app: `ts-roadmap` and `py-roadmap`.
+- Deployed as static `dist/` to Vercel, one project per app: `ts-roadmap`, `py-roadmap`, `rag-roadmap`, `go-roadmap`, `rust-roadmap`.
 
 ## Capabilities and Constraints
 
 - 20 modules per language, each one markdown file in `src/content/<id>.md` plus a node in `src/graph.ts`. Authoring stays in markdown; there is no CMS.
-- No backend and no accounts *(inferred as a commitment, not just current state)*. Everything runs client-side.
+- No backend and no accounts *(inferred as a commitment, not just current state)*. TypeScript and Python run client-side; Go and Rust use the languages' own public playgrounds, not a backend of ours.
 - Free, no sign-up, no paywall. The launch copy states this as a promise.
 - Open source at `github.com/sipelepis/roadmaps`. Anyone can fork and add modules following the README.
 - Monorepo managed with Turborepo and npm workspaces; Vite builds; TypeScript typecheck via `npm run check`.
@@ -45,13 +47,13 @@ Source: `social/caption.txt`, the launch copy.
 
 ## Brand Commitments
 
-- Names: "TypeScript Roadmap" and "Python Roadmap". Marks are the two-letter chips "TS" and "PY".
+- Names: "TypeScript Roadmap", "Python Roadmap", "RAG Roadmap", "Go Roadmap", "Rust Roadmap". Marks are the chips "TS", "PY", "RAG", "GO", "RS".
 - Voice, from the launch copy and articles: plain, direct, second person, short declaratives. "Try it, break it, tell me what's missing." No marketing superlatives.
 - Existing motion is respected: the graph draws itself top to bottom on the home page, content rises in on route change, and all of it is skipped under `prefers-reduced-motion`.
 
 ## Evidence on Hand
 
-- Live sites: `https://ts-roadmap-puce.vercel.app`, `https://py-roadmap-ten.vercel.app`, and `https://rag-roadmap.vercel.app`.
+- Live sites: `https://ts-roadmap-puce.vercel.app`, `https://py-roadmap-ten.vercel.app`, `https://rag-roadmap.vercel.app`, `https://go-roadmap-pink.vercel.app`, and `https://rust-roadmap-two.vercel.app`.
 - Launch post: `social/caption.txt` and six carousel slides `social/slide-1.png` through `social/slide-6.png`.
 - 20 finished modules per language with articles, playgrounds, and exercises, under each app's `src/content/`.
 - No testimonials, user counts, completion metrics, or press. Do not invent any.
