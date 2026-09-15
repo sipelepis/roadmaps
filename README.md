@@ -27,7 +27,7 @@ cd apps/rag-pet && npm run stack     # rag-pet full stack: api :3300 + web :5300
 
 **Roadmaps on Vercel.** One Vercel project per app from this repository:
 
-1. Import the repo, set **Root Directory** to `apps/ts-roadmap`, `apps/py-roadmap`, `apps/rag-roadmap`, `apps/go-roadmap`, or `apps/rust-roadmap`. Or run `npx vercel deploy --prod` from the app directory (how go-roadmap and rust-roadmap were first deployed).
+1. Import the repo, set **Root Directory** to `apps/ts-roadmap`, `apps/py-roadmap`, `apps/rag-roadmap`, `apps/go-roadmap`, or `apps/rust-roadmap`. Pushing `main` then redeploys each app whose files changed. The exception is `ts-roadmap`: its Vercel project is still linked to the old standalone repo, so deploy it with `npx vercel deploy --prod` from `apps/ts-roadmap`.
 2. Framework preset: Vite (auto-detected). Build command `vite build`, output `dist`. No environment variables.
 3. Repeat for the other apps.
 
