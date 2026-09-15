@@ -32,6 +32,7 @@ const SPRITE = `<svg hidden xmlns="http://www.w3.org/2000/svg"><defs>
   <symbol id="i-spin" viewBox="0 0 24 24"><path d="M12 4a8 8 0 1 1-8 8"/></symbol>
   <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5zM4 20.5V5.5M8 7h8"/></symbol>
   <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9.5 18h5M10.5 21h3M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"/></symbol>
   <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></symbol>
 </defs></svg>`
 const icon = (name: string) => `<svg class="ic" aria-hidden="true"><use href="#i-${name}"/></svg>`
@@ -80,6 +81,8 @@ function problemHtml(id: string, i: number, p: Problem, showTitle = true) {
   return `<section class="problem" aria-labelledby="ph-${i}">
     ${showTitle ? `<h3 id="ph-${i}">${p.title} ${stat}</h3>` : `<div class="problem-status">${stat}</div>`}
     <div class="desc">${p.html}</div>
+    ${p.uses.length ? `<p class="uses"><span>Uses</span>${p.uses.join('')}</p>` : ''}
+    ${tray(p)}
     <div class="editor" id="ed-${i}"></div>
     <div class="bar">
       <button class="primary" data-run="${i}">${icon('play')}<span>Run tests</span></button>
@@ -89,6 +92,24 @@ function problemHtml(id: string, i: number, p: Problem, showTitle = true) {
     </div>
     <ul class="results" id="res-${i}" aria-live="polite"></ul>
   </section>`
+}
+
+/** Hints open one at a time (CSS hides a hint until the previous one is open); tips and docs are plain lists. */
+function tray(p: Problem) {
+  if (!p.hints.length && !p.tips.length && !p.docs.length) return ''
+  const n = (k: number, w: string) => k ? `${k} ${w}${k === 1 ? '' : 's'}` : ''
+  const list = (title: string, xs: string[]) => xs.length ? `<section><h4>${title}</h4><ul>${xs.map(x => `<li>${x}</li>`).join('')}</ul></section>` : ''
+  const body = `${p.hints.length ? `<section><h4>Hints</h4><ol class="hints">${p.hints.map((h, i) => `<li><details><summary>Hint ${i + 1}</summary><div>${h}</div></details></li>`).join('')}</ol></section>` : ''}${list('Tips', p.tips)}${list('Docs', p.docs)}`
+  return `<details class="tray"><summary>${icon('bulb')}<span>Hints and tips</span><small>${[n(p.hints.length, 'hint'), n(p.tips.length, 'tip'), n(p.docs.length, 'doc')].filter(Boolean).join(' · ')}</small></summary>
+    <div class="tray-body">${body.replace(/<a href="(https?:)/g, '<a target="_blank" rel="noopener" href="$1')}</div></details>`
+}
+
+/** Scroll to an article section (#/<module>/<slug>) and flash it so the eye lands on it. */
+function section(id: string) {
+  const h = document.getElementById(`s-${id}`)
+  if (!h) return
+  h.scrollIntoView()
+  h.classList.remove('flash'); void h.offsetWidth; h.classList.add('flash')
 }
 
 const lines = (s: string) => { const n = s.trimEnd().split('\n').length; return `${n} line${n === 1 ? '' : 's'}` }
@@ -269,9 +290,13 @@ function exercisePage(id: string, i: number) {
   wireProblem(id, i, p)
 }
 
+let shown = ''
 function route() {
-  disposeAll()
   const [, a = '', b = '', c = ''] = location.hash.split('?')[0].split('/')
+  // Another section of the module already on screen: scroll, don't rebuild the page and its editors.
+  if (b && a in modules && shown === a) return section(b)
+  disposeAll()
+  shown = a in modules ? a : ''
   if (a === 'learn') learn()
   else if (a === 'exercises') exercisesPage()
   else if (a === 'exercise' && b in modules && modules[b].problems[+c]) exercisePage(b, +c)
@@ -279,6 +304,7 @@ function route() {
   else home()
   window.scrollTo(0, 0)
   enter(app.querySelector('main')!)
+  if (b && shown) section(b)
 }
 addEventListener('hashchange', route)
 route()

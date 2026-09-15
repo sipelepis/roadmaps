@@ -278,3 +278,29 @@ button:disabled .ic { animation: spin 0.8s linear infinite; }
   .pager a span { max-width: 38vw; }
   .pager b { font-size: 0.9rem; }
 }
+
+/* ---------- exercise references and the hints tray ---------- */
+.prose [id] { scroll-margin-top: 80px; }
+.prose .flash { animation: flash 1.8s ease-out; border-radius: 6px; }
+@keyframes flash { from { background: color-mix(in oklab, var(--accent) 24%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .prose .flash { animation: none; } }
+.uses { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin: 0.25rem 0 0.75rem; font-size: 0.85rem; }
+.uses > span { color: var(--muted); font-weight: 600; margin-right: 0.15rem; }
+.uses a { padding: 0.15rem 0.65rem; border: 1px solid var(--border); border-radius: 999px; background: var(--panel); color: var(--text-2); }
+.uses a:hover { border-color: var(--accent); color: var(--text); text-decoration: none; }
+.tray { margin: 0 0 0.75rem; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--panel); font-size: 0.9rem; }
+.tray > summary { display: flex; align-items: center; gap: 0.5rem; padding: 0.55rem 0.9rem; cursor: pointer; color: var(--text-2); font-weight: 500; }
+.tray > summary::-webkit-details-marker { display: none; }
+.tray > summary small { margin-left: auto; color: var(--muted); font-weight: 400; }
+.tray > summary:hover { color: var(--text); }
+.tray[open] > summary { border-bottom: 1px solid var(--border); }
+.tray-body { padding: 0.25rem 0.9rem 0.75rem; display: grid; gap: 0.6rem; }
+.tray h4 { margin: 0.4rem 0 0.3rem; font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.tray ul { margin: 0; padding-left: 1.2rem; color: var(--text-2); }
+.tray li { margin: 0.25rem 0; }
+.tray code { font-family: var(--mono); font-size: 0.85em; background: var(--panel-2); border: 1px solid var(--border); border-radius: 5px; padding: 0.05em 0.35em; }
+.hints { list-style: none; margin: 0; padding: 0; }
+.hints summary { cursor: pointer; width: max-content; color: var(--accent); font-weight: 500; }
+.hints details > div { margin: 0.3rem 0 0.5rem; color: var(--text-2); }
+/* One at a time: a hint only shows once the one before it has been opened. */
+.hints li:has(> details:not([open])) ~ li { display: none; }
