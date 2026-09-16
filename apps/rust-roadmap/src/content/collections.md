@@ -53,6 +53,37 @@ for x in v { println!("{x}"); }          // x: i32, v is moved and gone
 
 Handy methods: `sort`, `sort_by_key`, `dedup`, `retain(|x| ...)`, `contains`, `extend`, `insert`/`remove` (shift everything, O(n)), `swap_remove` (O(1), changes the order). `retain` takes a closure: `|x| *x > 0` is a small inline function, covered properly in the iterators module.
 
+## Reading and cutting a slice
+
+Most of what you can do to a `Vec` without changing its length actually lives on the slice `&[T]`, so it works on Vecs, arrays and sub-slices alike:
+
+```rust
+let v = vec![1, 1, 2, 3, 3];
+v.first();                  // Some(&1)
+v.last();                   // Some(&3)
+v.to_vec();                 // a fresh owned Vec you can sort or push to
+v.split_at(2);              // (&[1, 1], &[2, 3, 3])
+
+for c in v.chunks(2) {}     // [1, 1], [2, 3], [3]: blocks of 2, the last one short
+for w in v.windows(2) {}    // [1, 1], [1, 2], [2, 3], [3, 3]: every overlapping pair
+for r in v.chunk_by(|a, b| a == b) {}  // [1, 1], [2], [3, 3]: split where the closure says no
+```
+
+`to_vec` needs `T: Clone` and is the usual way to sort a slice you only borrowed. `chunks(0)` panics, so compute the size with `div_ceil` and `.max(1)` when it comes from a division.
+
+Two more that write in place:
+
+```rust
+let mut out = vec![(1, 4)];
+if let Some(last) = out.last_mut() {
+    last.1 = 9;             // out is [(1, 9)]
+}
+let mut v = vec![3, 1, 2];
+v.sort_by(|a, b| b.cmp(a)); // [3, 2, 1]: sort with your own comparator
+```
+
+`last_mut` returns `Option<&mut T>`, which is how you extend the element you just pushed instead of pushing another one. `sort_by` takes two items and returns an `Ordering`; `sort_by_key` is shorter when you can compute something to sort on.
+
 ## `HashMap<K, V>`
 
 ```rust
@@ -169,6 +200,20 @@ fn caps_large_values() {
     let mut v = vec![1, 50, 7, 99];
     cap(&mut v, 10);
     assert_eq!(v, vec![1, 10, 7, 10]);
+    let mut v = vec![i32::MAX, 0, 11];
+    cap(&mut v, 0);
+    assert_eq!(v, vec![0, 0, 0]);
+}
+
+/// works with a negative max
+#[test]
+fn negative_max() {
+    let mut v = vec![-1, -10, 5, -3];
+    cap(&mut v, -3);
+    assert_eq!(v, vec![-3, -10, -3, -3]);
+    let mut v = vec![i32::MIN];
+    cap(&mut v, -3);
+    assert_eq!(v, vec![i32::MIN]);
 }
 
 /// leaves small values and empty vectors alone
@@ -194,6 +239,8 @@ fn leaves_the_rest() {
 
 #### Tips
 - `*x = (*x).min(max);` does the same without an `if`.
+- `for x in values` on a `&mut Vec<i32>` already gives `&mut i32`s; you don't write `values.iter_mut()`, though it means the same thing.
+- Nothing is returned and nothing is rebuilt. Collecting a new Vec and assigning it would also pass, and would allocate a second buffer to do what one pass over the first can.
 
 #### Docs
 - [Rust book: Iterating over the values in a vector](https://doc.rust-lang.org/book/ch08-01-vectors.html#iterating-over-the-values-in-a-vector)
@@ -217,6 +264,8 @@ fn counts_words() {
     let counts = word_counts("the cat and the hat");
     assert_eq!(counts["the"], 2);
     assert_eq!(counts["cat"], 1);
+    assert_eq!(counts["and"], 1);
+    assert_eq!(counts["hat"], 1);
     assert_eq!(counts.len(), 4);
 }
 
@@ -226,12 +275,24 @@ fn ignores_case() {
     let counts = word_counts("Go go GO stop");
     assert_eq!(counts.get("go"), Some(&3));
     assert_eq!(counts.get("Go"), None);
+    assert_eq!(counts.get("stop"), Some(&1));
+    assert_eq!(counts.len(), 2);
+}
+
+/// any whitespace separates words
+#[test]
+fn any_whitespace() {
+    let counts = word_counts("one\ttwo\nONE   two ");
+    assert_eq!(counts.get("one"), Some(&2));
+    assert_eq!(counts.get("two"), Some(&2));
+    assert_eq!(counts.len(), 2);
 }
 
 /// empty text gives an empty map
 #[test]
 fn empty_text() {
     assert!(word_counts("   ").is_empty());
+    assert!(word_counts("").is_empty());
 }
 ```
 
@@ -246,6 +307,8 @@ fn empty_text() {
 
 #### Tips
 - `split_whitespace` skips runs of spaces, so `"   "` yields no words and blank input needs no special case.
+- The key type is `String`, not `&str`, because `to_lowercase()` builds new text that nothing else owns. A `&str` key would borrow from a `String` that's dropped at the end of the loop body.
+- `counts["the"]` panics on a missing key while `counts.get("dog")` returns `None`. The tests use both on purpose: indexing where a miss would be a bug, `get` where it's a legitimate answer.
 
 #### Docs
 - [Rust book: Updating a value based on the old value](https://doc.rust-lang.org/book/ch08-03-hash-maps.html#updating-a-value-based-on-the-old-value)
@@ -270,6 +333,15 @@ pub fn first_duplicate(values: &[i32]) -> Option<i32> {
 fn finds_first_repeat() {
     assert_eq!(first_duplicate(&[3, 1, 4, 1, 5, 3]), Some(1));
     assert_eq!(first_duplicate(&[7, 7]), Some(7));
+    assert_eq!(first_duplicate(&[-1, 0, -1]), Some(-1));
+}
+
+/// the earliest second sighting wins, not the earliest value
+#[test]
+fn earliest_second_sighting() {
+    assert_eq!(first_duplicate(&[5, 1, 2, 3, 5, 1]), Some(5));
+    assert_eq!(first_duplicate(&[2, 9, 9, 2]), Some(9));
+    assert_eq!(first_duplicate(&[4, 4, 4]), Some(4));
 }
 
 /// none when all distinct
@@ -277,6 +349,8 @@ fn finds_first_repeat() {
 fn none_when_distinct() {
     assert_eq!(first_duplicate(&[1, 2, 3]), None);
     assert_eq!(first_duplicate(&[]), None);
+    assert_eq!(first_duplicate(&[8]), None);
+    assert_eq!(first_duplicate(&[-1, 1]), None);
 }
 ```
 
@@ -291,6 +365,8 @@ fn none_when_distinct() {
 
 #### Tips
 - A `HashSet` answers "seen it?" in O(1), so this is one pass. Comparing every pair would be O(n²).
+- `insert` returning `false` is the whole trick: it tells you the value was already there *and* stores it, so you never need a separate `contains` call.
+- "First duplicate" means the earliest *second sighting*, not the smallest repeated value. In `[5, 1, 2, 3, 5, 1]` the answer is 5, and the second test exists to catch the other reading.
 
 #### Docs
 - [std: HashSet::insert](https://doc.rust-lang.org/std/collections/struct.HashSet.html#method.insert)
@@ -315,6 +391,16 @@ fn groups_words() {
     assert_eq!(groups[&2], vec!["hi", "yo"]);
     assert_eq!(groups[&3], vec!["hey"]);
     assert_eq!(groups[&5], vec!["hello", "world"]);
+    assert_eq!(groups.len(), 3);
+}
+
+/// repeated words stay in every place they appear
+#[test]
+fn keeps_repeats() {
+    let groups = group_by_len(&["to", "be", "or", "not", "to", "be"]);
+    assert_eq!(groups[&2], vec!["to", "be", "or", "to", "be"]);
+    assert_eq!(groups[&3], vec!["not"]);
+    assert_eq!(groups.len(), 2);
 }
 
 /// keys come out in ascending order
@@ -323,6 +409,7 @@ fn sorted_keys() {
     let groups = group_by_len(&["ccc", "a", "bb", "dddd", "e"]);
     let keys: Vec<usize> = groups.keys().copied().collect();
     assert_eq!(keys, vec![1, 2, 3, 4]);
+    assert_eq!(groups[&1], vec!["a", "e"]);
 }
 
 /// no words, no groups
@@ -341,7 +428,9 @@ fn empty_input() {
 - `groups.entry(word.len()).or_default()` gives you a `&mut Vec<String>` for that length; push `word.to_string()` onto it.
 
 #### Tips
-- `or_default()` works because an empty `Vec` is the default for `Vec<String>`. `or_insert(Vec::new())` says the same thing.
+- `or_default()` works because an empty `Vec` is the default for `Vec<String>`. `or_insert(Vec::new())` says the same thing, but builds a `Vec` on every pass whether it's needed or not.
+- The whole point of `BTreeMap` here is the `sorted_keys` test. With a `HashMap` the keys would come out in a different order on different runs, and the test would pass or fail at random.
+- `entry(...).or_default()` hands back a `&mut Vec<String>` that you push onto straight away. The borrow ends at the end of the statement, so the next loop pass can take a new one.
 
 #### Docs
 - [std: BTreeMap::entry](https://doc.rust-lang.org/std/collections/struct.BTreeMap.html#method.entry)

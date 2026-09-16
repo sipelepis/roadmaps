@@ -195,14 +195,18 @@ package main
 
 import "testing"
 
-// area of a 3 by 4 rectangle
+// area of a 3 by 4 rectangle, and others
 func TestArea(t *testing.T) {
 	expect(t, Rect{W: 3, H: 4}.Area(), 12.0)
+	expect(t, Rect{W: 10, H: 1}.Area(), 10.0)
+	expect(t, Rect{W: 1.5, H: 2}.Area(), 3.0)
 }
 
-// perimeter of a 3 by 4 rectangle
+// perimeter of a 3 by 4 rectangle, and others
 func TestPerimeter(t *testing.T) {
 	expect(t, Rect{W: 3, H: 4}.Perimeter(), 14.0)
+	expect(t, Rect{W: 10, H: 1}.Perimeter(), 22.0)
+	expect(t, Rect{W: 1.5, H: 2}.Perimeter(), 7.0)
 }
 
 // the zero rectangle
@@ -223,6 +227,7 @@ func TestZeroRect(t *testing.T) {
 
 #### Tips
 - Value receivers are right here: these methods only read the fields.
+- `Rect{W: 3, H: 4}.Area()` calls a method on a value that has no address. That is allowed for a value receiver and would not compile for a pointer one.
 
 #### Docs
 - [Go spec: Method declarations](https://go.dev/ref/spec#Method_declarations)
@@ -256,9 +261,14 @@ import "testing"
 // increments a counter variable
 func TestInc(t *testing.T) {
 	var c Counter
+	expect(t, c.Value(), 0)
 	c.Inc()
 	c.Inc()
 	expect(t, c.Value(), 2)
+	for range 10 {
+		c.Inc()
+	}
+	expect(t, c.Value(), 12)
 }
 
 // works through a pointer
@@ -289,6 +299,7 @@ func TestCopy(t *testing.T) {
 
 #### Tips
 - `snapshot := c` still copies the struct, whatever the receivers are. That is why the copy test keeps its own count.
+- `var c Counter; c.Inc()` keeps working after the change: `c` is an addressable variable, so Go rewrites the call as `(&c).Inc()` for you.
 
 #### Docs
 - [Effective Go: Pointers vs. values](https://go.dev/doc/effective_go#pointers_vs_values)
@@ -336,6 +347,7 @@ func TestNewAccount(t *testing.T) {
 	a := NewAccount("ada")
 	expect(t, a.Owner(), "ada")
 	expect(t, a.Balance(), 0)
+	expect(t, NewAccount("bob").Owner(), "bob")
 }
 
 // deposits add up
@@ -353,6 +365,8 @@ func TestWithdraw(t *testing.T) {
 	a.Deposit(100)
 	expect(t, a.Withdraw(30), true)
 	expect(t, a.Balance(), 70)
+	expect(t, a.Withdraw(70), true) // the whole balance is allowed
+	expect(t, a.Balance(), 0)
 }
 
 // overdrafts and bad amounts are refused
@@ -363,6 +377,20 @@ func TestRefused(t *testing.T) {
 	expect(t, a.Withdraw(0), false)
 	expect(t, a.Withdraw(-5), false)
 	expect(t, a.Balance(), 10)
+	a.Deposit(0)
+	expect(t, a.Withdraw(10), true)
+	expect(t, a.Withdraw(1), false)
+	expect(t, a.Balance(), 0)
+}
+
+// each account keeps its own balance
+func TestSeparateAccounts(t *testing.T) {
+	a, b := NewAccount("ada"), NewAccount("bob")
+	a.Deposit(40)
+	b.Deposit(5)
+	expect(t, b.Withdraw(6), false)
+	expect(t, a.Balance(), 40)
+	expect(t, b.Balance(), 5)
 }
 ```
 
@@ -379,6 +407,7 @@ func TestRefused(t *testing.T) {
 
 #### Tips
 - The fields are lowercase, so code in other packages can only reach them through these methods.
+- `Withdraw` must leave the balance alone when it refuses. Returning `false` early, before any subtraction, is the way to make that impossible to get wrong.
 
 #### Docs
 - [Effective Go: Methods](https://go.dev/doc/effective_go#methods)
@@ -418,10 +447,12 @@ package main
 import "testing"
 
 var grace = Employee{Person: Person{First: "Grace", Last: "Hopper"}, Title: "Admiral"}
+var ada = Employee{Person: Person{First: "Ada", Last: "Lovelace"}, Title: "Countess"}
 
 // a person's full name
 func TestPersonFullName(t *testing.T) {
 	expect(t, Person{First: "Ada", Last: "Lovelace"}.FullName(), "Ada Lovelace")
+	expect(t, Person{First: "Alan", Last: "Turing"}.FullName(), "Alan Turing")
 }
 
 // fields are promoted
@@ -433,11 +464,13 @@ func TestPromotedField(t *testing.T) {
 // the employee's FullName shadows the person's
 func TestShadowed(t *testing.T) {
 	expect(t, grace.FullName(), "Admiral Grace Hopper")
+	expect(t, ada.FullName(), "Countess Ada Lovelace")
 }
 
 // the badge uses the plain name
 func TestBadge(t *testing.T) {
 	expect(t, grace.Badge(), "Grace Hopper, Admiral")
+	expect(t, ada.Badge(), "Ada Lovelace, Countess")
 }
 ```
 
@@ -453,6 +486,7 @@ func TestBadge(t *testing.T) {
 
 #### Tips
 - Embedding is not inheritance: `Person.FullName` can never call `Employee.FullName`, even on an employee.
+- The embedded field is named after its type, so `e.Person` reaches it even though you never wrote a field name. That is what `e.Person.FullName()` uses to get past the shadowing.
 
 #### Docs
 - [Effective Go: Embedding](https://go.dev/doc/effective_go#embedding)

@@ -206,12 +206,23 @@ impl fmt::Display for Point {
 #[test]
 fn formats() {
     assert_eq!(format!("{}", Point { x: 1, y: -2 }), "(1, -2)");
+    assert_eq!(format!("{}", Point { x: -30, y: 405 }), "(-30, 405)");
 }
 
 /// to_string comes for free
 #[test]
 fn to_string_works() {
     assert_eq!(Point { x: 0, y: 0 }.to_string(), "(0, 0)");
+    assert_eq!(Point { x: 7, y: 8 }.to_string(), "(7, 8)");
+}
+
+/// fits inside a longer format string
+#[test]
+fn inside_text() {
+    let from = Point { x: 0, y: 0 };
+    let to = Point { x: 3, y: -4 };
+    assert_eq!(format!("{} to {}", from, to), "(0, 0) to (3, -4)");
+    assert_eq!(format!("at {}!", Point { x: i32::MAX, y: i32::MIN }), "at (2147483647, -2147483648)!");
 }
 ```
 
@@ -224,7 +235,9 @@ fn to_string_works() {
 - Give `write!` the same format string you'd give `format!`, with `self.x` and `self.y` as its arguments.
 
 #### Tips
-- Implementing `Display` gets you `to_string()` for free, which is why the second test passes with no extra code.
+- Implementing `Display` gets you `to_string()` for free, which is why the second test passes with no extra code. That comes from a blanket impl in the standard library: every `Display` type is a `ToString` type.
+- `write!` returns the `fmt::Result` the function has to return, so it's the body with no semicolon and no `Ok(())` afterwards.
+- `Display` is the one common trait you can't derive. There's no obvious user-facing format for a pair of numbers, so Rust makes you say which one you meant.
 
 #### Docs
 - [std: fmt::Display](https://doc.rust-lang.org/std/fmt/trait.Display.html)
@@ -265,8 +278,23 @@ impl Animal for Robot {
 #[test]
 fn dog_speaks() {
     let d = Dog { name: "Rex".to_string() };
+    assert_eq!(d.name(), "Rex");
     assert_eq!(d.sound(), "woof");
     assert_eq!(d.speak(), "Rex says woof");
+    assert_eq!(Dog { name: "Bella".to_string() }.speak(), "Bella says woof");
+}
+
+struct Cat;
+
+impl Animal for Cat {
+    fn name(&self) -> String { "Tom".to_string() }
+    fn sound(&self) -> String { "meow".to_string() }
+}
+
+/// any new animal gets the default speak
+#[test]
+fn default_for_others() {
+    assert_eq!(Cat.speak(), "Tom says meow");
 }
 
 /// robot overrides speak
@@ -289,6 +317,7 @@ fn trait_objects() {
 #### Uses
 - [Traits › Defining and implementing](#/traits/defining-and-implementing)
 - [Ownership › Clone](#/ownership/clone)
+- [Reference › Iterators](#/reference/iterators)
 
 #### Hints
 - A default method can call the trait's other methods: `self.name()` and `self.sound()` work inside `speak`.
@@ -296,7 +325,9 @@ fn trait_objects() {
 - To override, write `speak` inside `impl Animal for Robot`. That replaces the default for `Robot` only.
 
 #### Tips
-- Keep required methods small and put shared behavior in defaults: implementors get it for free and can still override it.
+- Keep required methods small and put shared behavior in defaults: implementors get it for free and can still override it. The `Cat` in the tests is the proof: it implements two methods and gets `speak` without being mentioned anywhere.
+- `Dog::name` takes `&self`, so it can't hand out the field itself — that would move a `String` out of something you only borrowed. `self.name.clone()` is the fix the return type asks for.
+- `Robot` is a unit struct, `struct Robot;`, so the value and the type are written the same way: `Robot.speak()`. A type with no data can still implement a trait.
 
 #### Docs
 - [Rust book: Default implementations](https://doc.rust-lang.org/book/ch10-02-traits.html#default-implementations)
@@ -336,6 +367,16 @@ fn task(priority: u8, name: &str) -> Task {
 #[test]
 fn priority_first() {
     assert!(task(9, "b") < task(1, "a"));
+    assert!(task(2, "a") > task(3, "z"));
+    assert!(task(255, "x") < task(0, "x"));
+}
+
+/// equal tasks compare equal, and ties go alphabetically
+#[test]
+fn ties() {
+    assert_eq!(task(4, "x").cmp(&task(4, "x")), Ordering::Equal);
+    assert_eq!(task(5, "a").cmp(&task(5, "b")), Ordering::Less);
+    assert_eq!(task(5, "b").cmp(&task(5, "a")), Ordering::Greater);
 }
 
 /// ties break by name
@@ -352,12 +393,15 @@ fn name_breaks_ties() {
 fn min_is_most_urgent() {
     let tasks = vec![task(2, "a"), task(7, "z"), task(7, "m")];
     assert_eq!(tasks.into_iter().min().unwrap().name, "m");
+    let tasks = vec![task(2, "b"), task(7, "z"), task(2, "a")];
+    assert_eq!(tasks.into_iter().max().unwrap().name, "b");
 }
 ```
 
 #### Uses
 - [Traits › Implementing them by hand](#/traits/implementing-them-by-hand)
 - [Traits › Deriving the standard traits](#/traits/deriving-the-standard-traits)
+- [Reference › Ordering, comparing and mem](#/reference/ordering-comparing-and-mem)
 
 #### Hints
 - For "highest first", compare the other way round: start from `other.priority` and compare it with `self.priority`.
@@ -365,6 +409,9 @@ fn min_is_most_urgent() {
 
 #### Tips
 - `sort`, `min` and `max` all go through your `cmp`, so this one impl sets the order everywhere tasks are compared.
+- Reversing the order makes `min` the *most* urgent task, which reads backwards until you remember that "smallest" now means "highest priority". A custom `Ord` is powerful and easy to surprise yourself with.
+- `then_with` takes a closure so the tie-break is only computed when the first comparison came out `Equal`. Comparing the names every time would be `then`, which is fine for cheap values and wasteful for a `String`.
+- Deriving `PartialOrd` alongside a hand-written `Ord` is how the two get out of step. Delegating, as the starter does, makes it impossible.
 
 #### Docs
 - [std: Ord](https://doc.rust-lang.org/std/cmp/trait.Ord.html)
@@ -415,7 +462,16 @@ use std::f64::consts::PI;
 #[test]
 fn areas() {
     assert_eq!(Rect { w: 2.0, h: 3.0 }.area(), 6.0);
+    assert_eq!(Rect { w: 4.0, h: 0.5 }.area(), 2.0);
     assert_eq!(Circle { r: 1.0 }.area(), PI);
+    assert_eq!(Circle { r: 0.5 }.area(), 0.25 * PI);
+}
+
+/// each shape has its name
+#[test]
+fn names() {
+    assert_eq!(Rect { w: 1.0, h: 1.0 }.name(), "rect");
+    assert_eq!(Circle { r: 1.0 }.name(), "circle");
 }
 
 /// sums a mixed collection
@@ -423,14 +479,20 @@ fn areas() {
 fn sums_mixed() {
     let shapes: Vec<Box<dyn Shape>> = vec![Box::new(Rect { w: 2.0, h: 3.0 }), Box::new(Circle { r: 2.0 })];
     assert_eq!(total_area(&shapes), 6.0 + 4.0 * PI);
+    let one: Vec<Box<dyn Shape>> = vec![Box::new(Rect { w: 5.0, h: 2.0 })];
+    assert_eq!(total_area(&one), 10.0);
     assert_eq!(total_area(&[]), 0.0);
 }
 
-/// finds the largest
+/// finds the largest, wherever it is in the slice
 #[test]
 fn largest() {
     let shapes: Vec<Box<dyn Shape>> = vec![Box::new(Circle { r: 1.0 }), Box::new(Rect { w: 2.0, h: 2.0 })];
     assert_eq!(largest_name(&shapes), Some("rect".to_string()));
+    let shapes: Vec<Box<dyn Shape>> = vec![Box::new(Rect { w: 1.0, h: 1.0 }), Box::new(Circle { r: 2.0 }), Box::new(Rect { w: 3.0, h: 3.0 })];
+    assert_eq!(largest_name(&shapes), Some("circle".to_string()));
+    let one: Vec<Box<dyn Shape>> = vec![Box::new(Rect { w: 0.5, h: 0.5 })];
+    assert_eq!(largest_name(&one), Some("rect".to_string()));
     assert_eq!(largest_name(&[]), None);
 }
 ```
@@ -447,6 +509,8 @@ fn largest() {
 
 #### Tips
 - `f64` isn't `Ord`, because `NaN` has no place in an order, so you can't `.sort()` floats the way you sort integers. Comparing with `>` by hand, as here, is the usual way round it.
+- `&[Box<dyn Shape>]` is a slice of pointers to shapes of different types and different sizes. A `Vec<impl Shape>` couldn't hold both a `Rect` and a `Circle`, which is the one job `dyn` exists for.
+- `largest_name` returns `Option<String>`, so "no shapes" is a value rather than a panic or a sentinel. Start the best area below every real one and let the empty case fall out as `None`.
 
 #### Docs
 - [Rust book: Using trait objects](https://doc.rust-lang.org/book/ch18-02-trait-objects.html)

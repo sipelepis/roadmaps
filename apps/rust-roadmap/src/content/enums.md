@@ -241,6 +241,8 @@ impl Direction {
 #[test]
 fn turn_right() {
     assert_eq!(Direction::North.turn_right(), Direction::East);
+    assert_eq!(Direction::East.turn_right(), Direction::South);
+    assert_eq!(Direction::South.turn_right(), Direction::West);
     assert_eq!(Direction::West.turn_right(), Direction::North);
 }
 
@@ -249,6 +251,8 @@ fn turn_right() {
 fn full_circle() {
     let d = Direction::South;
     assert_eq!(d.turn_right().turn_right().turn_right().turn_right(), d);
+    let d = Direction::East;
+    assert_eq!(d.turn_right().turn_right().turn_right().turn_right(), d);
 }
 
 /// opposite directions
@@ -256,6 +260,8 @@ fn full_circle() {
 fn opposite() {
     assert_eq!(Direction::North.opposite(), Direction::South);
     assert_eq!(Direction::East.opposite(), Direction::West);
+    assert_eq!(Direction::South.opposite(), Direction::North);
+    assert_eq!(Direction::West.opposite(), Direction::East);
 }
 ```
 
@@ -269,7 +275,9 @@ fn opposite() {
 - `opposite` is two right turns, so it can reuse `turn_right`. A second `match` works too.
 
 #### Tips
-- Don't add a `_` arm here. Without it, adding a variant later (say, `NorthEast`) makes the compiler point at both methods.
+- Don't add a `_` arm here. Without it, adding a variant later (say, `NorthEast`) makes the compiler point at both methods. A catch-all would silently make `NorthEast` turn into whatever the fallback says.
+- Taking `self` by value is free because the enum derives `Copy`: nothing is moved and `d` stays usable, which the `full_circle` test relies on.
+- Writing `opposite` as `self.turn_right().turn_right()` means one definition of "clockwise" instead of two that can drift apart.
 
 #### Docs
 - [Book: The `match` control flow construct](https://doc.rust-lang.org/book/ch06-02-match.html)
@@ -298,12 +306,22 @@ impl Shape {
 ```
 
 ```rust test
-/// area of each shape
+/// area of a circle is π r²
+#[test]
+fn circle_area() {
+    use std::f64::consts::PI;
+    assert_eq!(Shape::Circle { radius: 1.0 }.area(), PI);
+    assert_eq!(Shape::Circle { radius: 2.0 }.area(), 4.0 * PI);
+    assert_eq!(Shape::Circle { radius: 0.5 }.area(), 0.25 * PI);
+}
+
+/// area of rectangles and triangles
 #[test]
 fn areas() {
-    assert_eq!(Shape::Circle { radius: 1.0 }.area(), std::f64::consts::PI);
     assert_eq!(Shape::Rect { width: 2.0, height: 3.0 }.area(), 6.0);
+    assert_eq!(Shape::Rect { width: 2.5, height: 4.0 }.area(), 10.0);
     assert_eq!(Shape::Triangle { base: 4.0, height: 5.0 }.area(), 10.0);
+    assert_eq!(Shape::Triangle { base: 3.0, height: 3.0 }.area(), 4.5);
 }
 
 /// each shape knows its name
@@ -312,6 +330,8 @@ fn names() {
     assert_eq!(Shape::Circle { radius: 1.0 }.name(), "circle");
     assert_eq!(Shape::Rect { width: 1.0, height: 1.0 }.name(), "rectangle");
     assert_eq!(Shape::Triangle { base: 1.0, height: 1.0 }.name(), "triangle");
+    assert_eq!(Shape::Rect { width: 3.0, height: 7.0 }.name(), "rectangle");
+    assert_eq!(Shape::Triangle { base: 2.0, height: 9.0 }.name(), "triangle");
 }
 ```
 
@@ -327,6 +347,8 @@ fn names() {
 
 #### Tips
 - Since `self` is borrowed, the fields you pull out are references to `f64`s. Arithmetic like `width * height` works on them directly.
+- `name` returns `&'static str`, so the literals need no `.to_string()`. A literal lives in the binary for the whole program, which is what `'static` means.
+- `Shape::Circle { .. }` matches a circle without naming any field. Use it in `name`, where the measurements are irrelevant, and the compiler stops warning about variables you never read.
 
 #### Docs
 - [Book: Patterns that bind to values](https://doc.rust-lang.org/book/ch06-02-match.html#patterns-that-bind-to-values)
@@ -353,7 +375,9 @@ pub fn describe(point: (i32, i32)) -> &'static str {
 fn axes() {
     assert_eq!(describe((0, 0)), "origin");
     assert_eq!(describe((5, 0)), "x axis");
+    assert_eq!(describe((-5, 0)), "x axis");
     assert_eq!(describe((0, -3)), "y axis");
+    assert_eq!(describe((0, 7)), "y axis");
 }
 
 /// both diagonals
@@ -361,6 +385,8 @@ fn axes() {
 fn diagonals() {
     assert_eq!(describe((4, 4)), "diagonal");
     assert_eq!(describe((-2, 2)), "diagonal");
+    assert_eq!(describe((-3, -3)), "diagonal");
+    assert_eq!(describe((3, -3)), "diagonal");
 }
 
 /// the four quadrants
@@ -370,6 +396,10 @@ fn quadrants() {
     assert_eq!(describe((-1, 5)), "quadrant 2");
     assert_eq!(describe((-1, -5)), "quadrant 3");
     assert_eq!(describe((1, -5)), "quadrant 4");
+    assert_eq!(describe((7, 2)), "quadrant 1");
+    assert_eq!(describe((-7, 2)), "quadrant 2");
+    assert_eq!(describe((-2, -7)), "quadrant 3");
+    assert_eq!(describe((2, -7)), "quadrant 4");
 }
 ```
 
@@ -384,6 +414,8 @@ fn quadrants() {
 
 #### Tips
 - Guards don't count toward exhaustiveness. Even if your four quadrant guards cover everything, the compiler still wants an unguarded last arm.
+- Arms are tried top to bottom, so ordering replaces most of the logic. Put `(0, 0)` before `(_, 0)` and the origin never reaches the x-axis arm; swap them and it always does.
+- `x == -y` is the anti-diagonal, and `(0, 0)` satisfies it too. That's another reason the origin arm has to come first.
 
 #### Docs
 - [Book: Extra conditionals with match guards](https://doc.rust-lang.org/book/ch19-03-pattern-syntax.html#extra-conditionals-with-match-guards)
@@ -427,18 +459,30 @@ use Command::*;
 #[test]
 fn push() {
     assert_eq!(run(vec![Push(1), Push(2)]), vec![1, 2]);
+    assert_eq!(run(vec![Push(-4)]), vec![-4]);
+    assert_eq!(run(vec![]), Vec::<i64>::new());
 }
 
 /// adds and multiplies
 #[test]
 fn arithmetic() {
     assert_eq!(run(vec![Push(2), Push(3), Add, Push(4), Mul]), vec![20]);
+    assert_eq!(run(vec![Push(-3), Push(4), Mul, Push(10), Add]), vec![-2]);
 }
 
 /// dup and pop
 #[test]
 fn dup_pop() {
     assert_eq!(run(vec![Push(7), Dup, Dup, Pop]), vec![7, 7]);
+    assert_eq!(run(vec![Push(3), Dup, Mul]), vec![9]);
+}
+
+/// works on the top of a deeper stack
+#[test]
+fn top_of_stack() {
+    assert_eq!(run(vec![Push(1), Push(2), Push(3), Add]), vec![1, 5]);
+    assert_eq!(run(vec![Push(1), Push(2), Dup]), vec![1, 2, 2]);
+    assert_eq!(run(vec![Push(1), Push(2), Pop]), vec![1]);
 }
 
 /// too few values leave the stack alone
@@ -446,6 +490,7 @@ fn dup_pop() {
 fn underflow() {
     assert_eq!(run(vec![Pop, Dup, Add]), Vec::<i64>::new());
     assert_eq!(run(vec![Push(5), Add, Mul]), vec![5]);
+    assert_eq!(run(vec![Push(1), Pop, Dup, Pop]), Vec::<i64>::new());
 }
 ```
 
@@ -453,6 +498,7 @@ fn underflow() {
 - [Enums & match › Option: an enum instead of null](#/enums/option-an-enum-instead-of-null)
 - [Enums & match › `if let` and `let else`](#/enums/if-let-and-let-else)
 - [Enums & match › `match`](#/enums/match)
+- [Ownership › Stack and heap](#/ownership/stack-and-heap)
 
 #### Hints
 - Replace the `if let` in the loop with a `match command` that has an arm for every command.
@@ -461,6 +507,9 @@ fn underflow() {
 
 #### Tips
 - The arm `Command::Pop => stack.pop(),` doesn't compile: it produces an `Option` while the other arms produce `()`. Wrap it in braces with a semicolon, `{ stack.pop(); }`.
+- `Add` and `Mul` must not half-execute. Check `stack.len() < 2` *before* popping anything, or the first pop succeeds, the second fails, and the stack is left one value short.
+- `pop` returning `Option` is what makes "does nothing on an empty stack" fall out rather than being special-cased: `if let Some(top) = stack.pop()` simply skips the body.
+- The order matters for `Add` and `Mul` only if you make it matter. Both are commutative here, but a `Sub` variant would need you to be clear about which pop is the left operand.
 
 #### Docs
 - [Book: Concise control flow with `if let` and `let...else`](https://doc.rust-lang.org/book/ch06-03-if-let.html)

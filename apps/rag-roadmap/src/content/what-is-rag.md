@@ -69,16 +69,27 @@ def estimate_tokens(text):
 ```
 
 ```python test
-def test_tokens():
-    """rounds up at four chars per token"""
-    assert estimate_tokens("") == 0
-    assert estimate_tokens("abc") == 1
+def test_whole_tokens():
+    """exact multiples of four cost exactly that many tokens"""
+    assert estimate_tokens("abcd") == 1
+    assert estimate_tokens("a" * 8) == 2
     assert estimate_tokens("a" * 400) == 100
+
+def test_rounds_up():
+    """a partial token rounds up"""
+    assert estimate_tokens("a") == 1
+    assert estimate_tokens("abc") == 1
+    assert estimate_tokens("abcde") == 2
     assert estimate_tokens("a" * 401) == 101
+
+def test_empty():
+    """an empty string costs zero"""
+    assert estimate_tokens("") == 0
 ```
 
 #### Uses
 - [What RAG actually is › When not to bother](#/what-is-rag/when-not-to-bother)
+- [Reference › Standard library](#/reference/standard-library)
 
 #### Hints
 - Tokens are characters divided by four, and "rounding up" means 5 characters cost 2 tokens, not 1.
@@ -87,13 +98,15 @@ def test_tokens():
 
 #### Tips
 - Four characters per token is an average for English prose. Code, URLs and non-Latin scripts cost more tokens per character.
+- `int(n / 4)` is the wrong reflex here: it truncates down, so 5 characters come out as 1 token and every estimate is a little too cheap. Round up, and be wrong in the safe direction.
+- This is a budgeting number, not a billing number. When the bill matters, count with the provider's own tokenizer — the estimate and the invoice will not agree.
 
 #### Docs
 - [Python docs: `math.ceil`](https://docs.python.org/3/library/math.html#math.ceil)
 
 ### 2. Working budget
 
-`working_budget(advertised, trust=0.25)` returns the number of tokens you should plan against: the advertised window multiplied by the fraction you trust, as an integer.
+`working_budget(advertised, trust=0.25)` returns the number of tokens you should plan against: the advertised window multiplied by the fraction you trust, as an integer. Round down.
 
 ```python starter
 def working_budget(advertised, trust=0.25):
@@ -101,15 +114,28 @@ def working_budget(advertised, trust=0.25):
 ```
 
 ```python test
-def test_budget():
-    """applies the trust factor"""
+def test_default_trust():
+    """trusts a quarter of the window by default"""
     assert working_budget(1_000_000) == 250_000
+    assert working_budget(200_000) == 50_000
+
+def test_trust():
+    """applies the trust factor you pass"""
     assert working_budget(200_000, 0.5) == 100_000
+    assert working_budget(1_000_000, 0.1) == 100_000
+    assert working_budget(128_000, 1.0) == 128_000
+
+def test_integer():
+    """returns an integer, rounded down"""
     assert isinstance(working_budget(10), int)
+    assert working_budget(10) == 2
+    assert working_budget(7, 0.5) == 3
+    assert working_budget(1_000_003) == 250_000
 ```
 
 #### Uses
 - [What RAG actually is › When not to bother](#/what-is-rag/when-not-to-bother)
+- [Reference › Built-ins](#/reference/built-ins)
 
 #### Hints
 - Multiply `advertised` by `trust`.
@@ -117,6 +143,8 @@ def test_budget():
 
 #### Tips
 - `int()` truncates toward zero. For a budget, rounding down is the safe direction.
+- The test uses `isinstance(..., int)`, so `250000.0` fails even though it equals `250000`. A budget that has drifted into float arithmetic will eventually print as `249999.99999999997` somewhere.
+- `trust` is the only honest number here, and it is not 1.0. Measure it on your own material — a haystack demo passing at 900k tokens does not mean recall holds across your corpus at 900k.
 
 #### Docs
 - [Python docs: `int()`](https://docs.python.org/3/library/functions.html#int)
@@ -131,12 +159,23 @@ def needs_rag(corpus_chars, budget_tokens):
 ```
 
 ```python test
-def test_needs_rag():
-    """compares estimated tokens against the budget"""
+def test_fits():
+    """a corpus inside the budget does not need RAG"""
     assert needs_rag(400_000, 120_000) is False
-    assert needs_rag(800_000, 120_000) is True
     assert needs_rag(0, 1) is False
+    assert needs_rag(3, 1) is False
+
+def test_too_big():
+    """a corpus over the budget needs RAG"""
+    assert needs_rag(800_000, 120_000) is True
     assert needs_rag(5, 1) is True
+    assert needs_rag(1, 0) is True
+
+def test_boundary():
+    """exactly the budget fits, one more character does not"""
+    assert needs_rag(480_000, 120_000) is False
+    assert needs_rag(480_001, 120_000) is True
+    assert needs_rag(4, 1) is False
 ```
 
 #### Uses
@@ -148,6 +187,7 @@ def test_needs_rag():
 
 #### Tips
 - A corpus of exactly the budget fits. Only strictly more needs RAG.
+- This is not a one-time decision. A corpus that fits today grows, and the answer flips quietly — nothing errors when you go over, the answers just get worse.
 
 #### Docs
 - [Python docs: Comparisons](https://docs.python.org/3/library/stdtypes.html#comparisons)

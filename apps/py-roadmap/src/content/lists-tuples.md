@@ -9,6 +9,7 @@ nums = [3, 1, 2]
 nums.append(4)          # [3, 1, 2, 4]
 nums.insert(0, 0)       # [0, 3, 1, 2, 4]
 nums.pop()              # 4, list is now [0, 3, 1, 2]
+nums.pop(0)             # 0, removes and returns by index
 nums.remove(3)          # removes first 3 by value
 nums.sort()             # in place, returns None!
 sorted(nums)            # new sorted list, original untouched
@@ -17,7 +18,9 @@ len(nums); nums.index(2); 2 in nums
 [1, 2] + [3, 4]         # [1, 2, 3, 4], a new list
 ```
 
-A classic mistake is `result = nums.sort()`, which leaves `result` as `None`. In-place methods return `None` by convention.
+A classic mistake is `result = nums.sort()`, which leaves `result` as `None`. In-place methods return `None` by convention. `nums.clear()` and `nums.reverse()` are two more of them: they change the list every name for it can see, and hand back nothing.
+
+`pop` is the exception that does return something — the item it removed. `pop()` takes the last one, `pop(0)` the first.
 
 ## Slicing and copying
 
@@ -29,6 +32,17 @@ nums[:-2]                # everything except the last two
 nums[1:3] = [10, 20]     # slice assignment replaces a range
 del nums[0]
 ```
+
+*Shallow* is the word to take seriously. A copy gets a new outer list, but the items inside are the same objects:
+
+```python
+grid = [[1, 2], [3, 4]]
+copy = list(grid)
+copy.append([5])      # grid is unaffected: the outer list is new
+copy[0].append(99)    # grid[0] is now [1, 2, 99]: the inner lists are shared
+```
+
+For a list of numbers or strings that never matters, because those can't change. For a list of lists or dicts it does. `copy.deepcopy(grid)` copies all the way down, and `[list(row) for row in grid]` is the explicit one-level version.
 
 ## Tuples
 
@@ -101,12 +115,20 @@ def test_rotates():
     """rotates right"""
     assert rotate([1, 2, 3, 4], 1) == [4, 1, 2, 3]
     assert rotate([1, 2, 3, 4], 6) == [3, 4, 1, 2]
+    assert rotate(["a", "b", "c"], 2) == ["b", "c", "a"]
+
+def test_full_turns():
+    """zero or a whole number of turns changes nothing"""
+    assert rotate([1, 2, 3], 0) == [1, 2, 3]
+    assert rotate([1, 2, 3], 3) == [1, 2, 3]
+    assert rotate([5], 4) == [5]
 
 def test_pure():
     """does not modify the input"""
     src = [1, 2, 3]
     rotate(src, 1)
     assert src == [1, 2, 3]
+    assert rotate(src, 3) is not src
 ```
 
 #### Uses
@@ -122,6 +144,8 @@ def test_pure():
 #### Tips
 - `-0` is just `0`, so with `k` of 0, `items[-k:]` is the whole list and `items[:-k]` is empty. The rotation still comes out right.
 - `k % len(items)` raises `ZeroDivisionError` on an empty list. Guard it if empty input matters.
+- `items[-k:] + items[:-k]` builds a new list from two slices, so "don't modify the input" is satisfied without thinking about it.
+- Rotating with `for` and `pop(0)` / `insert(0, ...)` also works, but each of those shifts every element, so it is O(n·k) where the slice version is O(n).
 
 #### Docs
 - [Library reference: Common sequence operations](https://docs.python.org/3/library/stdtypes.html#common-sequence-operations)
@@ -139,10 +163,22 @@ def chunk(items, size):
 def test_chunks():
     """splits into chunks"""
     assert chunk([1, 2, 3, 4, 5], 2) == [[1, 2], [3, 4], [5]]
+    assert chunk([1, 2, 3, 4, 5, 6, 7], 3) == [[1, 2, 3], [4, 5, 6], [7]]
 
 def test_empty():
     """empty input gives no chunks"""
     assert chunk([], 3) == []
+    assert chunk([], 1) == []
+
+def test_even_split():
+    """no empty chunk when the size divides evenly"""
+    assert chunk([1, 2, 3, 4], 2) == [[1, 2], [3, 4]]
+    assert chunk(["a", "b", "c"], 1) == [["a"], ["b"], ["c"]]
+
+def test_size_bigger_than_list():
+    """a size bigger than the list gives one chunk"""
+    assert chunk([1, 2], 5) == [[1, 2]]
+    assert chunk([9], 1) == [[9]]
 ```
 
 #### Uses
@@ -155,6 +191,8 @@ def test_empty():
 
 #### Tips
 - An empty list makes the `range` empty too, so `[]` comes back without an extra check.
+- `range(0, len(items), size)` is the whole trick: the step *is* the chunk size.
+- The whole thing fits in one comprehension: `[items[i:i + size] for i in range(0, len(items), size)]`. Write the loop first, then decide whether the one-liner is clearer.
 
 #### Docs
 - [Built-in functions: `range`](https://docs.python.org/3/library/functions.html#func-range)
@@ -174,6 +212,19 @@ def test_top():
     scores = [("Ada", 92), ("Bob", 78), ("Cy", 92), ("Di", 85)]
     assert top(scores, 2) == ["Ada", "Cy"]
     assert top(scores, 3) == ["Ada", "Cy", "Di"]
+    assert top(scores, 4) == ["Ada", "Cy", "Di", "Bob"]
+
+def test_ties_any_order():
+    """ties go alphabetically whatever the input order"""
+    scores = [("Zed", 50), ("Amy", 50), ("Bo", 70)]
+    assert top(scores, 2) == ["Bo", "Amy"]
+    assert top(scores, 3) == ["Bo", "Amy", "Zed"]
+
+def test_by_score_not_name():
+    """ranks by score, not by name"""
+    scores = [("Ann", 10), ("Ben", 30), ("Cat", 20)]
+    assert top(scores, 1) == ["Ben"]
+    assert top(scores, 2) == ["Ben", "Cat"]
 ```
 
 #### Uses
@@ -188,6 +239,8 @@ def test_top():
 
 #### Tips
 - `reverse=True` would reverse the names on ties as well. Negating only the score avoids that.
+- Negating only works on numbers. To sort strings descending you need `reverse=True` — or, when only part of the key is descending, two passes relying on the sort being stable.
+- Slicing with `n` larger than the list is safe: `sorted_pairs[:99]` just gives everything, which is why `top(scores, 4)` needs no bounds check.
 
 #### Docs
 - [Sorting HOWTO: Key functions](https://docs.python.org/3/howto/sorting.html#key-functions)

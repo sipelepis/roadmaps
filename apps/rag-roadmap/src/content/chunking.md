@@ -45,7 +45,16 @@ Three decisions live in there.
 
 ## Measuring the overlap you actually got
 
-Because the window backs off to whitespace, the real overlap between two consecutive chunks is never exactly the configured number. Measure it rather than assume it: how many leading characters of this chunk does the previous chunk end with?
+Because the window backs off to whitespace and every piece is stripped, the real overlap between two consecutive chunks is rarely exactly the configured number. Measure it rather than assume it: how many leading characters of this chunk does the previous chunk end with?
+
+```
+chunk_text("one two three four five six", size=10, overlap=4)
+  → ["one two", "two three", "hree four", "four five", "five six"]
+
+measured overlaps:  3, 4, 4, 4
+```
+
+The first pair shares three characters, not four, because the window cut at the space and `.strip()` removed it. `overlap` is a request, not a guarantee, and "the overlap is 200 so a 200-character sentence can never be orphaned" is off by one in the direction that loses the sentence. If a boundary case matters to you, measure the overlap you got rather than the one you configured.
 
 ## Paragraph-aware chunking
 
@@ -110,22 +119,40 @@ def test_chunk_text():
     assert all(not p.endswith("wor") and not p.startswith("rd") for p in pieces)
     joined = " ".join(pieces)
     assert "word0 " in joined and "word399" in joined
-    assert chunk_text("", 100, 10) == []
-    assert chunk_text("short", 100, 10) == ["short"]
 
 def test_chunk_guard():
     """rejects overlap >= size and never loops on spaceless text"""
-    try:
-        chunk_text("abc", 10, 10)
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("size <= overlap must raise")
+    for size, overlap in [(10, 10), (5, 8)]:
+        try:
+            chunk_text("abc", size, overlap)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"size {size} with overlap {overlap} must raise")
     assert chunk_text("x" * 50, 10, 3) != []
+
+def test_known_output():
+    """backs off to a space and steps back by the overlap"""
+    assert chunk_text("aaaa bbbb cccc dddd", 10, 3) == ["aaaa bbbb", "bbb cccc", "ccc dddd"]
+    assert chunk_text("one two three four five six", 10, 4) == ["one two", "two three", "hree four", "four five", "five six"]
+
+def test_spaceless():
+    """cuts full windows through text with no spaces"""
+    assert chunk_text("x" * 25, 10, 3) == ["x" * 10, "x" * 10, "x" * 10, "xxxx"]
+    assert chunk_text("y" * 10, 10, 2) == ["y" * 10]
+
+def test_edges():
+    """strips the text, and blank text gives no chunks"""
+    assert chunk_text("", 100, 10) == []
+    assert chunk_text("   \n  ", 100, 10) == []
+    assert chunk_text("short", 100, 10) == ["short"]
+    assert chunk_text("   hello world   ", 100, 10) == ["hello world"]
 ```
 
 #### Uses
 - [Chunking › The sliding window](#/chunking/the-sliding-window)
+- [Reference › String methods](#/reference/string-methods)
+- [Reference › Built-ins](#/reference/built-ins)
 
 #### Hints
 - Guard first: raise `ValueError` when `size <= overlap`, then strip the text.
@@ -134,13 +161,15 @@ def test_chunk_guard():
 
 #### Tips
 - `rfind` returns `-1` when there is no space in range. `-1 > start` is false, so the window keeps its full width and cuts mid-word, which is the only way through a spaceless run.
+- `max(end - overlap, start + 1)` is the infinite-loop guard, not a rounding detail. Without it, a configuration where the back-off lands at or before `start` makes the loop stand still and the tab hangs — in a browser, with no stack trace.
+- Test the spaceless case first. Every hand-written chunker works on prose; base64 blobs, minified JSON and long German compounds are what break it, and they all turn up in real corpora.
 
 #### Docs
 - [Python docs: `str.rfind`](https://docs.python.org/3/library/stdtypes.html#str.rfind)
 
 ### 2. Measure the real overlap
 
-`shared_prefix(previous, current, limit)` returns the largest `n <= limit` such that `previous` ends with the first `n` characters of `current`, or `0`.
+`shared_prefix(previous, current, limit)` returns the largest `n <= limit` such that `previous` ends with the first `n` characters of `current`, or `0`. `n` can be no longer than either string.
 
 ```python starter
 def shared_prefix(previous, current, limit):
@@ -149,11 +178,28 @@ def shared_prefix(previous, current, limit):
 
 ```python test
 def test_shared_prefix():
-    """finds the longest shared boundary up to the limit"""
+    """finds the shared boundary"""
     assert shared_prefix("the quick brown", "brown fox", 10) == 5
+    assert shared_prefix("hello world", "world peace", 20) == 5
     assert shared_prefix("abc", "xyz", 3) == 0
+
+def test_longest():
+    """returns the longest match, not the shortest"""
+    assert shared_prefix("xabab", "ababz", 10) == 4
+    assert shared_prefix("aaaa", "aaab", 10) == 3
+
+def test_limit():
+    """never goes past the limit or the length of either string"""
     assert shared_prefix("aaaa", "aaaa", 2) == 2
+    assert shared_prefix("the quick brown", "brown fox", 3) == 0
+    assert shared_prefix("the end", "end", 10) == 3
+    assert shared_prefix("ab", "abc", 5) == 2
+
+def test_empty():
+    """empty strings and a zero limit share nothing"""
     assert shared_prefix("", "abc", 3) == 0
+    assert shared_prefix("abc", "", 3) == 0
+    assert shared_prefix("abc", "abc", 0) == 0
 ```
 
 #### Uses
@@ -166,13 +212,15 @@ def test_shared_prefix():
 
 #### Tips
 - Counting down means the first match is the largest, so you can return as soon as you find it.
+- `limit` is what keeps this cheap. Without it you compare every possible length of two full chunks, which on 4000-character chunks is work you will notice.
+- Run it over a real document after changing `size` or `overlap`. The measured overlap is the honest version of a setting you otherwise have to take on trust.
 
 #### Docs
 - [Python docs: `str.endswith`](https://docs.python.org/3/library/stdtypes.html#str.endswith)
 
 ### 3. Pack paragraphs
 
-`chunk_paragraphs(text, size)` splits on blank lines and packs consecutive paragraphs, joined with `"\n\n"`, into chunks whose length does not exceed `size`. A paragraph longer than `size` on its own becomes its own chunk.
+`chunk_paragraphs(text, size)` splits on blank lines and packs consecutive paragraphs, joined with `"\n\n"`, into chunks whose length does not exceed `size`. A paragraph longer than `size` on its own becomes its own chunk. Paragraphs are stripped, and empty ones are skipped.
 
 ```python starter
 def chunk_paragraphs(text, size):
@@ -183,9 +231,26 @@ def chunk_paragraphs(text, size):
 def test_paragraphs():
     """packs whole paragraphs up to the size"""
     assert chunk_paragraphs("aaa\n\nbbb\n\nccccccc", 8) == ["aaa\n\nbbb", "ccccccc"]
-    assert chunk_paragraphs("x" * 20, 5) == ["x" * 20]
     assert chunk_paragraphs("one\n\ntwo\n\nthree", 100) == ["one\n\ntwo\n\nthree"]
+    assert chunk_paragraphs("l1\nl2\n\np2", 5) == ["l1\nl2", "p2"]
+
+def test_separator_counts():
+    """the blank line between paragraphs counts toward the size"""
+    assert chunk_paragraphs("aaa\n\nbbb", 8) == ["aaa\n\nbbb"]
+    assert chunk_paragraphs("aaa\n\nbbb", 7) == ["aaa", "bbb"]
+    assert chunk_paragraphs("ab\n\ncd", 5) == ["ab", "cd"]
+    assert chunk_paragraphs("ab\n\ncd\n\nef", 6) == ["ab\n\ncd", "ef"]
+
+def test_oversized():
+    """a paragraph longer than size stands alone"""
+    assert chunk_paragraphs("x" * 20, 5) == ["x" * 20]
+    assert chunk_paragraphs("a\n\n" + "x" * 20 + "\n\nb", 5) == ["a", "x" * 20, "b"]
+
+def test_blank_lines():
+    """strips paragraphs and skips empty ones"""
     assert chunk_paragraphs("", 10) == []
+    assert chunk_paragraphs("a\n\n\n\nb", 100) == ["a\n\nb"]
+    assert chunk_paragraphs("  a  \n\n  b  ", 100) == ["a\n\nb"]
 ```
 
 #### Uses
@@ -199,6 +264,8 @@ def test_paragraphs():
 
 #### Tips
 - An oversized paragraph needs no special case: it starts a fresh chunk, and nothing fits behind it.
+- The `"\n\n"` between paragraphs counts toward `size`. Forget those two characters and every full chunk comes out one separator over the limit, which is the kind of bug a database column width finds for you later.
+- Paragraph packing keeps sentences whole, which the sliding window cannot promise. Use it when the source has real paragraph breaks left in it, and fall back to the window when cleaning has flattened them.
 
 #### Docs
 - [Python docs: `str.split`](https://docs.python.org/3/library/stdtypes.html#str.split)

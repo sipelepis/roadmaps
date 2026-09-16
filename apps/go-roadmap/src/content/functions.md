@@ -190,12 +190,21 @@ func TestPositive(t *testing.T) {
 	q, r := DivMod(17, 5)
 	expect(t, q, 3)
 	expect(t, r, 2)
+	q, r = DivMod(3, 5)
+	expect(t, q, 0)
+	expect(t, r, 3)
 }
 
-// negative dividend rounds toward zero
+// negative numbers round toward zero
 func TestNegative(t *testing.T) {
 	q, r := DivMod(-7, 2)
 	expect(t, q, -3)
+	expect(t, r, -1)
+	q, r = DivMod(7, -2)
+	expect(t, q, -3)
+	expect(t, r, 1)
+	q, r = DivMod(-7, -2)
+	expect(t, q, 3)
 	expect(t, r, -1)
 }
 
@@ -203,6 +212,9 @@ func TestNegative(t *testing.T) {
 func TestExact(t *testing.T) {
 	q, r := DivMod(12, 4)
 	expect(t, q, 3)
+	expect(t, r, 0)
+	q, r = DivMod(-12, 4)
+	expect(t, q, -3)
 	expect(t, r, 0)
 }
 ```
@@ -218,6 +230,7 @@ func TestExact(t *testing.T) {
 
 #### Tips
 - For any `b != 0`, `q*b + r == a` holds. That is a quick way to check the signs.
+- Naming the results `(q, r int)` documents the order in the signature, so callers do not have to guess which number comes first.
 
 #### Docs
 - [Go spec: Arithmetic operators](https://go.dev/ref/spec#Arithmetic_operators)
@@ -243,6 +256,7 @@ import "testing"
 // a single argument
 func TestSingle(t *testing.T) {
 	expect(t, MaxOf(3), 3)
+	expect(t, MaxOf(-4), -4)
 }
 
 // several arguments
@@ -251,10 +265,17 @@ func TestSeveral(t *testing.T) {
 	expect(t, MaxOf(-5, -2, -8), -2)
 }
 
+// the largest can be first or last
+func TestFirstOrLast(t *testing.T) {
+	expect(t, MaxOf(9, 1, 4), 9)
+	expect(t, MaxOf(1, 4, 9), 9)
+}
+
 // a spread slice
 func TestSpread(t *testing.T) {
 	nums := []int{4, 8, 2}
 	expect(t, MaxOf(1, nums...), 8)
+	expect(t, MaxOf(10, nums...), 10)
 }
 ```
 
@@ -267,6 +288,7 @@ func TestSpread(t *testing.T) {
 
 #### Tips
 - `max` and `min` are built in since Go 1.21 and accept any number of arguments of one ordered type.
+- Requiring `first` turns "at least one argument" into a compile-time rule. With a plain `nums ...int` you would have to decide what `MaxOf()` returns, and every caller would have to care.
 
 #### Docs
 - [Go spec: Min and max](https://go.dev/ref/spec#Min_and_max)
@@ -307,6 +329,17 @@ func TestIndependent(t *testing.T) {
 	expect(t, b(), 1)
 	expect(t, a(), 3)
 }
+
+// a new counter does not reset an old one
+func TestNewDoesNotReset(t *testing.T) {
+	a := NewCounter()
+	a()
+	a()
+	b := NewCounter()
+	expect(t, b(), 1)
+	expect(t, b(), 2)
+	expect(t, a(), 3)
+}
 ```
 
 #### Uses
@@ -318,6 +351,7 @@ func TestIndependent(t *testing.T) {
 
 #### Tips
 - A closure captures the variable itself, not a copy of its value, which is why the count survives between calls.
+- Increment before you return, not after. `n++` then `return n` gives 1 on the first call; returning `n` first would start at 0.
 
 #### Docs
 - [Go spec: Function literals](https://go.dev/ref/spec#Function_literals)
@@ -344,6 +378,7 @@ import "testing"
 // no functions is the identity
 func TestEmptyPipeline(t *testing.T) {
 	expect(t, Pipeline()(7), 7)
+	expect(t, Pipeline()(-3), -3)
 }
 
 // applies left to right
@@ -358,6 +393,17 @@ func TestOrder(t *testing.T) {
 func TestRepeat(t *testing.T) {
 	double := func(x int) int { return x * 2 }
 	expect(t, Pipeline(double, double, double)(1), 8)
+	expect(t, Pipeline(double, double, double)(-2), -16)
+}
+
+// the result can be called many times
+func TestReuse(t *testing.T) {
+	inc := func(x int) int { return x + 1 }
+	double := func(x int) int { return x * 2 }
+	p := Pipeline(inc, double)
+	expect(t, p(5), 12)
+	expect(t, p(5), 12)
+	expect(t, p(0), 2)
 }
 ```
 
@@ -372,6 +418,7 @@ func TestRepeat(t *testing.T) {
 
 #### Tips
 - With no functions the loop runs zero times, so the identity case needs no special code.
+- Reassigning `x` inside the returned function is safe: it is that call's own copy, so calling the pipeline twice starts from the new input each time.
 
 #### Docs
 - [Go spec: Function types](https://go.dev/ref/spec#Function_types)

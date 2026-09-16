@@ -104,6 +104,7 @@ type EventName<T extends string> = unknown
 ```ts test
 type _1 = Expect<Equal<EventName<'click'>, 'onClick'>>
 type _2 = Expect<Equal<EventName<'focus' | 'blur'>, 'onFocus' | 'onBlur'>>
+type _3 = Expect<Equal<EventName<'doubleClick'>, 'onDoubleClick'>>
 ```
 
 #### Uses
@@ -116,6 +117,8 @@ type _2 = Expect<Equal<EventName<'focus' | 'blur'>, 'onFocus' | 'onBlur'>>
 
 #### Tips
 - You don't need anything special for the union test. A union inside a template literal type expands to one string per member.
+- `Capitalize` needs a string, which is why `T extends string` is already in the starter. Without that constraint the template literal itself would be an error.
+- The expansion is a cartesian product. Two unions of four members in one template make sixteen strings, and TypeScript caps the total at 100,000.
 
 #### Docs
 - [Template Literal Types: `Capitalize<StringType>`](https://www.typescriptlang.org/docs/handbook/2/template-literal-types.html#capitalizestringtype)
@@ -132,6 +135,7 @@ type Getters<T> = unknown
 interface User { id: number; name: string }
 
 type _1 = Expect<Equal<Getters<User>, { getId: () => number; getName: () => string }>>
+type _2 = Expect<Equal<Getters<{ firstName: string; isAdmin: boolean }>, { getFirstName: () => string; getIsAdmin: () => boolean }>>
 ```
 
 #### Uses
@@ -142,6 +146,10 @@ type _1 = Expect<Equal<Getters<User>, { getId: () => number; getName: () => stri
 - Map over `keyof T` and rename each key with an `as` clause that builds `` `get${…}` ``.
 - `Capitalize` only takes strings, and `keyof T` may include `number` and `symbol`. Intersect first: `Capitalize<string & K>`.
 - The value is a function type with no parameters that returns `T[K]`.
+
+#### Tips
+- `string & K` is the standard way to say "this key, as long as it is a string". For a plain interface every key already is one, but `keyof T` includes `number | symbol` in general and `Capitalize` rejects those.
+- The value must be `() => T[K]`, a function *type*, not `T[K]`. The test asserts `getId: () => number`, so a missing `() =>` is the likeliest failure.
 
 #### Docs
 - [Mapped Types: Key Remapping via `as`](https://www.typescriptlang.org/docs/handbook/2/mapped-types.html#key-remapping-via-as)
@@ -158,6 +166,8 @@ type RouteParams<P extends string> = unknown
 type _1 = Expect<Equal<RouteParams<'/users/:id'>, 'id'>>
 type _2 = Expect<Equal<RouteParams<'/users/:id/posts/:postId'>, 'id' | 'postId'>>
 type _3 = Expect<Equal<RouteParams<'/about'>, never>>
+type _4 = Expect<Equal<RouteParams<'/users/:id/edit'>, 'id'>>
+type _5 = Expect<Equal<RouteParams<'/:org/:repo/issues/:num'>, 'org' | 'repo' | 'num'>>
 ```
 
 #### Uses
@@ -168,6 +178,10 @@ type _3 = Expect<Equal<RouteParams<'/about'>, never>>
 - `` `${string}:${infer Name}` `` skips everything up to the first `:` and captures the rest.
 - There are two cases. A param followed by more path, `` `${string}:${infer Name}/${infer Rest}` ``, gives `Name` plus whatever `Rest` contains, so recurse on `Rest`. A param at the very end gives just `Name`.
 - Check the longer pattern first, and fall back to `never` when neither matches.
+
+#### Tips
+- Order the two conditionals carefully. The "param at the end" pattern also matches `'/users/:id/edit'`, capturing `'id/edit'`, so the pattern with the trailing `/` has to be tried first.
+- `never` is the empty union, so the `'/about'` case needs no special handling: unioning `never` into anything adds nothing.
 
 #### Tips
 - Unioning with the recursive result collects every name, and `never` disappears from a union, so a path with no params adds nothing.
@@ -191,10 +205,13 @@ function getParam(route, params, name): string {
 ```ts test
 test('reads a param', () => {
   expect(getParam('/users/:id', { id: '42' }, 'id')).toBe('42')
+  expect(getParam('/posts/:postId/comments/:commentId', { postId: '7', commentId: '99' }, 'commentId')).toBe('99')
 })
 
 // @ts-expect-error `slug` is not a param of this route
 getParam('/users/:id', { id: '42' }, 'slug')
+// @ts-expect-error a route without params accepts no name
+getParam('/about', {}, 'id')
 ```
 
 #### Uses
@@ -209,6 +226,8 @@ getParam('/users/:id', { id: '42' }, 'slug')
 
 #### Tips
 - `route` is never read at runtime. It is there so TypeScript can infer `P`, and that is all it does.
+- `P extends string` is what keeps the literal. Drop the constraint and `P` widens to `string`, `RouteParams<string>` collapses, and both `@ts-expect-error` lines stop erroring.
+- Type `name` as `RouteParams<P>` directly. That single annotation is the whole feature: the compiler now knows which names this particular route allows.
 
 #### Docs
 - [Generics: Using Type Parameters in Generic Constraints](https://www.typescriptlang.org/docs/handbook/2/generics.html#using-type-parameters-in-generic-constraints)

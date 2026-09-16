@@ -206,6 +206,14 @@ pub fn longest<'a>(a: &'a str, b: &'a str) -> &'a str {
 fn longer() {
     assert_eq!(longest("hello", "hi"), "hello");
     assert_eq!(longest("a", "abc"), "abc");
+    assert_eq!(longest("abcd", "abc"), "abcd");
+}
+
+/// an empty string loses to any other
+#[test]
+fn empty() {
+    assert_eq!(longest("", "x"), "x");
+    assert_eq!(longest("x", ""), "x");
 }
 
 /// ties go to the first
@@ -214,6 +222,9 @@ fn ties() {
     let a = String::from("one");
     let b = String::from("two");
     assert!(std::ptr::eq(longest(&a, &b), a.as_str()));
+    let c = String::from("hello");
+    let d = String::from("world");
+    assert!(std::ptr::eq(longest(&d, &c), d.as_str()));
 }
 ```
 
@@ -227,6 +238,8 @@ fn ties() {
 
 #### Tips
 - The tie test uses `std::ptr::eq` to check you returned `a` itself, not just equal text. A reference is a pointer, and which one you hand back matters.
+- `'a` doesn't make anything live longer. It says the result is valid only as long as *both* inputs are, and the compiler then checks every call site against that promise.
+- Both inputs share one `'a` here because the result can come from either. When it can only come from one, tie only that one and the other is free to be short-lived, as the next exercise shows.
 
 #### Docs
 - [Rust book: Lifetime annotations in function signatures](https://doc.rust-lang.org/book/ch10-03-lifetime-syntax.html#lifetime-annotations-in-function-signatures)
@@ -251,7 +264,18 @@ fn config() -> Vec<(String, String)> {
 fn finds() {
     let pairs = config();
     assert_eq!(value_for(&pairs, "port"), Some("443"));
+    assert_eq!(value_for(&pairs, "host"), Some("example.com"));
     assert_eq!(value_for(&pairs, "user"), None);
+    assert_eq!(value_for(&[], "port"), None);
+}
+
+/// only a whole key matches, never part of one or a value
+#[test]
+fn whole_keys_only() {
+    let pairs = config();
+    assert_eq!(value_for(&pairs, "hos"), None);
+    assert_eq!(value_for(&pairs, "443"), None);
+    assert_eq!(value_for(&pairs, ""), None);
 }
 
 /// the result outlives a temporary key
@@ -278,7 +302,9 @@ fn outlives_key() {
 - If the loop finishes without a match, the answer is `None`.
 
 #### Tips
-- Only `pairs` carries `'a`, so elision gives `key` its own unrelated lifetime. Tie both to `'a` and the second test stops compiling.
+- Only `pairs` carries `'a`, so elision gives `key` its own unrelated lifetime. Tie both to `'a` and the third test stops compiling, because the temporary key would have to live as long as the answer.
+- A lifetime annotation is documentation the compiler checks. `value_for<'a>(pairs: &'a [...], key: &str)` tells a reader, before they open the body, that the result points into `pairs` and never into `key`.
+- `&String` converts to `&str` automatically wherever one is expected, so `Some(&pair.1)` fits the `Option<&'a str>` return type with nothing extra.
 
 #### Docs
 - [Rust book: Thinking in terms of lifetimes](https://doc.rust-lang.org/book/ch10-03-lifetime-syntax.html#thinking-in-terms-of-lifetimes)
@@ -314,13 +340,18 @@ fn first_sentence() {
     let novel = String::from("Call me Ishmael. Some years ago, never mind how long.");
     assert_eq!(Excerpt::new(&novel).text(), "Call me Ishmael.");
     assert_eq!(Excerpt::new("no period here").text(), "no period here");
+    assert_eq!(Excerpt::new("a.b.c").text(), "a.");
+    assert_eq!(Excerpt::new(". after").text(), ".");
+    assert_eq!(Excerpt::new("").text(), "");
 }
 
 /// first word, or empty
 #[test]
 fn first_word() {
     assert_eq!(Excerpt::new("  Hello world.").first_word(), "Hello");
+    assert_eq!(Excerpt::new("Wow. Such words").first_word(), "Wow.");
     assert_eq!(Excerpt::new("").first_word(), "");
+    assert_eq!(Excerpt::new(" \t ").first_word(), "");
 }
 
 /// results outlive the excerpt
@@ -350,6 +381,9 @@ fn outlives_struct() {
 
 #### Tips
 - The return types say `&'a str`, not `&str`. With plain `&str`, elision ties the results to `&self`, and the last test fails to compile.
+- The `Excerpt` stores no text of its own. It's a pointer and a length into somebody else's `String`, which is what makes it free to create and impossible to outlive its source.
+- `find('.')` gives a byte index, and `.` is one byte, so `i + 1` is a safe place to cut. That reasoning is worth checking every time: with a multi-byte marker you'd need `i + marker.len()`.
+- If a struct full of `&'a` starts to hurt, own the data instead. A `String` field costs one allocation and removes every annotation; borrowing structs earn their keep in parsers and iterators, not everywhere.
 
 #### Docs
 - [Rust book: Lifetime annotations in struct definitions](https://doc.rust-lang.org/book/ch10-03-lifetime-syntax.html#lifetime-annotations-in-struct-definitions)
@@ -388,6 +422,14 @@ fn splits() {
     assert_eq!(found, vec!["the", "quick", "brown", "fox"]);
 }
 
+/// keeps the last word even with nothing after it
+#[test]
+fn last_word() {
+    assert_eq!(words("solo").collect::<Vec<_>>(), vec!["solo"]);
+    assert_eq!(words("x\n\ny").collect::<Vec<_>>(), vec!["x", "y"]);
+    assert_eq!(words("a b c d e").count(), 5);
+}
+
 /// no words in blank text
 #[test]
 fn blank() {
@@ -413,6 +455,7 @@ fn outlives_iterator() {
 - [Lifetimes › Slicing `&str`](#/lifetimes/slicing-str)
 - [Lifetimes › Structs that hold references](#/lifetimes/structs-that-hold-references)
 - [Generics & bounds › Associated types](#/generics/associated-types)
+- [Reference › Vec and slices](#/reference/vec-and-slices)
 
 #### Hints
 - Start with `let s = self.rest.trim_start();`. If `s` is empty, there are no words left: store it back in `self.rest` and return `None`.
@@ -420,7 +463,10 @@ fn outlives_iterator() {
 - `s.split_at(end)` gives the word and the rest in one go. Keep the rest in `self.rest` and return `Some(word)`.
 
 #### Tips
-- `trim_start` and `split_at` return slices of the same text, so every word still points into the original `String` with lifetime `'a`, which is what the last test checks.
+- `trim_start` and `split_at` return slices of the same text, so every word still points into the original `String` with lifetime `'a`, which is what the last test checks: the first word's address is the string's own address.
+- `type Item = &'a str` is why the words outlive the iterator. Tie `Item` to `&self` instead and `it.next()` couldn't escape the block it was called in.
+- Store the trimmed remainder back into `self.rest` even when you return `None`, or a later `next` call walks the same whitespace again. Ending cleanly is part of the contract.
+- `words(text: &str) -> Words<'_>` uses the `'_` placeholder: there's one input lifetime, so elision knows which one it is, and `'_` just marks the spot rather than hiding it.
 
 #### Docs
 - [std: str::split_at](https://doc.rust-lang.org/std/primitive.str.html#method.split_at)

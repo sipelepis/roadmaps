@@ -122,10 +122,18 @@ def greet(name):
 def test_defaults():
     """uses the defaults"""
     assert greet("Ada") == "Hello, Ada!"
+    assert greet("Bob") == "Hello, Bob!"
 
 def test_options():
     """accepts greeting positionally and punctuation by keyword"""
     assert greet("Ada", "Hi", punctuation="?") == "Hi, Ada?"
+    assert greet("Bob", "Hey", punctuation=".") == "Hey, Bob."
+
+def test_one_option():
+    """changes one option and keeps the other default"""
+    assert greet("Bob", "Hey") == "Hey, Bob!"
+    assert greet("Cy", punctuation="...") == "Hello, Cy..."
+    assert greet("Di", greeting="Yo") == "Yo, Di!"
 
 def test_keyword_only():
     """punctuation cannot be passed positionally"""
@@ -146,6 +154,8 @@ def test_keyword_only():
 
 #### Tips
 - Keyword-only options keep call sites readable: `greet("Ada", punctuation="?")` says what the `"?"` is for.
+- A parameter with a default can still be passed positionally *or* by name, which is why `greet("Bob", "Hey")` and `greet("Di", greeting="Yo")` both work.
+- Defaults are read left to right, so every parameter after the first default needs one too. `def greet(name, greeting="Hello", *, punctuation="!")` is the only order that compiles.
 
 #### Docs
 - [Python tutorial: Default argument values](https://docs.python.org/3/tutorial/controlflow.html#default-argument-values)
@@ -165,6 +175,18 @@ def test_average():
     """averages its arguments"""
     assert average(2, 4, 6) == 4
     assert average(5) == 5
+    assert average(10, 20, 30, 40) == 25
+
+def test_keeps_fraction():
+    """keeps the fractional part"""
+    assert average(1, 2) == 1.5
+    assert average(1, 2, 3, 4) == 2.5
+
+def test_zero_average():
+    """a zero average is 0, not None"""
+    assert average(0) == 0
+    assert average(-3, 3) == 0
+    assert average(-3, 3) is not None
 
 def test_none_for_empty():
     """None with no arguments"""
@@ -182,6 +204,8 @@ def test_none_for_empty():
 
 #### Tips
 - Return `None` explicitly for the empty case. Falling off the end also returns `None`, but saying it reads better.
+- Guard first, then compute. `sum(values) / len(values)` on no arguments raises `ZeroDivisionError`, and the empty check is what stops it.
+- `average(*[1, 2, 3])` passes a list as three arguments. The `*` at the call site is the mirror image of the `*` in the signature.
 
 #### Docs
 - [Python tutorial: Arbitrary argument lists](https://docs.python.org/3/tutorial/controlflow.html#arbitrary-argument-lists)
@@ -207,6 +231,17 @@ def test_explicit_target():
     lst = [0]
     assert append_to(1, lst) is lst
     assert lst == [0, 1]
+    empty = []
+    assert append_to(5, empty) is empty
+    assert empty == [5]
+
+def test_earlier_results_untouched():
+    """later calls don't change earlier results"""
+    first = append_to("a")
+    append_to("b")
+    append_to("c", [9])
+    assert first == ["a"]
+    assert append_to("d") == ["d"]
 ```
 
 #### Uses
@@ -218,6 +253,8 @@ def test_explicit_target():
 
 #### Tips
 - Test `is None`, not truthiness. `if not target:` would also swap a caller's empty list for a new one, so their list would never see the append.
+- The test uses `is`, not `==`, on purpose: `append_to(5, empty) is empty` checks you appended to the caller's list rather than to a copy of it.
+- The same trap has the same fix everywhere: `{}`, `set()` and `[]` are all evaluated once at definition time. Only immutable defaults like `0`, `""` and `None` are safe to write directly.
 
 #### Docs
 - [Python tutorial: Default argument values](https://docs.python.org/3/tutorial/controlflow.html#default-argument-values)
@@ -239,6 +276,18 @@ def test_compose():
     double = lambda x: x * 2
     assert compose(inc, double)(5) == 11
     assert compose(double, inc)(5) == 12
+
+def test_reusable():
+    """the returned function works on any input"""
+    both = compose(lambda x: x + 1, lambda x: x * 2)
+    assert both(0) == 1
+    assert both(-3) == -5
+    assert both(10) == 21
+
+def test_any_functions():
+    """works with any one-argument functions"""
+    assert compose(str.upper, str.strip)("  hi ") == "HI"
+    assert compose(len, str.split)("a b c") == 3
 ```
 
 #### Uses
@@ -250,6 +299,9 @@ def test_compose():
 
 #### Tips
 - A nested `def` inside `compose` works too, and gets a real name in tracebacks.
+- `str.upper` and `len` can be passed straight in, because a method accessed on the class is an ordinary function whose first argument is the string.
+- Order matters and reads backwards: `compose(f, g)(x)` is `f(g(x))`, so the *second* argument runs first. That is the mathematical convention, not an accident.
+- `compose(inc, double)` returns a function; nothing is computed until you call it. Forgetting the second pair of brackets is the usual mistake.
 
 #### Docs
 - [Python tutorial: Lambda expressions](https://docs.python.org/3/tutorial/controlflow.html#lambda-expressions)

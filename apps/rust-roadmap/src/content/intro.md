@@ -115,7 +115,36 @@ pub fn double(x: i32) -> i32 {
 
 `pub` makes the function visible to the tests. The types after the parameter names and after `->` are required. The last expression in the body, written without a semicolon, is the return value. The Functions module goes into detail.
 
-Starters use `todo!()` as a placeholder body. It compiles, then panics when called, so the tests fail until you replace it. You'll also see two string types: `&str` for text you only read, such as a literal like `"hi"`, and `String` for text you own and can grow. `format!` returns a `String`. The Strings module explains the difference.
+Starters use `todo!()` as a placeholder body. It compiles, then panics when called, so the tests fail until you replace it. You'll also see two string types: `&str` for text you only read, such as a literal like `"hi"`, and `String` for text you own and can grow. `format!` returns a `String`, and `.to_string()` turns almost anything into one: `"Fizz".to_string()`, `7.to_string()`. The Strings module explains the difference.
+
+The tests themselves are ordinary Rust, and they look like this:
+
+```rust
+pub fn double(x: i32) -> i32 {
+    x * 2
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// doubles a number
+    #[test]
+    fn doubles() {
+        assert_eq!(double(21), 42);
+        assert!(double(2) > 0);
+    }
+}
+```
+
+Four things worth knowing before the first exercise:
+
+- `#[test]` marks a function as one test, and the `///` comment above it is the label you see in the results.
+- `assert_eq!(a, b)` panics unless the two are equal. Here the left side is your value and the right side is what's expected, so a failure reports them as *actual* and *expected*. `assert!(cond)` is the same for a plain `bool`.
+- A panic ends that test at once. The first failing assert is the only one you'll hear about, so fix that one first; later asserts in the same test never ran.
+- `println!` inside a test isn't lost. Its output is shown with the failure, which is the quickest way to see what your code actually produced.
+
+Exercises point at the articles that teach what they need, under **Uses**. When one leans on a standard-library method no article has covered yet, that link goes to the [Reference](#/reference) instead: a lookup page of the macros and methods used here, each with a one-line description, a tiny example and a link to the official docs.
 
 ```rust playground
 fn main() {
@@ -153,18 +182,29 @@ pub fn greet(name: &str) -> String {
 #[test]
 fn greets_by_name() {
     assert_eq!(greet("Ada"), "Hello, Ada!");
+    assert_eq!(greet("Ferris"), "Hello, Ferris!");
+}
+
+/// keeps the name exactly as given
+#[test]
+fn keeps_the_name() {
+    assert_eq!(greet("grace hopper"), "Hello, grace hopper!");
+    assert_eq!(greet("R2-D2"), "Hello, R2-D2!");
 }
 
 /// works for any name
 #[test]
 fn works_for_any_name() {
-    assert_eq!(greet("Ferris"), "Hello, Ferris!");
+    assert_eq!(greet("Zoë"), "Hello, Zoë!");
+    assert_eq!(greet("Linus"), "Hello, Linus!");
 }
 ```
 
 #### Uses
 - [What is Rust? › `fn main` and macros](#/intro/fn-main-and-macros)
 - [What is Rust? › How the exercises work](#/intro/how-the-exercises-work)
+- [Reference › How the tests work](#/reference/how-the-tests-work)
+- [Reference › Macros](#/reference/macros)
 
 #### Hints
 - You don't print anything here. You build a `String` and return it, and `format!` does exactly that.
@@ -172,6 +212,8 @@ fn works_for_any_name() {
 
 #### Tips
 - Delete the `todo!()` when you write the body. Leaving it in front of your code panics before your code runs.
+- `println!` prints and gives back nothing; `format!` prints nothing and gives back a `String`. Ending the body with a `println!` is the most common way to fail this exercise.
+- `{name}` only captures a plain variable that's in scope. Anything else, like `{name.len()}`, has to go in as an argument: `format!("{}", name.len())`.
 
 #### Docs
 - [std: `format!`](https://doc.rust-lang.org/std/macro.format.html)
@@ -194,6 +236,7 @@ pub fn receipt_line(item: &str, cents: u32) -> String {
 #[test]
 fn pads_columns() {
     assert_eq!(receipt_line("Coffee", 350), "Coffee       $3.50");
+    assert_eq!(receipt_line("Toothpaste", 99), "Toothpaste   $0.99");
 }
 
 /// shows leading zeros in the cents
@@ -201,18 +244,29 @@ fn pads_columns() {
 fn zero_pads_cents() {
     assert_eq!(receipt_line("Gum", 105), "Gum          $1.05");
     assert_eq!(receipt_line("Mint", 7), "Mint         $0.07");
+    assert_eq!(receipt_line("Tea", 500), "Tea          $5.00");
+    assert_eq!(receipt_line("Free", 0), "Free         $0.00");
 }
 
 /// handles wide prices
 #[test]
 fn wide_price() {
     assert_eq!(receipt_line("Laptop", 129999), "Laptop    $1299.99");
+    assert_eq!(receipt_line("TV", 99999), "TV         $999.99");
+}
+
+/// counts characters, not bytes
+#[test]
+fn counts_characters() {
+    assert_eq!(receipt_line("Crème", 250), "Crème        $2.50");
+    assert_eq!(receipt_line("Café", 1250), "Café        $12.50");
 }
 ```
 
 #### Uses
 - [What is Rust? › `fn main` and macros](#/intro/fn-main-and-macros)
 - [What is Rust? › How the exercises work](#/intro/how-the-exercises-work)
+- [Reference › Macros](#/reference/macros)
 
 #### Hints
 - Do it in two steps: first build the price text like `$3.50`, then lay out the item and that price in their columns.
@@ -221,6 +275,8 @@ fn wide_price() {
 
 #### Tips
 - Money is usually kept in whole cents, as here. Floats can't store most decimal fractions exactly: `0.1 + 0.2` is not `0.3`.
+- Width in a format string counts characters, not bytes, which is why `"Crème"` lines up with `"Coffee"` even though it takes six bytes. The last test checks exactly that.
+- Padding never truncates. `{:<10}` on a name longer than ten characters prints all of it and pushes the rest of the line along, which is why `"Toothpaste"` still works.
 
 #### Docs
 - [std::fmt: Width](https://doc.rust-lang.org/std/fmt/index.html#width)

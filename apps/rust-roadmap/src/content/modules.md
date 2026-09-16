@@ -242,18 +242,22 @@ pub mod geometry {
 #[test]
 fn square() {
     assert_eq!(geometry::square_area(3.0), 9.0);
+    assert_eq!(geometry::square_area(0.5), 0.25);
 }
 
 /// volume of a cube
 #[test]
 fn volume() {
     assert_eq!(geometry::solids::cube_volume(2.0), 8.0);
+    assert_eq!(geometry::solids::cube_volume(3.0), 27.0);
 }
 
 /// surface of a cube is six faces
 #[test]
 fn surface() {
     assert_eq!(geometry::solids::cube_surface(2.0), 24.0);
+    assert_eq!(geometry::solids::cube_surface(3.0), 54.0);
+    assert_eq!(geometry::solids::cube_surface(1.0), 6.0);
 }
 ```
 
@@ -267,6 +271,8 @@ fn surface() {
 
 #### Tips
 - The absolute path `crate::geometry::square_area` works too, but `super::` keeps working if you move both modules somewhere else together.
+- Both `pub`s are needed on the nested module: `pub mod solids` makes the module visible, and `pub fn` makes each function visible. Marking only the module gets you `error[E0603]: function is private`.
+- A child can see its parent's private items, but not the other way round. That's why `super::square_area` would work even if `square_area` weren't `pub` — it's the tests, outside the module, that need it.
 
 #### Docs
 - [Book: Starting relative paths with `super`](https://doc.rust-lang.org/book/ch07-03-paths-for-referring-to-an-item-in-the-module-tree.html#starting-relative-paths-with-super)
@@ -310,20 +316,34 @@ use super::clock::Clock;
 #[test]
 fn formats() {
     assert_eq!(Clock::new(9, 5).display(), "09:05");
+    assert_eq!(Clock::new(0, 0).display(), "00:00");
+    assert_eq!(Clock::new(13, 45).display(), "13:45");
+    assert_eq!(Clock::new(23, 59).display(), "23:59");
 }
 
 /// wraps hours and minutes around the day
 #[test]
 fn wraps() {
     assert_eq!(Clock::new(25, 70).display(), "02:10");
+    assert_eq!(Clock::new(0, 1500).display(), "01:00");
+    assert_eq!(Clock::new(47, 60).display(), "00:00");
     assert_eq!(Clock::new(24, 0), Clock::new(0, 0));
 }
 
 /// adding minutes crosses midnight
 #[test]
 fn adds() {
+    assert_eq!(Clock::new(10, 15).add_minutes(0).display(), "10:15");
+    assert_eq!(Clock::new(10, 15).add_minutes(50).display(), "11:05");
     assert_eq!(Clock::new(23, 59).add_minutes(2).display(), "00:01");
     assert_eq!(Clock::new(8, 0).add_minutes(3 * 24 * 60 + 30).display(), "08:30");
+}
+
+/// the result of add_minutes is wrapped too
+#[test]
+fn adds_wrapped() {
+    assert_eq!(Clock::new(23, 0).add_minutes(60), Clock::new(0, 0));
+    assert_eq!(Clock::new(10, 0).add_minutes(24 * 60), Clock::new(10, 0));
 }
 ```
 
@@ -339,6 +359,8 @@ fn adds() {
 
 #### Tips
 - `Clock::new(24, 0) == Clock::new(0, 0)` holds because the derived `PartialEq` compares the stored minutes, and both are 0 once `new` wraps.
+- Wrap in `new` and in `add_minutes`, not in `display`. Keeping the invariant where values are *created* means every later method can just trust it; fixing it up at the point of display would let an invalid `Clock` exist in between.
+- `hours * 60 + minutes` can overflow a `u32` before you ever take the remainder. The tests stay well inside the range, but in real code you'd reduce the hours first.
 
 #### Docs
 - [Book: Making structs and enums public](https://doc.rust-lang.org/book/ch07-03-paths-for-referring-to-an-item-in-the-module-tree.html#making-structs-and-enums-public)
@@ -429,6 +451,29 @@ fn removes() {
     assert_eq!(cart.count(), 1);
     assert_eq!(cart.remove("coffee"), false);
     assert_eq!(cart.total_cents(), 350);
+    assert_eq!(cart.remove("tea"), true);
+    assert_eq!(cart.remove("tea"), false);
+    assert_eq!(cart.count(), 0);
+}
+
+/// removes the first item with that name, not a later one
+#[test]
+fn removes_first() {
+    let mut cart = Cart::new();
+    cart.add(item("tea", 350));
+    cart.add(item("scone", 275));
+    cart.add(item("tea", 400));
+    assert_eq!(cart.remove("tea"), true);
+    assert_eq!(cart.count(), 2);
+    assert_eq!(cart.total_cents(), 675);
+}
+
+/// removing from an empty cart finds nothing
+#[test]
+fn removes_from_empty() {
+    let mut cart = Cart::new();
+    assert_eq!(cart.remove("tea"), false);
+    assert_eq!(cart.count(), 0);
 }
 ```
 
@@ -446,6 +491,8 @@ fn removes() {
 #### Tips
 - Return right after removing. `remove` shifts every later item down one place, so carrying on with the same indexes would skip an item or run past the end.
 - Once you've done Borrowing, `for item in &self.items` is the usual way to read every item without taking it.
+- `items` is private, so `total_cents` is the only definition of what a cart costs. Make the field `pub` and every caller can compute its own, slightly different, total.
+- `pub use` at the bottom is what lets the tests write `Cart` instead of `cart::Cart`. It's the standard way a library offers short paths at its root while keeping its internals in deeper modules.
 
 #### Docs
 - [std: `Vec::remove`](https://doc.rust-lang.org/std/vec/struct.Vec.html#method.remove)

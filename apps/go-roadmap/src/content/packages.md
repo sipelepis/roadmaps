@@ -177,12 +177,21 @@ func TestSlugSeparators(t *testing.T) {
 	expect(t, Slug("Crème Brûlée"), "crème-brûlée")
 	expect(t, Slug("!!!"), "")
 }
+
+// single words, digits and empty input
+func TestSlugEdges(t *testing.T) {
+	expect(t, Slug("Go"), "go")
+	expect(t, Slug("v2 Release"), "v2-release")
+	expect(t, Slug("  --Trim me--  "), "trim-me")
+	expect(t, Slug(""), "")
+}
 ```
 
 #### Uses
 - [Packages & modules › Using the standard library](#/packages/using-the-standard-library)
 - [Packages & modules › Imports](#/packages/imports)
 - [Functions › Functions are values](#/functions/functions-are-values)
+- [Strings & runes › The strings package](#/strings/the-strings-package)
 
 #### Hints
 - Lowercase the whole title first, then split it into words.
@@ -191,6 +200,8 @@ func TestSlugSeparators(t *testing.T) {
 
 #### Tips
 - `unicode.IsLetter` knows about accents, so `Crème` stays one word. A check like `r >= 'a' && r <= 'z'` would split it.
+- Lowercase before splitting, not after. Then the separator function never has to think about case, and neither does `Join`.
+- `FieldsFunc` drops empty pieces, so `"a -- b"` collapses on its own and `"!!!"` gives no pieces at all. That is the empty-slug case handled for free.
 
 #### Docs
 - [strings.FieldsFunc](https://pkg.go.dev/strings#FieldsFunc)
@@ -238,26 +249,35 @@ func TestParseVersion(t *testing.T) {
 	a, b, c, err := ParseVersion("2.10.0")
 	expect(t, []int{a, b, c}, []int{2, 10, 0})
 	expect(t, err, nil)
+	a, b, c, err = ParseVersion("0.7.123")
+	expect(t, []int{a, b, c}, []int{0, 7, 123})
+	expect(t, err, nil)
 }
 
 // rejects the wrong number of parts
 func TestParseVersionParts(t *testing.T) {
-	for _, v := range []string{"1.2", "1", "", "1.2.3.4"} {
+	for _, v := range []string{"1.2", "1", "", "1.2.3.4", "1.2.3."} {
 		if _, _, _, err := ParseVersion(v); !errors.Is(err, ErrBadVersion) {
 			t.Fatalf("ParseVersion(%q): want ErrBadVersion, got %v", v, err)
 		}
 	}
 	_, _, _, err := ParseVersion("1.2")
 	expect(t, err.Error(), `version "1.2": bad version`)
+	_, _, _, err = ParseVersion("1.2.3.4")
+	expect(t, err.Error(), `version "1.2.3.4": bad version`)
 }
 
-// wraps the Atoi error
+// wraps the Atoi error, whichever part is bad
 func TestParseVersionNumber(t *testing.T) {
-	_, _, _, err := ParseVersion("1.x.3")
-	if !errors.Is(err, strconv.ErrSyntax) {
-		t.Fatalf("want an error wrapping strconv.ErrSyntax, got %v", err)
+	for _, v := range []string{"1.x.3", "a.2.3", "1.2.z", "1..3"} {
+		if _, _, _, err := ParseVersion(v); !errors.Is(err, strconv.ErrSyntax) {
+			t.Fatalf("ParseVersion(%q): want an error wrapping strconv.ErrSyntax, got %v", v, err)
+		}
 	}
+	_, _, _, err := ParseVersion("1.x.3")
 	expect(t, err.Error(), `version "1.x.3": strconv.Atoi: parsing "x": invalid syntax`)
+	_, _, _, err = ParseVersion("1.2.z")
+	expect(t, err.Error(), `version "1.2.z": strconv.Atoi: parsing "z": invalid syntax`)
 }
 
 // init filled the package-level vars
@@ -271,6 +291,7 @@ func TestInitRan(t *testing.T) {
 - [Packages & modules › Using the standard library](#/packages/using-the-standard-library)
 - [Errors › Wrapping with `%w`](#/errors/wrapping-with-w)
 - [Errors › `panic`, `defer` and `recover`](#/errors/panic-defer-and-recover)
+- [Reference › How the tests here work](#/reference/how-the-tests-here-work)
 
 #### Hints
 - Cut twice: the first `strings.Cut(v, ".")` gives the major part and the rest, the second splits the rest into minor and patch. If either cut finds no dot, there are too few parts.
@@ -279,6 +300,7 @@ func TestInitRan(t *testing.T) {
 
 #### Tips
 - `Major, Minor, Patch, err := ParseVersion(Version)` inside `init` compiles, but it declares new local variables that hide the package-level ones, which stay 0.
+- `init` runs before any test, so the last test really only checks that you wrote one at all.
 
 #### Docs
 - [strings.Cut](https://pkg.go.dev/strings#Cut)
@@ -333,6 +355,8 @@ func TestBuiltinCodecs(t *testing.T) {
 	s, err = Encode("lower", "Go")
 	expect(t, s, "go")
 	expect(t, err, nil)
+	s, _ = Encode("upper", "hello, world")
+	expect(t, s, "HELLO, WORLD")
 }
 
 // unknown names return ErrUnknownCodec
@@ -342,6 +366,11 @@ func TestUnknownCodec(t *testing.T) {
 		t.Fatalf("want ErrUnknownCodec, got %v", err)
 	}
 	expect(t, err.Error(), `codec "rot13": unknown codec`)
+	_, err = Encode("base64", "Go")
+	if !errors.Is(err, ErrUnknownCodec) {
+		t.Fatalf("want ErrUnknownCodec, got %v", err)
+	}
+	expect(t, err.Error(), `codec "base64": unknown codec`)
 }
 
 // Register adds new codecs
@@ -350,16 +379,29 @@ func TestRegister(t *testing.T) {
 	s, err := Encode("twice", "ab")
 	expect(t, s, "abab")
 	expect(t, err, nil)
+	Register("first", func(s string) string { return s[:1] })
+	s, _ = Encode("first", "xyz")
+	expect(t, s, "x")
+}
+
+// panics reports whether f panicked.
+func panics(f func()) (didPanic bool) {
+	defer func() { didPanic = recover() != nil }()
+	f()
+	return false
 }
 
 // registering a name twice panics
 func TestRegisterDuplicate(t *testing.T) {
-	defer func() {
-		if recover() == nil {
-			t.Error("want a panic for a duplicate name")
-		}
-	}()
-	Register("upper", func(s string) string { return s })
+	if !panics(func() { Register("upper", func(s string) string { return s }) }) {
+		t.Error(`want a panic for registering "upper" again`)
+	}
+	if panics(func() { Register("echo", func(s string) string { return s }) }) {
+		t.Fatal(`registering a new name panicked`)
+	}
+	if !panics(func() { Register("echo", func(s string) string { return s }) }) {
+		t.Error(`want a panic for registering "echo" twice`)
+	}
 }
 ```
 
@@ -368,6 +410,8 @@ func TestRegisterDuplicate(t *testing.T) {
 - [Functions › Functions are values](#/functions/functions-are-values)
 - [Errors › Wrapping with `%w`](#/errors/wrapping-with-w)
 - [Errors › `panic`, `defer` and `recover`](#/errors/panic-defer-and-recover)
+- [Strings & runes › The strings package](#/strings/the-strings-package)
+- [Reference › How the tests here work](#/reference/how-the-tests-here-work)
 
 #### Hints
 - `Register` looks the name up first with the two-value form. If it's already there, `panic` with a message built by `fmt.Sprintf` and `%q`; otherwise store `fn`.
@@ -376,6 +420,8 @@ func TestRegisterDuplicate(t *testing.T) {
 
 #### Tips
 - Every `init` runs before `main` and before any test, so the built-in codecs are registered by the time anything calls `Encode`.
+- `strings.ToUpper` already has the type `func(string) string`, so it drops straight into the map with no wrapper function around it.
+- Registration panics rather than returning an error on purpose: a duplicate name is a mistake in the program's own source, not a bad input.
 
 #### Docs
 - [Effective Go: The init function](https://go.dev/doc/effective_go#init)

@@ -211,18 +211,29 @@ import "testing"
 func TestNumbers(t *testing.T) {
 	expect(t, FizzBuzz(1), "1")
 	expect(t, FizzBuzz(7), "7")
+	expect(t, FizzBuzz(98), "98")
+	expect(t, FizzBuzz(101), "101")
 }
 
-// multiples of 3 and 5
-func TestFizzAndBuzz(t *testing.T) {
+// multiples of 3
+func TestFizz(t *testing.T) {
+	expect(t, FizzBuzz(3), "Fizz")
 	expect(t, FizzBuzz(9), "Fizz")
+	expect(t, FizzBuzz(99), "Fizz")
+}
+
+// multiples of 5
+func TestBuzz(t *testing.T) {
+	expect(t, FizzBuzz(5), "Buzz")
 	expect(t, FizzBuzz(10), "Buzz")
+	expect(t, FizzBuzz(100), "Buzz")
 }
 
 // multiples of both
 func TestFizzBuzz(t *testing.T) {
 	expect(t, FizzBuzz(15), "FizzBuzz")
 	expect(t, FizzBuzz(45), "FizzBuzz")
+	expect(t, FizzBuzz(90), "FizzBuzz")
 }
 ```
 
@@ -238,6 +249,7 @@ func TestFizzBuzz(t *testing.T) {
 
 #### Tips
 - `string(n)` compiles, but it gives the character with code point `n`, not its digits.
+- `fmt.Sprint(n)` does the same job as `strconv.Itoa(n)` without the extra import. `Itoa` is faster and says exactly what it converts.
 
 #### Docs
 - [Go spec: Switch statements](https://go.dev/ref/spec#Switch_statements)
@@ -263,6 +275,18 @@ import "testing"
 // below ten: 3 + 5 + 6 + 9
 func TestBelowTen(t *testing.T) {
 	expect(t, SumMultiples(10), 23)
+	expect(t, SumMultiples(4), 3)
+}
+
+// the limit itself is left out
+func TestLimitExcluded(t *testing.T) {
+	expect(t, SumMultiples(6), 8)
+	expect(t, SumMultiples(15), 45)
+}
+
+// a multiple of both counts once: 3 + 5 + 6 + 9 + 10 + 12 + 15
+func TestCountedOnce(t *testing.T) {
+	expect(t, SumMultiples(16), 60)
 }
 
 // below a thousand
@@ -270,9 +294,10 @@ func TestBelowThousand(t *testing.T) {
 	expect(t, SumMultiples(1000), 233168)
 }
 
-// nothing below one
+// nothing below three
 func TestEmptyRange(t *testing.T) {
 	expect(t, SumMultiples(1), 0)
+	expect(t, SumMultiples(3), 0)
 }
 ```
 
@@ -287,6 +312,7 @@ func TestEmptyRange(t *testing.T) {
 
 #### Tips
 - Two separate `if`s would add 15, 30, 45 ... twice. One condition with `||` counts them once.
+- `range limit` starts at 0, and 0 divides by both 3 and 5 — but adding 0 changes nothing, so it needs no special case.
 
 #### Docs
 - [Go spec: For statements](https://go.dev/ref/spec#For_statements)
@@ -308,19 +334,23 @@ package main
 
 import "testing"
 
-// one is already there
+// one is already there, two is one step away
 func TestOne(t *testing.T) {
 	expect(t, CollatzSteps(1), 0)
+	expect(t, CollatzSteps(2), 1)
 }
 
-// six takes eight steps
-func TestSix(t *testing.T) {
+// small starts: 3 goes 10 5 16 8 4 2 1
+func TestSmall(t *testing.T) {
+	expect(t, CollatzSteps(3), 7)
 	expect(t, CollatzSteps(6), 8)
+	expect(t, CollatzSteps(7), 16)
 }
 
-// twenty-seven wanders for a while
+// some starts wander for a while
 func TestTwentySeven(t *testing.T) {
 	expect(t, CollatzSteps(27), 111)
+	expect(t, CollatzSteps(97), 118)
 }
 ```
 
@@ -335,6 +365,7 @@ func TestTwentySeven(t *testing.T) {
 
 #### Tips
 - A parameter is an ordinary local variable, so you can change `n` directly.
+- Count trips round the loop, not values visited. `CollatzSteps(1)` is 0 because the condition is false before the body ever runs.
 
 #### Docs
 - [Effective Go: For](https://go.dev/doc/effective_go#for)
@@ -370,6 +401,21 @@ func TestTen(t *testing.T) {
 	expect(t, CountPrimes(10), 4)
 }
 
+// n itself counts when it is prime
+func TestPrimeLimit(t *testing.T) {
+	expect(t, CountPrimes(3), 2)
+	expect(t, CountPrimes(11), 5)
+	expect(t, CountPrimes(97), 25)
+}
+
+// squares of primes are not prime
+func TestSquares(t *testing.T) {
+	expect(t, CountPrimes(4), 2)
+	expect(t, CountPrimes(9), 4)
+	expect(t, CountPrimes(25), 9)
+	expect(t, CountPrimes(49), 15)
+}
+
 // primes up to one hundred and ten thousand
 func TestLarger(t *testing.T) {
 	expect(t, CountPrimes(100), 25)
@@ -388,6 +434,8 @@ func TestLarger(t *testing.T) {
 
 #### Tips
 - A plain `continue` in the inner loop would only move on to the next divisor.
+- `d*d <= c` stops at the square root. The obvious `d <= c/2` is correct too, and around 50 times slower at `CountPrimes(10000)`.
+- `gofmt` puts a label one level out from the `for` it names, which looks odd the first time. Leave it where the formatter puts it.
 
 #### Docs
 - [Go spec: Continue statements](https://go.dev/ref/spec#Continue_statements)

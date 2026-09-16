@@ -107,7 +107,7 @@ print(list(e))       # exhausted
 
 ### 1. Countdown
 
-`countdown(n)` is a generator yielding `n`, `n-1`, … `1`.
+`countdown(n)` is a generator yielding `n`, `n-1`, … `1`. A zero or negative `n` yields nothing.
 
 ```python starter
 def countdown(n):
@@ -116,15 +116,25 @@ def countdown(n):
 
 ```python test
 import types
+from itertools import islice
 
 def test_countdown():
     """yields n down to 1"""
     assert list(countdown(3)) == [3, 2, 1]
+    assert list(countdown(5)) == [5, 4, 3, 2, 1]
+    assert list(countdown(1)) == [1]
+
+def test_nothing():
+    """zero or negative yields nothing"""
     assert list(countdown(0)) == []
+    assert list(islice(countdown(-2), 5)) == []   # islice stops a runaway loop
 
 def test_is_generator():
     """is a generator, not a list"""
-    assert isinstance(countdown(3), types.GeneratorType)
+    g = countdown(3)
+    assert isinstance(g, types.GeneratorType)
+    assert next(g) == 3 and next(g) == 2 and next(g) == 1
+    assert list(g) == []
 ```
 
 #### Uses
@@ -137,13 +147,15 @@ def test_is_generator():
 
 #### Tips
 - `countdown(0)` should yield nothing at all. A loop whose condition is false from the start gets that right for free.
+- A single `yield` anywhere in the body makes the *whole* function a generator, even a `yield` that never runs. That is why the last test can check the type without calling it.
+- Calling `countdown(3)` runs none of your code. If a `print` in the body never appears, that is why — nothing happens until something iterates it.
 
 #### Docs
 - [Python tutorial: Generators](https://docs.python.org/3/tutorial/classes.html#generators)
 
 ### 2. Chunks, lazily
 
-`chunks(iterable, size)` yields lists of at most `size` items from *any* iterable (including generators you can't index). The last chunk may be shorter.
+`chunks(iterable, size)` yields lists of at most `size` items from *any* iterable (including generators you can't index). The last chunk may be shorter, and there is never an empty chunk. Read the input lazily: taking the first chunk shouldn't consume the rest.
 
 ```python starter
 def chunks(iterable, size):
@@ -154,10 +166,27 @@ def chunks(iterable, size):
 def test_chunks():
     """chunks a list"""
     assert list(chunks([1, 2, 3, 4, 5], 2)) == [[1, 2], [3, 4], [5]]
+    assert list(chunks("abc", 1)) == [["a"], ["b"], ["c"]]
+    assert list(chunks([1, 2], 5)) == [[1, 2]]
+
+def test_no_empty_chunk():
+    """no empty chunk at the end"""
+    assert list(chunks([1, 2, 3, 4], 2)) == [[1, 2], [3, 4]]
+    assert list(chunks([], 3)) == []
 
 def test_generator_input():
     """works on a generator input"""
     assert list(chunks((i for i in range(4)), 3)) == [[0, 1, 2], [3]]
+
+def test_lazy():
+    """reads only as far as it needs"""
+    seen = []
+    def numbers():
+        for i in range(100):
+            seen.append(i)
+            yield i
+    assert next(chunks(numbers(), 3)) == [0, 1, 2]
+    assert seen == [0, 1, 2]
 ```
 
 #### Uses
@@ -172,7 +201,9 @@ def test_generator_input():
 - After the loop, a partly filled list may be left over. Yield it only if it isn't empty.
 
 #### Tips
-- Start a new list with `chunk = []` rather than emptying the old one: the caller may still be holding the list you just yielded.
+- Start a new list with `chunk = []` rather than emptying the old one: the caller may still be holding the list you just yielded. `chunk.clear()` is the bug this warns about.
+- `if chunk:` is the whole "no empty chunk" rule, and it also covers the empty input.
+- Building the chunks with slicing would need `len` and indexing, which a generator input doesn't have. Looping is what makes this work on anything iterable.
 
 #### Docs
 - [Glossary: iterable](https://docs.python.org/3/glossary.html#term-iterable)
@@ -194,9 +225,23 @@ def test_first_primes():
     """first ten primes"""
     assert list(islice(primes(), 10)) == [2, 3, 5, 7, 11, 13, 17, 19, 23, 29]
 
+def test_further():
+    """keeps going past the first few"""
+    assert list(islice(primes(), 25))[-1] == 97
+    assert list(islice(primes(), 100))[-1] == 541
+
 def test_lazy():
     """stops early without computing everything"""
     assert next(p for p in primes() if p > 100) == 101
+    assert next(p for p in primes() if p > 1000) == 1009
+
+def test_fresh_start():
+    """each call starts again from 2"""
+    a = primes()
+    next(a); next(a)
+    b = primes()
+    assert next(b) == 2
+    assert next(a) == 5
 ```
 
 #### Uses
@@ -212,6 +257,8 @@ def test_lazy():
 
 #### Tips
 - Only primes up to the square root of `n` can divide it, so you can stop checking there if you want it faster.
+- The last test calls `primes()` twice and expects two independent sequences. Keep the list of found primes *inside* the generator function; a module-level list would be shared.
+- `next(p for p in primes() if p > 100)` never ends unless your generator is lazy. An infinite generator that builds a list first would hang here.
 
 #### Docs
 - [Python tutorial: Generators](https://docs.python.org/3/tutorial/classes.html#generators)
@@ -227,9 +274,26 @@ def flatten(nested):
 ```
 
 ```python test
+import types
+
 def test_flatten():
     """flattens any depth"""
     assert list(flatten([1, [2, [3, [4]], 5], []])) == [1, 2, 3, 4, 5]
+    assert list(flatten([[3, 1], 2])) == [3, 1, 2]
+    assert list(flatten([[[[[7]]]]])) == [7]
+
+def test_empty():
+    """empty lists yield nothing"""
+    assert list(flatten([])) == []
+    assert list(flatten([[], [[]]])) == []
+
+def test_other_values():
+    """only lists are opened up"""
+    assert list(flatten([(1, 2), ["ab", [None]]])) == [(1, 2), "ab", None]
+
+def test_is_generator():
+    """is a generator"""
+    assert isinstance(flatten([1]), types.GeneratorType)
 ```
 
 #### Uses
@@ -244,6 +308,8 @@ def test_flatten():
 
 #### Tips
 - An empty inner list yields nothing, so `[]` disappears without any special case.
+- `yield flatten(item)` would hand back a generator object instead of its values. `yield from` is what forwards them one by one.
+- Only `list` is opened up here, so a tuple or a string comes out whole. Widening the check to `isinstance(item, (list, tuple, str))` would recurse forever on strings, since `"a"[0]` is another string.
 
 #### Docs
 - [Language reference: Yield expressions](https://docs.python.org/3/reference/expressions.html#yield-expressions)

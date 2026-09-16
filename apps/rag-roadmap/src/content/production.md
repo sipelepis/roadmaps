@@ -88,14 +88,29 @@ def route(query):
 ```
 
 ```python test
-def test_route():
-    """triage by cheap rules"""
+def test_chat():
+    """a greeting at the start goes to chat, in any case"""
     assert route("Hello!") == "chat"
     assert route("thank you so much") == "chat"
+    assert route("HEY there") == "chat"
+    assert route("hi") == "chat"
+    assert route("Thanks, what is the warranty?") == "chat"
+
+def test_calc():
+    """arithmetic goes to calc"""
     assert route("(12 + 30) * 2") == "calc"
-    assert route("+ - *") == "retrieve"
+    assert route("3.5 / 7") == "calc"
+    assert route("42") == "calc"
+    assert route("10-4") == "calc"
+
+def test_retrieve():
+    """everything else is retrieved"""
     assert route("how long is the warranty") == "retrieve"
     assert route("hire a contractor") == "retrieve"
+    assert route("thanksgiving opening hours") == "retrieve"
+    assert route("say hi to support") == "retrieve"
+    assert route("+ - *") == "retrieve"
+    assert route("what is 2 + 2") == "retrieve"
 ```
 
 #### Uses
@@ -108,6 +123,9 @@ def test_route():
 
 #### Tips
 - Inside a character class `-` needs escaping (or goes last). `*`, `+`, `(`, `)` and `.` are literal there already.
+- `re.match` anchors at the start; `re.search` would find "hi" in the middle of a sentence and route a real question to chat. The `\b` does the other half — without it `hire` starts with `hi`.
+- When in doubt, route to `retrieve`. Sending a greeting through retrieval wastes a few milliseconds; sending a real question to the chat branch answers it from training data with no sources, which is the failure RAG exists to prevent.
+- A router is the first thing people over-build. Two regexes and a default is a complete router until you can show it getting something wrong.
 
 #### Docs
 - [Python docs: `re.match`](https://docs.python.org/3/library/re.html#re.match)
@@ -130,23 +148,51 @@ def filter_then_search(chunks, filters, query, k):
 ```
 
 ```python test
-def test_filter_search():
-    """hard filters before similarity"""
+def test_filters():
+    """keeps only chunks matching every filter"""
     chunks = [
         {"id": 1, "meta": {"dept": "hr", "year": 2025}, "vector": [1, 0]},
-        {"id": 2, "meta": {"dept": "finance", "year": 2025}, "vector": [1, 0]},
+        {"id": 2, "meta": {"dept": "finance", "year": 2025}, "vector": [0.6, 0.8]},
         {"id": 3, "meta": {"dept": "hr", "year": 2024}, "vector": [0.5, 0.5]},
     ]
     assert [c["id"] for c in filter_then_search(chunks, {"dept": "hr"}, [1, 0], 5)] == [1, 3]
     assert [c["id"] for c in filter_then_search(chunks, {"dept": "hr", "year": 2025}, [0, 1], 5)] == [1]
     assert filter_then_search(chunks, {"dept": "legal"}, [1, 0], 5) == []
-    assert filter_then_search(chunks, {}, [1, 0], 1)[0]["id"] == 1
+
+def test_ranked():
+    """ranks the chunks that pass by cosine, highest first"""
+    chunks = [
+        {"id": 1, "meta": {"dept": "hr", "year": 2025}, "vector": [1, 0]},
+        {"id": 2, "meta": {"dept": "finance", "year": 2025}, "vector": [0.6, 0.8]},
+        {"id": 3, "meta": {"dept": "hr", "year": 2024}, "vector": [0.5, 0.5]},
+    ]
+    assert [c["id"] for c in filter_then_search(chunks, {"dept": "hr"}, [0, 1], 5)] == [3, 1]
+    assert [c["id"] for c in filter_then_search(chunks, {}, [0, 1], 5)] == [2, 3, 1]
+
+def test_k():
+    """k caps the results after filtering"""
+    chunks = [
+        {"id": 1, "meta": {"dept": "hr", "year": 2025}, "vector": [1, 0]},
+        {"id": 2, "meta": {"dept": "finance", "year": 2025}, "vector": [0.6, 0.8]},
+        {"id": 3, "meta": {"dept": "hr", "year": 2024}, "vector": [0.5, 0.5]},
+    ]
+    assert [c["id"] for c in filter_then_search(chunks, {}, [1, 0], 1)] == [1]
+    assert [c["id"] for c in filter_then_search(chunks, {"year": 2025}, [0, 1], 1)] == [2]
+    assert [c["id"] for c in filter_then_search(chunks, {"dept": "hr"}, [0, 1], 1)] == [3]
+    assert filter_then_search(chunks, {"dept": "hr"}, [1, 0], 0) == []
+
+def test_missing_field():
+    """a chunk without a filtered field is left out"""
+    chunks = [{"id": 1, "meta": {"dept": "hr"}, "vector": [1, 0]}, {"id": 2, "meta": {"dept": "hr", "public": True}, "vector": [0, 1]}]
+    assert [c["id"] for c in filter_then_search(chunks, {"public": True}, [1, 0], 5)] == [2]
+    assert [c["id"] for c in filter_then_search(chunks, {}, [1, 0], 5)] == [1, 2]
 ```
 
 #### Uses
 - [At 10 million documents › Pillar 2: retrieval as a funnel](#/production/pillar-2-retrieval-as-a-funnel)
 - [Retrieval › Choosing k](#/retrieval/choosing-k)
 - [Embeddings › Measuring nearness](#/embeddings/measuring-nearness)
+- [Reference › Lists, dicts and sets](#/reference/lists-dicts-and-sets)
 
 #### Hints
 - A chunk passes when every `key, value` in `filters.items()` equals `c["meta"].get(key)`. `all(...)` is `True` for an empty filter.
@@ -154,6 +200,9 @@ def test_filter_search():
 
 #### Tips
 - `.get(key)` rather than `[key]` means a chunk missing a metadata field is filtered out instead of crashing the search.
+- `all(...)` over an empty `filters` is `True`, so "no filters" means "everything passes" with no special case. That is the empty-iterable rule earning its keep.
+- Filter first for cost *and* for access control. Search-then-filter computes similarity against rows the user was never allowed to see, and returns a short page of results with no way to tell "nothing matched" from "nothing you may read matched".
+- The filter is a database's job, not Python's. This is the shape of a `WHERE` clause that runs before the vector operator ever sees a row.
 
 #### Docs
 - [Python docs: `all()`](https://docs.python.org/3/library/functions.html#all)
@@ -170,20 +219,35 @@ def fix_for(symptom):
 
 ```python test
 def test_fix_for():
-    """the four symptoms and the default"""
+    """the four symptoms"""
     assert fix_for("slow queries") == "hnsw index"
     assert fix_for("exact identifiers fail") == "hybrid search"
     assert fix_for("cites the wrong section") == "chunking"
     assert fix_for("plausible but wrong ranking") == "reranker"
+
+def test_default():
+    """anything else gets the default"""
     assert fix_for("the model is bad") == "look at the retrieved chunks first"
+    assert fix_for("") == "look at the retrieved chunks first"
+
+def test_whole_symptom():
+    """only a whole symptom matches, not part of one"""
+    assert fix_for("slow") == "look at the retrieved chunks first"
+    assert fix_for("wrong ranking") == "look at the retrieved chunks first"
 ```
 
 #### Uses
 - [At 10 million documents › What to actually do with this](#/production/what-to-actually-do-with-this)
+- [Reference › Lists, dicts and sets](#/reference/lists-dicts-and-sets)
 
 #### Hints
 - A dict from symptom to fix holds the four pairs.
 - `dict.get(key, default)` returns the default for anything it doesn't know.
+
+#### Tips
+- A dict plus `get` is the whole of this. A chain of `if symptom ==` does the same job in four times the lines and grows a bug every time someone adds a case.
+- The default is the most useful entry in the table. Most symptoms are not on this list, and "look at the retrieved chunks first" is the honest answer for all of them.
+- Match the whole symptom, not part of it. `"slow"` matching `"slow queries"` would send someone to build an index when the real complaint was a slow model.
 
 #### Docs
 - [Python docs: `dict.get`](https://docs.python.org/3/library/stdtypes.html#dict.get)

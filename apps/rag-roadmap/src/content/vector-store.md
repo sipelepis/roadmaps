@@ -102,21 +102,47 @@ class VectorStore:
 ```
 
 ```python test
-def test_store():
-    """adds, refuses wrong widths, searches by cosine"""
+def test_add_and_len():
+    """counts what was added and refuses wrong widths"""
     s = VectorStore(2)
+    assert len(s) == 0
     s.add("a", [1, 0]); s.add("b", [0, 1]); s.add("c", [1, 1])
     assert len(s) == 3
+    for bad in ([1, 2, 3], [1]):
+        try:
+            s.add("bad", bad)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"a vector of width {len(bad)} must raise")
+    assert len(s) == 3
+
+def test_search():
+    """returns (chunk_id, score) pairs by cosine, highest first"""
+    s = VectorStore(2)
+    s.add("a", [1, 0]); s.add("b", [0, 1]); s.add("c", [1, 1])
     top = s.search([1, 0.1], 2)
     assert [t[0] for t in top] == ["a", "c"]
-    assert top[0][1] > top[1][1]
-    try:
-        s.add("bad", [1, 2, 3])
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("wrong dims must raise")
-    assert s.search([1, 0], 10) and len(s.search([1, 0], 10)) == 3
+    assert abs(top[0][1] - cosine([1, 0.1], [1, 0])) < 1e-9
+    assert abs(top[1][1] - cosine([1, 0.1], [1, 1])) < 1e-9
+    assert [t[0] for t in s.search([0, 1], 3)] == ["b", "c", "a"]
+
+def test_k():
+    """k caps the results, and a big k returns everything"""
+    s = VectorStore(3)
+    assert s.search([1, 0, 0], 5) == []
+    s.add(1, [1, 0, 0]); s.add(2, [0, 1, 0])
+    assert len(s.search([1, 0, 0], 10)) == 2
+    assert len(s.search([1, 0, 0], 1)) == 1
+    assert s.search([1, 0, 0], 0) == []
+
+def test_separate_stores():
+    """each store keeps its own width and rows"""
+    small, big = VectorStore(2), VectorStore(3)
+    small.add("x", [1, 0])
+    big.add("y", [1, 0, 0])
+    assert len(small) == 1 and len(big) == 1
+    assert [t[0] for t in big.search([1, 0, 0], 5)] == ["y"]
 ```
 
 #### Uses
@@ -130,7 +156,9 @@ def test_store():
 - `search` scores every stored vector with `cosine`, sorts by score from high to low, and slices to `k`.
 
 #### Tips
-- Slicing past the end is safe: `[:10]` on three items gives three.
+- Slicing past the end is safe: `[:10]` on three items gives three. `[:0]` gives none, which is what `k=0` should do.
+- The width check in `add` is the only place a model swap is caught loudly. Everything else about a mismatched embedding model succeeds: same call, same shape of result, wrong five chunks, forever.
+- Scoring every stored vector on every search is exactly what Postgres does with no index on the column. It is the correct starting point, not a stand-in for the real thing.
 
 #### Docs
 - [Python docs: `object.__len__`](https://docs.python.org/3/reference/datamodel.html#object.__len__)
@@ -138,7 +166,7 @@ def test_store():
 
 ### 2. Cascade the delete
 
-`delete_document(rows, document_id)` returns the rows that remain after every chunk of `document_id` is removed, in the original order.
+`delete_document(rows, document_id)` returns the rows that remain after every chunk of `document_id` is removed, in the original order. Leave `rows` itself unchanged.
 
 ```python starter
 def delete_document(rows, document_id):
@@ -150,7 +178,21 @@ def test_cascade():
     """removes every chunk of the document"""
     rows = [{"id": 1, "document_id": 1}, {"id": 2, "document_id": 2}, {"id": 3, "document_id": 1}]
     assert delete_document(rows, 1) == [{"id": 2, "document_id": 2}]
+    assert delete_document(rows, 2) == [{"id": 1, "document_id": 1}, {"id": 3, "document_id": 1}]
+
+def test_neighbours():
+    """removes chunks that sit next to each other"""
+    rows = [{"id": 1, "document_id": 5}, {"id": 2, "document_id": 5}, {"id": 3, "document_id": 5}, {"id": 4, "document_id": 6}]
+    assert [r["id"] for r in delete_document(rows, 5)] == [4]
+    assert [r["id"] for r in delete_document(rows, 6)] == [1, 2, 3]
+
+def test_input_unchanged():
+    """leaves rows alone, and an unknown document removes nothing"""
+    rows = [{"id": 1, "document_id": 1}, {"id": 2, "document_id": 2}]
     assert delete_document(rows, 9) == rows
+    delete_document(rows, 1)
+    assert rows == [{"id": 1, "document_id": 1}, {"id": 2, "document_id": 2}]
+    assert delete_document([], 1) == []
 ```
 
 #### Uses
@@ -162,6 +204,8 @@ def test_cascade():
 
 #### Tips
 - Build a new list rather than removing from `rows` while looping over it. Removing during iteration skips the element after each one you remove.
+- In a database this is one `ON DELETE CASCADE`, not a second statement. Two statements means a crash between them leaves orphan chunks, and orphan chunks keep answering questions about a document the console says is gone.
+- Deleting is also how you re-ingest. Changing chunk size means every vector changes, so the old chunks have to go first or the corpus ends up holding both generations.
 
 #### Docs
 - [PostgreSQL: Foreign keys and `ON DELETE CASCADE`](https://www.postgresql.org/docs/current/ddl-constraints.html#DDL-CONSTRAINTS-FK)
@@ -180,10 +224,23 @@ def to_distance(score):
 
 ```python test
 def test_score():
-    """score = 1 - distance"""
+    """score is 1 - distance"""
     assert to_score(0.0) == 1.0
     assert abs(to_score(0.35) - 0.65) < 1e-9
-    assert abs(to_distance(to_score(0.42)) - 0.42) < 1e-9
+    assert abs(to_score(1.0)) < 1e-9
+    assert abs(to_score(2.0) + 1.0) < 1e-9
+
+def test_distance():
+    """distance is 1 - score"""
+    assert abs(to_distance(1.0)) < 1e-9
+    assert abs(to_distance(0.65) - 0.35) < 1e-9
+    assert abs(to_distance(-1.0) - 2.0) < 1e-9
+
+def test_round_trip():
+    """each undoes the other"""
+    for x in (0.0, 0.42, 1.3, 2.0):
+        assert abs(to_distance(to_score(x)) - x) < 1e-9
+        assert abs(to_score(to_distance(x)) - x) < 1e-9
 ```
 
 #### Uses
@@ -195,6 +252,8 @@ def test_score():
 
 #### Tips
 - Floats don't always round-trip exactly, which is why the tests compare with a tolerance instead of `==`.
+- Cosine distance runs 0 to 2, so a score can be negative. Clamping it to 0 for a prettier console throws away the one signal that says "nothing here is even slightly relevant".
+- Convert in exactly one place. A console that shows distance in one panel and score in another, both called "relevance", is a bug report you will receive and not understand.
 
 #### Docs
 - [pgvector README: distance operators](https://github.com/pgvector/pgvector)

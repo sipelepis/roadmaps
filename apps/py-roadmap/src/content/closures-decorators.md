@@ -26,6 +26,25 @@ def counter():
     return inc
 ```
 
+A closure captures the *variable*, not its value at the time, which is the classic trap when you build functions in a loop:
+
+```python
+fns = []
+for i in range(3):
+    fns.append(lambda: i)
+
+[f() for f in fns]      # [2, 2, 2], not [0, 1, 2]
+```
+
+All three closures share the one `i`, and by the time they run it is `2`. Bind the value with a default argument, which is evaluated at definition time:
+
+```python
+fns = [lambda i=i: i for i in range(3)]
+[f() for f in fns]      # [0, 1, 2]
+```
+
+`functools.partial(fn, i)` does the same job with less sleight of hand.
+
 ## Decorators
 
 ```python
@@ -149,12 +168,24 @@ def test_counts():
     """counts up"""
     c = make_counter()
     assert (c(), c(), c()) == (1, 2, 3)
+    d = make_counter()
+    assert [d() for _ in range(10)] == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
 def test_independent():
     """counters are independent"""
     a, b = make_counter(), make_counter()
     a(); a()
     assert b() == 1
+    assert a() == 3
+    assert b() == 2
+
+def test_new_counter_keeps_old():
+    """a new counter doesn't reset an old one"""
+    a = make_counter()
+    a(); a()
+    b = make_counter()
+    assert b() == 1
+    assert a() == 3
 ```
 
 #### Uses
@@ -167,6 +198,8 @@ def test_independent():
 
 #### Tips
 - Each call to `make_counter()` runs its body again and makes a fresh count, which is why two counters never interfere.
+- Without `nonlocal`, `count += 1` makes `count` a local of the inner function and fails with `UnboundLocalError` — it reads a name it is also assigning.
+- `nonlocal` is only needed to *rebind*. A closure over a list could `append` to it with no declaration at all, since that mutates rather than reassigns.
 
 #### Docs
 - [Language reference: The `nonlocal` statement](https://docs.python.org/3/reference/simple_stmts.html#nonlocal)
@@ -192,6 +225,38 @@ def test_caches():
     assert square(4) == 16 and square(4) == 16 and square(5) == 25
     assert calls == [4, 5]
 
+def test_several_args():
+    """keys the cache on all the arguments"""
+    calls = []
+    @memoize
+    def power(base, exp):
+        calls.append((base, exp))
+        return base ** exp
+    assert power(2, 3) == 8 and power(3, 2) == 9 and power(2, 5) == 32
+    assert power(2, 3) == 8
+    assert calls == [(2, 3), (3, 2), (2, 5)]
+
+def test_falsy_results():
+    """caches results like 0 and False too"""
+    calls = []
+    @memoize
+    def is_even(n):
+        calls.append(n)
+        return n % 2 == 0
+    assert is_even(3) is False and is_even(3) is False
+    assert is_even(0) is True and is_even(0) is True
+    assert calls == [3, 0]
+
+def test_separate_caches():
+    """each decorated function has its own cache"""
+    @memoize
+    def double(n):
+        return n * 2
+    @memoize
+    def triple(n):
+        return n * 3
+    assert double(3) == 6 and triple(3) == 9
+
 def test_wraps():
     """keeps the name and docstring"""
     @memoize
@@ -213,13 +278,15 @@ def test_wraps():
 
 #### Tips
 - Only hashable arguments can be keys: calling it with a list raises `TypeError`. The built-in `functools.cache` has the same limit.
+- Use `if key not in cache:` rather than `if not cache.get(key):`. A cached `0`, `False` or `None` is a real result, and the truthiness version would recompute it every time — which is what one of the tests checks.
+- An unbounded cache is a memory leak with good manners. `functools.lru_cache(maxsize=1000)` is the version to reach for on anything long-running.
 
 #### Docs
 - [`functools.wraps`](https://docs.python.org/3/library/functools.html#functools.wraps)
 
 ### 3. Retry decorator with arguments
 
-`retry(times)` returns a decorator that retries the function up to `times` attempts when it raises, re-raising the last error.
+`retry(times)` returns a decorator that retries the function up to `times` attempts when it raises, re-raising the last error. The wrapped function takes the same arguments as the original.
 
 ```python starter
 def retry(times):
@@ -238,16 +305,51 @@ def test_retry():
         return "ok"
     assert flaky() == "ok" and len(calls) == 2
 
+def test_first_try():
+    """no retries when the first attempt works"""
+    calls = []
+    @retry(5)
+    def fine():
+        calls.append(1)
+        return 42
+    assert fine() == 42 and len(calls) == 1
+
 def test_gives_up():
-    """re-raises after the last attempt"""
-    @retry(2)
+    """re-raises the last error after exactly `times` attempts"""
+    calls = []
+    @retry(3)
     def broken():
-        raise ValueError("bad")
+        calls.append(1)
+        raise ValueError(f"attempt {len(calls)}")
     try:
         broken()
-    except ValueError:
+    except ValueError as e:
+        assert str(e) == "attempt 3"
+        assert len(calls) == 3
         return
-    assert False
+    assert False, "expected ValueError"
+
+def test_single_attempt():
+    """retry(1) tries once"""
+    calls = []
+    @retry(1)
+    def broken():
+        calls.append(1)
+        raise KeyError("k")
+    try:
+        broken()
+    except KeyError:
+        assert len(calls) == 1
+        return
+    assert False, "expected KeyError"
+
+def test_arguments():
+    """passes arguments through"""
+    @retry(2)
+    def add(a, b):
+        return a + b
+    assert add(2, 3) == 5
+    assert add(2, b=10) == 12
 ```
 
 #### Uses
@@ -262,13 +364,15 @@ def test_gives_up():
 
 #### Tips
 - Real retry helpers usually wait between attempts and retry only errors worth retrying, like timeouts. A typo in your code won't fix itself on the third try.
+- `@retry(3)` calls `retry(3)` first and applies the result. That extra pair of brackets is the difference between a decorator and a decorator factory, and forgetting them passes the function in as `times`.
+- The wrapper must forward `**kwargs` as well as `*args`, or `add(2, b=10)` in the last test fails with a `TypeError`.
 
 #### Docs
 - [Python tutorial: Handling exceptions](https://docs.python.org/3/tutorial/errors.html#handling-exceptions)
 
 ### 4. Validate arguments
 
-`positive` is a decorator that raises `ValueError` if any positional argument is not greater than zero, before calling the function.
+`positive` is a decorator that raises `ValueError` if any positional argument is not greater than zero, before calling the function. Keyword arguments are passed through to the function.
 
 ```python starter
 def positive(fn):
@@ -282,17 +386,35 @@ def test_passes_through():
     def area(w, h):
         return w * h
     assert area(2, 3) == 6
+    assert area(0.5, 4) == 2.0
+    assert area(2, h=3) == 6
 
 def test_rejects():
-    """rejects non-positive args"""
+    """rejects zero or negative args in any position"""
     @positive
     def area(w, h):
         return w * h
+    for args in [(2, 0), (0, 2), (-1, 3), (3, -1), (-2, -3)]:
+        try:
+            area(*args)
+        except ValueError:
+            continue
+        assert False, f"expected ValueError for area{args}"
+
+def test_before_call():
+    """checks before the function runs"""
+    calls = []
+    @positive
+    def total(*nums):
+        calls.append(nums)
+        return sum(nums)
+    assert total(1, 2, 3) == 6
     try:
-        area(2, 0)
+        total(1, -2, 3)
     except ValueError:
+        assert calls == [(1, 2, 3)]
         return
-    assert False
+    assert False, "expected ValueError"
 ```
 
 #### Uses
@@ -307,6 +429,8 @@ def test_rejects():
 
 #### Tips
 - Only positional arguments are checked, so `area(w=0, h=3)` slips through. Checking `kwargs.values()` as well would close that gap.
+- Raise before `fn` is called, not after. The last test records every call the function receives and expects the rejected one to be missing entirely.
+- `any(a <= 0 for a in args)` short-circuits at the first bad value, so the message should name that value: `next(a for a in args if a <= 0)` gets it back for the error text.
 
 #### Docs
 - [Python tutorial: Raising exceptions](https://docs.python.org/3/tutorial/errors.html#raising-exceptions)

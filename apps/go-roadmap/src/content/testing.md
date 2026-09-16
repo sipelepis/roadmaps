@@ -186,7 +186,7 @@ func main() {
 
 ### 1. Pass the table
 
-The tests are a table of cases. Implement `ParseBool` to pass all of them: it accepts `true`, `yes`, `on`, `1` and `false`, `no`, `off`, `0`, in any letter case and with surrounding spaces. Anything else returns `false` and an error wrapping `ErrNotBool`: `parse bool "maybe": not a boolean`.
+The tests are a table of cases. Implement `ParseBool` to pass all of them: it accepts `true`, `yes`, `on`, `1` and `false`, `no`, `off`, `0`, in any letter case and with surrounding spaces, tabs or newlines. Anything else returns `false` and an error wrapping `ErrNotBool`: `parse bool "maybe": not a boolean`.
 
 Two tools help. `strings.TrimSpace(s)` removes surrounding spaces and `strings.ToLower(s)` lowercases. And a `switch` compares one value against its cases in order, where each case can list several values:
 
@@ -238,6 +238,9 @@ func TestParseBool(t *testing.T) {
 		{"maybe", false, true},
 		{"", false, true},
 		{"yes!", false, true},
+		{"t", false, true},
+		{"2", false, true},
+		{"o n", false, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.in, func(t *testing.T) {
@@ -252,13 +255,32 @@ func TestParseBool(t *testing.T) {
 	}
 }
 
-// errors wrap ErrNotBool
+// errors wrap ErrNotBool and quote the input
 func TestParseBoolError(t *testing.T) {
 	_, err := ParseBool("maybe")
 	if !errors.Is(err, ErrNotBool) {
 		t.Fatalf("want ErrNotBool, got %v", err)
 	}
 	expect(t, err.Error(), `parse bool "maybe": not a boolean`)
+	_, err = ParseBool("nah")
+	if !errors.Is(err, ErrNotBool) {
+		t.Fatalf("want ErrNotBool, got %v", err)
+	}
+	expect(t, err.Error(), `parse bool "nah": not a boolean`)
+}
+
+// any letter case, with spaces, tabs or newlines around it
+func TestParseBoolNormalizes(t *testing.T) {
+	for _, in := range []string{"TRUE", "TrUe", "\tyes", "On\n", " 1 "} {
+		if got, err := ParseBool(in); !got || err != nil {
+			t.Errorf("ParseBool(%q) = %v, %v; want true, nil", in, got, err)
+		}
+	}
+	for _, in := range []string{"FALSE", "nO", "\tOFF\n", " 0 "} {
+		if got, err := ParseBool(in); got || err != nil {
+			t.Errorf("ParseBool(%q) = %v, %v; want false, nil", in, got, err)
+		}
+	}
 }
 ```
 
@@ -266,6 +288,7 @@ func TestParseBoolError(t *testing.T) {
 - [Testing › Table-driven tests](#/testing/table-driven-tests)
 - [Errors › Wrapping with `%w`](#/errors/wrapping-with-w)
 - [Packages & modules › Using the standard library](#/packages/using-the-standard-library)
+- [Standard library tour › `strings`](#/stdlib/strings)
 
 #### Hints
 - Normalize first: trim, then lowercase. After that, `" On "` and `"on"` are the same string.
@@ -274,6 +297,8 @@ func TestParseBoolError(t *testing.T) {
 
 #### Tips
 - Each table row runs as a named subtest, so a failure shows up as `TestParseBool/YES` and points at exactly one case.
+- Trim first, then lowercase. The other order works too, but only because `ToLower` leaves whitespace alone — do not rely on that with other normalizers.
+- A `switch` with no `default` simply falls out the bottom, which is where the error case belongs. No `break` anywhere.
 
 #### Docs
 - [strings.TrimSpace](https://pkg.go.dev/strings#TrimSpace)
@@ -325,22 +350,28 @@ func (brokenStoreForTest) Name(int) (string, error) { return "", errors.New("con
 
 // the fake returns names and ErrNotFound
 func TestFakeStore(t *testing.T) {
-	f := FakeStore{1: "Ada"}
+	f := FakeStore{1: "Ada", 5: "Linus"}
 	name, err := f.Name(1)
 	expect(t, name, "Ada")
 	expect(t, err, nil)
+	name, _ = f.Name(5)
+	expect(t, name, "Linus")
 	_, err = f.Name(7)
 	if !errors.Is(err, ErrNotFound) {
 		t.Fatalf("want ErrNotFound, got %v", err)
 	}
 	expect(t, err.Error(), "user 7: not found")
+	_, err = f.Name(42)
+	expect(t, err.Error(), "user 42: not found")
 }
 
 // greets known and unknown users
 func TestGreeting(t *testing.T) {
 	f := FakeStore{1: "Ada", 2: "Grace"}
 	expect(t, Greeting(f, 2), "Hello, Grace!")
+	expect(t, Greeting(f, 1), "Hello, Ada!")
 	expect(t, Greeting(f, 99), "Hello, stranger!")
+	expect(t, Greeting(FakeStore{}, 1), "Hello, stranger!")
 }
 
 // other errors get a plain hello
@@ -360,6 +391,7 @@ func TestGreetingBrokenStore(t *testing.T) {
 
 #### Tips
 - `Greeting` only knows about `UserStore`, so the same function works with the fake in tests and with a database-backed store in production.
+- `var _ UserStore = FakeStore{}` at the top of the test file is a compile-time check. If a method signature drifts, the file stops compiling instead of failing somewhere confusing later.
 
 #### Docs
 - [errors.Is](https://pkg.go.dev/errors#Is)
@@ -408,6 +440,7 @@ func clockAt(day, hour int) func() time.Time {
 func TestShopOpen(t *testing.T) {
 	expect(t, Shop{Now: clockAt(1, 9)}.Status(), "open")
 	expect(t, Shop{Now: clockAt(3, 16)}.Status(), "open")
+	expect(t, Shop{Now: clockAt(5, 12)}.Status(), "open") // Friday
 }
 
 // closed outside hours and on weekends
@@ -416,6 +449,8 @@ func TestShopClosed(t *testing.T) {
 	expect(t, Shop{Now: clockAt(1, 17)}.Status(), "closed")
 	expect(t, Shop{Now: clockAt(6, 11)}.Status(), "closed") // Saturday
 	expect(t, Shop{Now: clockAt(7, 11)}.Status(), "closed") // Sunday
+	expect(t, Shop{Now: clockAt(2, 0)}.Status(), "closed")
+	expect(t, Shop{Now: clockAt(5, 23)}.Status(), "closed")
 }
 
 // the zero Shop uses the real clock
@@ -438,6 +473,8 @@ func TestShopZero(t *testing.T) {
 
 #### Tips
 - Calling a nil function value panics, which is why the zero `Shop{}` needs the fallback.
+- Injecting a `func() time.Time` rather than a `Clock` interface keeps this to one field. Reach for an interface when the dependency has more than one method.
+- Call `s.Now()` once and keep the result. Calling it three times could straddle a second boundary, and in real code it means three clock reads per request.
 
 #### Docs
 - [time.Time.Weekday](https://pkg.go.dev/time#Time.Weekday)
@@ -524,6 +561,8 @@ func TestRemindAllJoins(t *testing.T) {
 
 #### Tips
 - `errors.Join` keeps every cause reachable, so `errors.Is` finds any of them. Its message puts each error on its own line.
+- The spy records into a slice, so its `Notify` needs a pointer receiver and the test passes `&spyNotifier{}`. With a value receiver every call would append to a copy and `calls` would stay empty.
+- `RemindAll` must not return early on the first failure. The "keeps going after a failure" test checks that every user was still notified.
 
 #### Docs
 - [errors.Join](https://pkg.go.dev/errors#Join)

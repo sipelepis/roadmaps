@@ -81,6 +81,25 @@ Protocols make duck typing explicit: no inheritance required.
 
 Annotations are stored in `__annotations__`. Libraries like dataclasses, pydantic, and FastAPI read them to generate behaviour. The exercises below inspect them the same way, since the playground has no type checker.
 
+```python
+def clamp(value: float, hi: float) -> float: ...
+
+clamp.__annotations__                    # {'value': float, 'hi': float, 'return': float}
+clamp.__annotations__.get("return")      # float
+```
+
+The return type lives under the key `"return"`, which is a keyword and therefore can never clash with a parameter name. Classes have `__annotations__` too, holding their annotated class-body names.
+
+Two `typing` functions answer "how was this defined?" at runtime, and the exercises use them to check you reached for the right construct:
+
+```python
+from typing import is_typeddict, is_protocol
+
+is_typeddict(Movie)      # True when Movie was defined with TypedDict
+is_protocol(HasTitle)    # True when HasTitle was defined with Protocol
+is_typeddict(dict)       # False
+```
+
 ```python playground
 from collections.abc import Iterable
 
@@ -115,14 +134,23 @@ def clamp(value, lo, hi):
 def test_works():
     """still clamps"""
     assert clamp(5, 0, 3) == 3
+    assert clamp(-2, 0, 3) == 0
+    assert clamp(1.5, 0, 3) == 1.5
+    assert clamp(3, 0, 3) == 3
 
-def test_annotations():
-    """has float annotations"""
-    assert clamp.__annotations__ == {"value": float, "lo": float, "hi": float, "return": float}
+def test_parameter_annotations():
+    """parameters are annotated float"""
+    hints = clamp.__annotations__
+    assert (hints.get("value"), hints.get("lo"), hints.get("hi")) == (float, float, float)
+
+def test_return_annotation():
+    """return is annotated float"""
+    assert clamp.__annotations__.get("return") == float
 ```
 
 #### Uses
 - [Type hints › Basics](#/type-hints/basics)
+- [Type hints › Runtime introspection](#/type-hints/runtime-introspection)
 
 #### Hints
 - Each parameter gets its type after a colon: `value: float`.
@@ -130,6 +158,8 @@ def test_annotations():
 
 #### Tips
 - `clamp(5, 0, 3)` passes ints and still works: annotations are never checked at runtime, and type checkers accept an `int` where a `float` is expected.
+- The tests read `clamp.__annotations__`, a dict keyed by parameter name plus `"return"`. Annotating only some of the parameters leaves the others out of it entirely.
+- Don't change the body. Adding the hints is the whole exercise; `max(lo, min(value, hi))` is already the idiomatic clamp.
 
 #### Docs
 - [Glossary: function annotation](https://docs.python.org/3/glossary.html#term-function-annotation)
@@ -147,10 +177,22 @@ def parse_port(text):
 
 ```python test
 def test_parse():
-    """valid and invalid ports"""
+    """valid ports"""
     assert parse_port("8080") == 8080
+    assert parse_port("443") == 443
+    assert parse_port("1") == 1
+    assert parse_port("65535") == 65535
+
+def test_out_of_range():
+    """numbers outside 1 to 65535 give None"""
     assert parse_port("0") is None
-    assert parse_port("abc") is None
+    assert parse_port("65536") is None
+    assert parse_port("99999") is None
+
+def test_not_a_number():
+    """text that isn't a number gives None"""
+    for text in ["abc", "", "-5", "80a", "8.5"]:
+        assert parse_port(text) is None, text
 
 def test_annotation():
     """return is int | None"""
@@ -161,6 +203,7 @@ def test_annotation():
 - [Type hints › Optional and union](#/type-hints/optional-and-union)
 - [Variables and types › Conversions](#/variables-types/conversions)
 - [Control flow › `if` / `elif` / `else`](#/control-flow/if-elif-else)
+- [Reference › Strings](#/reference/strings)
 
 #### Hints
 - Check `text.isdigit()` first and return `None` when it's false, so `int()` never sees letters.
@@ -169,6 +212,8 @@ def test_annotation():
 
 #### Tips
 - The other common approach is to call `int(text)` and catch the `ValueError` it raises for bad input. That's the Errors and exceptions module's territory.
+- `isdigit()` is `False` for `""`, `"-5"` and `"8.5"`, which is exactly the three shapes the tests reject. A minus sign or a dot is not a digit.
+- Returning `None` rather than raising puts the burden on the caller to check. `int | None` in the signature is what makes a type checker insist that they do.
 
 #### Docs
 - [`str.isdigit`](https://docs.python.org/3/library/stdtypes.html#str.isdigit)
@@ -185,23 +230,41 @@ from typing import TypedDict, Protocol
 ```
 
 ```python test
+from typing import is_typeddict, is_protocol
+
 def test_typed_dict():
     """Movie is a TypedDict with the right keys"""
+    assert is_typeddict(Movie)
     assert Movie.__annotations__ == {"title": str, "year": int}
     m: Movie = {"title": "Alien", "year": 1979}
     assert m["title"] == "Alien"
+
+def test_protocol():
+    """HasTitle is a Protocol with a str title"""
+    assert is_protocol(HasTitle)
+    assert HasTitle.__annotations__ == {"title": str}
 
 def test_titles():
     """handles dicts and objects"""
     class Book:
         title = "Dune"
     assert titles([{"title": "Alien", "year": 1979}, Book()]) == ["Alien", "Dune"]
-    assert "title" in HasTitle.__annotations__
+
+def test_titles_more():
+    """keeps order, any mix, empty list"""
+    class Film:
+        def __init__(self, title):
+            self.title = title
+    items = [Film("Heat"), {"title": "Up", "year": 2009}, Film("Big"), {"title": "Jaws", "year": 1975}]
+    assert titles(items) == ["Heat", "Up", "Big", "Jaws"]
+    assert titles([Film("Solo")]) == ["Solo"]
+    assert titles([]) == []
 ```
 
 #### Uses
 - [Type hints › `Any`, `object`, and `TypedDict`](#/type-hints/any-object-and-typeddict)
 - [Type hints › Literal and Protocol](#/type-hints/literal-and-protocol)
+- [Type hints › Runtime introspection](#/type-hints/runtime-introspection)
 - [Variables and types › The core types](#/variables-types/the-core-types)
 - [What is Python? › `if` and `for`](#/intro/if-and-for)
 
@@ -212,6 +275,8 @@ def test_titles():
 
 #### Tips
 - `isinstance(item, Movie)` raises `TypeError`: at runtime a TypedDict is just a plain dict, so check for `dict` instead.
+- `class HasTitle(Protocol):` with `title: str` as its body needs no methods and no inheritance. The `Book` and `Film` classes in the tests never mention it, and that is the point of a protocol.
+- `m: Movie = {...}` is an annotation on a variable, not a cast. Nothing validates the keys at runtime; a checker does.
 
 #### Docs
 - [`typing.TypedDict`](https://docs.python.org/3/library/typing.html#typing.TypedDict)

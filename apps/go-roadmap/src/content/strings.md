@@ -66,6 +66,7 @@ strings.Contains("seafood", "foo")      // true
 strings.HasPrefix(s, "http")            // also HasSuffix
 strings.Index("chicken", "ken")         // 4, or -1 if missing
 strings.ToUpper("go")                   // "GO"
+strings.ToLower("Go GO")                // "go go"
 strings.TrimSpace("  hi \n")            // "hi"
 strings.Trim("--hi--", "-")             // "hi"
 strings.Replace(s, "a", "b", -1)        // -1 means all; also ReplaceAll
@@ -74,6 +75,14 @@ strings.EqualFold("Go", "GO")           // true: case-insensitive equality
 strings.Split("a,b,c", ",")             // []string{"a", "b", "c"}
 strings.Fields("  a  b c ")             // []string{"a", "b", "c"}: splits on any whitespace
 strings.Join([]string{"a", "b"}, "-")   // "a-b"
+```
+
+`strings.FieldsFunc(s, f)` is `Fields` with your own idea of a separator: it splits wherever `f(r)` is true for a rune, and drops the empty pieces, so runs of separators collapse on their own.
+
+```go
+sep := func(r rune) bool { return !unicode.IsLetter(r) && !unicode.IsDigit(r) }
+strings.FieldsFunc("a1-b2--c", sep) // []string{"a1", "b2", "c"}
+strings.FieldsFunc("!!!", sep)      // []string{}: no pieces at all
 ```
 
 `Split` and `Fields` return a `[]string`, a slice of strings. The Arrays & slices module covers slices properly; for now, `range` over one gives you each element: `for _, part := range parts { ... }`.
@@ -181,6 +190,9 @@ func TestASCII(t *testing.T) {
 	b, r := Lengths("hello")
 	expect(t, b, 5)
 	expect(t, r, 5)
+	b, r = Lengths("")
+	expect(t, b, 0)
+	expect(t, r, 0)
 }
 
 // an accent takes two bytes
@@ -188,6 +200,9 @@ func TestAccent(t *testing.T) {
 	b, r := Lengths("héllo")
 	expect(t, b, 6)
 	expect(t, r, 5)
+	b, r = Lengths("café crème")
+	expect(t, b, 12)
+	expect(t, r, 10)
 }
 
 // cjk takes three bytes per rune
@@ -195,6 +210,16 @@ func TestCJK(t *testing.T) {
 	b, r := Lengths("日本")
 	expect(t, b, 6)
 	expect(t, r, 2)
+}
+
+// an emoji takes four bytes
+func TestEmoji(t *testing.T) {
+	b, r := Lengths("😀")
+	expect(t, b, 4)
+	expect(t, r, 1)
+	b, r = Lengths("Go 😀 日本")
+	expect(t, b, 14)
+	expect(t, r, 7)
 }
 ```
 
@@ -208,6 +233,7 @@ func TestCJK(t *testing.T) {
 
 #### Tips
 - `len([]rune(s))` gives the same rune count, but copies the whole string to get it.
+- Return them in the order the signature declares. Named results are documentation, not a safety net: `return runes, bytes` compiles just as happily.
 
 #### Docs
 - [utf8.RuneCountInString](https://pkg.go.dev/unicode/utf8#RuneCountInString)
@@ -232,18 +258,22 @@ import "testing"
 // reverses ascii
 func TestReverseASCII(t *testing.T) {
 	expect(t, Reverse("abc"), "cba")
+	expect(t, Reverse("abcd"), "dcba")
+	expect(t, Reverse("Go is fun"), "nuf si oG")
 }
 
 // keeps multi-byte characters intact
 func TestReverseUnicode(t *testing.T) {
 	expect(t, Reverse("héllo"), "olléh")
 	expect(t, Reverse("日本語"), "語本日")
+	expect(t, Reverse("a😀b"), "b😀a")
 }
 
-// empty and single
+// empty and short
 func TestReverseShort(t *testing.T) {
 	expect(t, Reverse(""), "")
 	expect(t, Reverse("x"), "x")
+	expect(t, Reverse("ab"), "ba")
 }
 ```
 
@@ -258,6 +288,7 @@ func TestReverseShort(t *testing.T) {
 
 #### Tips
 - Every `+` copies the string, so this gets slow on long text. Once you know slices, converting to `[]rune` and swapping from both ends is the faster way.
+- `string(r)` on a rune gives its character. The same conversion on a count would give the character with that code point, which is why digits need `strconv.Itoa`.
 
 #### Docs
 - [Go spec: For statements with range clause](https://go.dev/ref/spec#For_range)
@@ -292,16 +323,27 @@ import "testing"
 // encodes runs
 func TestRuns(t *testing.T) {
 	expect(t, Encode("aaabcc"), "a3b1c2")
+	expect(t, Encode("abc"), "a1b1c1")
+	expect(t, Encode("x"), "x1")
+}
+
+// a character that comes back starts a new run
+func TestRepeatedRuns(t *testing.T) {
+	expect(t, Encode("aabaa"), "a2b1a2")
+	expect(t, Encode("abab"), "a1b1a1b1")
 }
 
 // long runs use several digits
 func TestLongRun(t *testing.T) {
 	expect(t, Encode("zzzzzzzzzzzz"), "z12")
+	expect(t, Encode("qqqqqqqqqqr"), "q10r1")
 }
 
 // counts runes, not bytes
 func TestUnicodeRuns(t *testing.T) {
 	expect(t, Encode("héé"), "h1é2")
+	expect(t, Encode("日日日本"), "日3本1")
+	expect(t, Encode("😀😀"), "😀2")
 }
 
 // empty input
@@ -323,6 +365,7 @@ func TestEmptyEncode(t *testing.T) {
 
 #### Tips
 - `b.WriteRune(rune(count))` would write the character with that code point. Use `strconv.Itoa(count)` for digits.
+- You need to know whether there *is* a previous rune yet. A `count` of 0 marks the first iteration, and lets the "write the last run" step after the loop skip an empty input for free.
 
 #### Docs
 - [strings.Builder](https://pkg.go.dev/strings#Builder)
@@ -330,7 +373,7 @@ func TestEmptyEncode(t *testing.T) {
 
 ### 4. Sum a CSV line
 
-`SumCSV(s)` adds up comma-separated integers such as `"4, 5 ,6"`, ignoring spaces around each number. If any field is not a number, return the error from `strconv.Atoi`. An empty input sums to 0. Careful: `strings.Split("", ",")` returns one empty string, not zero strings.
+`SumCSV(s)` adds up comma-separated integers such as `"4, 5 ,6"`, ignoring spaces around each number. If any field is not a number, return the error from `strconv.Atoi`. An empty field, like the middle one in `"1,,2"`, is not a number. An empty input sums to 0. Careful: `strings.Split("", ",")` returns one empty string, not zero strings.
 
 ```go starter
 package main
@@ -343,12 +386,18 @@ func SumCSV(s string) (int, error) {
 ```go test
 package main
 
-import "testing"
+import (
+	"strconv"
+	"testing"
+)
 
 // sums the fields
 func TestSum(t *testing.T) {
 	n, err := SumCSV("1,2,3")
 	expect(t, n, 6)
+	expect(t, err, nil)
+	n, err = SumCSV("42")
+	expect(t, n, 42)
 	expect(t, err, nil)
 }
 
@@ -357,19 +406,35 @@ func TestSpaces(t *testing.T) {
 	n, err := SumCSV(" 4, 5 ,6 ")
 	expect(t, n, 15)
 	expect(t, err, nil)
+	n, err = SumCSV("  10  ")
+	expect(t, n, 10)
+	expect(t, err, nil)
 }
 
 // negative numbers
 func TestNegatives(t *testing.T) {
-	n, _ := SumCSV("10,-3")
+	n, err := SumCSV("10,-3")
 	expect(t, n, 7)
+	expect(t, err, nil)
+	n, err = SumCSV("-1, -2")
+	expect(t, n, -3)
+	expect(t, err, nil)
 }
 
-// reports a bad field
+// reports a bad field, empty fields included
 func TestBadField(t *testing.T) {
-	if _, err := SumCSV("1,x,3"); err == nil {
-		t.Errorf("expected an error for \"x\", got nil")
+	for _, s := range []string{"1,x,3", "1,,2", "5,", "1.5"} {
+		if _, err := SumCSV(s); err == nil {
+			t.Errorf("SumCSV(%q): expected an error, got nil", s)
+		}
 	}
+}
+
+// the error is the one strconv.Atoi gives
+func TestAtoiError(t *testing.T) {
+	_, err := SumCSV("1, x ,3")
+	_, want := strconv.Atoi("x")
+	expect(t, err, want)
 }
 
 // empty input is zero
@@ -383,6 +448,7 @@ func TestEmptyCSV(t *testing.T) {
 #### Uses
 - [Strings & runes › The strings package](#/strings/the-strings-package)
 - [Strings & runes › Numbers and text: strconv](#/strings/numbers-and-text-strconv)
+- [Reference › How the tests here work](#/reference/how-the-tests-here-work)
 
 #### Hints
 - `strings.Split(s, ",")` gives the fields. `range` over them and `strings.TrimSpace` each one before `strconv.Atoi`.
@@ -391,6 +457,7 @@ func TestEmptyCSV(t *testing.T) {
 
 #### Tips
 - `strconv.Atoi(" 5")` fails: it does not skip spaces for you, which is why the trim matters.
+- The last test compares your error with the one `strconv.Atoi("x")` produces, so return `Atoi`'s error unchanged here. Wrapping it with `%w` would be better style in real code and would fail this test.
 
 #### Docs
 - [strings.Split](https://pkg.go.dev/strings#Split)

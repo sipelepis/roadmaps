@@ -21,6 +21,8 @@ Prefer `import module` and qualified names for clarity, `from module import name
 
 The module's code runs *once*, top to bottom, and the resulting namespace is cached in `sys.modules`. A second `import` anywhere in the program returns the cached module. That is why module-level code should define things, not do things.
 
+One consequence catches people out: `from config import DEBUG` copies the *value* into your namespace. If `config` later rebinds `DEBUG`, your name still points at the old object. `import config` and reading `config.DEBUG` always sees the current one.
+
 ## `if __name__ == "__main__":`
 
 When a file is run directly, its `__name__` is `"__main__"`. When imported, it's the module name. The guard lets a file be both a library and a script:
@@ -105,6 +107,17 @@ def test_hypot():
     """3-4-5 triangle"""
     assert hypotenuse(3, 4) == 5.0
 
+def test_other_triangles():
+    """other whole-number triangles"""
+    assert hypotenuse(5, 12) == 13.0
+    assert hypotenuse(8, 15) == 17.0
+    assert hypotenuse(0, 7) == 7.0
+
+def test_not_whole():
+    """answers that aren't whole numbers"""
+    assert abs(hypotenuse(1, 1) - 1.4142135623730951) < 1e-9
+    assert abs(hypotenuse(2, 3) - 3.605551275463989) < 1e-9
+
 def test_uses_math():
     """the math module is imported"""
     import sys
@@ -113,6 +126,7 @@ def test_uses_math():
 
 #### Uses
 - [Modules and imports › Importing](#/modules/importing)
+- [Reference › Numbers](#/reference/numbers)
 
 #### Hints
 - `import math` at the top of your code, then call its functions as `math.name(...)`.
@@ -120,13 +134,15 @@ def test_uses_math():
 
 #### Tips
 - `math.hypot` takes any number of coordinates: `math.hypot(1, 2, 2)` is `3.0`.
+- `math.sqrt` always returns a float, so `hypotenuse(3, 4)` is `5.0` and `== 5.0` passes. `5 == 5.0` is `True` anyway.
+- The last test only checks that `math` was imported. Put the `import` at the top of the file, not inside the function — importing per call works but hides the dependency.
 
 #### Docs
 - [Library reference: `math.hypot`](https://docs.python.org/3/library/math.html#math.hypot)
 
 ### 2. Main guard
 
-Write `main()` so that it appends `"ran"` to `LOG`, and call it under a `__name__ == "__main__"` guard. In this playground the file runs as `__main__`, so the guard fires, but the tests also check that `main` exists as an importable function.
+Write `main()` so that it appends `"ran"` to `LOG`, and call it under a `__name__ == "__main__"` guard. In this playground the file runs as `__main__`, so the guard fires, but the tests also check that `main` exists as an importable function. They also run your file again under another name, the way an import would, and check that `main` doesn't run then.
 
 ```python starter
 LOG = []
@@ -141,11 +157,23 @@ def test_main_callable():
     """main is a reusable function"""
     main()
     assert LOG == ["ran", "ran"]
+    main()
+    assert LOG == ["ran", "ran", "ran"]
+
+def test_import_does_not_run():
+    """importing the file doesn't run main"""
+    import linecache
+    source = "".join(linecache.getlines("main.py"))  # your code
+    imported = {"__name__": "my_module"}
+    exec(source, imported)
+    assert imported["LOG"] == []
 ```
 
 #### Uses
 - [Modules and imports › `if __name__ == "__main__":`](#/modules/if-name-main)
+- [Modules and imports › What happens on import](#/modules/what-happens-on-import)
 - [Functions › Scope](#/functions/scope)
+- [Reference › How the tests work](#/reference/how-the-tests-work)
 
 #### Hints
 - Define `main()` with a one-line body that appends `"ran"` to `LOG`.
@@ -153,6 +181,8 @@ def test_main_callable():
 
 #### Tips
 - `main` can append to `LOG` without `global`, because it changes the list rather than rebinding the name.
+- The third test reads your own file back and runs it with `__name__` set to something else, which is how it can check the guard without a second file. You never need to write code like that yourself.
+- `LOG = []` has to stay at the top level. Moving it inside `main` would make it a local that vanishes when the function returns.
 
 #### Docs
 - [Library reference: `__main__`, idiomatic usage](https://docs.python.org/3/library/__main__.html#idiomatic-usage)
@@ -173,15 +203,36 @@ def test_deck():
     assert len(deck) == 52 and len(set(deck)) == 52
     assert "10S" in deck and "AH" in deck
 
+def test_every_card():
+    """exactly the cards 2 to A in each suit"""
+    expected = set()
+    for rank in ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"]:
+        for suit in ["H", "D", "C", "S"]:
+            expected.add(rank + suit)
+    assert set(shuffled_deck(1)) == expected
+    assert set(shuffled_deck(99)) == expected
+
 def test_reproducible():
     """same seed, same order; different seed, different order"""
     assert shuffled_deck(7) == shuffled_deck(7)
     assert shuffled_deck(7) != shuffled_deck(8)
+    assert shuffled_deck(0) == shuffled_deck(0)
+    assert shuffled_deck(0) != shuffled_deck(1)
+
+def test_own_generator():
+    """leaves the shared random generator alone"""
+    import random
+    random.seed(5)
+    expected = [random.random(), random.random()]
+    random.seed(5)
+    shuffled_deck(3)
+    assert [random.random(), random.random()] == expected
 ```
 
 #### Uses
 - [Modules and imports › Importing](#/modules/importing)
 - [Control flow › `for` iterates over things](#/control-flow/for-iterates-over-things)
+- [Reference › Modules worth knowing](#/reference/modules-worth-knowing)
 
 #### Hints
 - Build the deck with two nested loops, one over ranks and one over suits, appending `rank + suit` each time.
@@ -190,6 +241,8 @@ def test_reproducible():
 
 #### Tips
 - A private `random.Random(seed)` leaves the shared generator behind `random.random()` alone, unlike `random.seed(...)`.
+- `rng.shuffle(cards)` returns `None`, like every in-place method. `return rng.shuffle(cards)` is the bug this always causes; shuffle first, then return the list.
+- Seeding is what makes randomness testable. Any code you want to assert on should take its generator (or its seed) as an argument rather than reaching for the module-level one.
 
 #### Docs
 - [Library reference: `random.Random`](https://docs.python.org/3/library/random.html#random.Random)

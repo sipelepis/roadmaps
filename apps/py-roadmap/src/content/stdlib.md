@@ -131,6 +131,20 @@ def test_top_words():
     text = "The cat. The dog! the bird, a cat"
     assert top_words(text, 2) == [("the", 3), ("cat", 2)]
     assert top_words("b a b a c", 3) == [("a", 2), ("b", 2), ("c", 1)]
+
+def test_case_and_punctuation():
+    """ignores case and punctuation"""
+    assert top_words("Go, go, GO! Stop... stop? wait", 3) == [("go", 3), ("stop", 2), ("wait", 1)]
+
+def test_tie_at_the_cut():
+    """a tie at the cut-off keeps the alphabetically first"""
+    assert top_words("d c b a d c", 2) == [("c", 2), ("d", 2)]
+    assert top_words("z y x", 1) == [("x", 1)]
+
+def test_short_input():
+    """fewer words than n, or none"""
+    assert top_words("x y x", 5) == [("x", 2), ("y", 1)]
+    assert top_words("", 3) == []
 ```
 
 #### Uses
@@ -138,6 +152,7 @@ def test_top_words():
 - [Standard library tour › `re`](#/stdlib/re)
 - [Lists and tuples › Sorting with a key](#/lists-tuples/sorting-with-a-key)
 - [Dicts and sets › Iterating](#/dicts-sets/iterating)
+- [Reference › Strings](#/reference/strings)
 
 #### Hints
 - Lowercase the text with `text.lower()`, then pull out the words with `re.findall(r"\w+", ...)`, which skips spaces and punctuation.
@@ -146,6 +161,9 @@ def test_top_words():
 
 #### Tips
 - `\w` also matches digits and underscores. For letters only, use `[a-z]+` on the lowercased text.
+- `most_common(n)` looks like the answer but orders ties by first appearance. Sorting the pairs yourself with `key=lambda kv: (-kv[1], kv[0])` is what makes the tie-break alphabetical.
+- Slicing `[:n]` past the end is safe, so asking for more words than the text has needs no check.
+- `Counter` is a dict subclass, so `.items()`, `.get()` and `in` all work on it as usual.
 
 #### Docs
 - [`collections.Counter`](https://docs.python.org/3/library/collections.html#collections.Counter)
@@ -153,7 +171,7 @@ def test_top_words():
 
 ### 2. Running balance
 
-`balances(transactions)` returns the running balance after each transaction using `itertools.accumulate`.
+`balances(transactions)` returns the running balance after each transaction, as a list, using `itertools.accumulate`. The input list is left unchanged.
 
 ```python starter
 def balances(transactions):
@@ -164,7 +182,20 @@ def balances(transactions):
 def test_running():
     """running totals"""
     assert balances([100, -30, 50]) == [100, 70, 120]
+    assert balances([-10, -5, 20, 0.5]) == [-10, -15, 5, 5.5]
+
+def test_short():
+    """empty and single transactions"""
     assert balances([]) == []
+    assert balances([42]) == [42]
+
+def test_unchanged():
+    """returns a new list and leaves the input alone"""
+    data = [1, 2, 3]
+    result = balances(data)
+    assert result == [1, 3, 6]
+    assert data == [1, 2, 3]
+    assert type(result) is list
 ```
 
 #### Uses
@@ -177,6 +208,8 @@ def test_running():
 
 #### Tips
 - `accumulate` takes an optional function: `accumulate(xs, max)` gives the running maximum instead of the running sum.
+- `list(accumulate([]))` is `[]`, so the empty case needs no branch.
+- `accumulate` reads its input without touching it, and `list(...)` builds a new list, which is how the "input unchanged" test passes for free.
 
 #### Docs
 - [`itertools.accumulate`](https://docs.python.org/3/library/itertools.html#itertools.accumulate)
@@ -197,6 +230,17 @@ def test_dates():
     """finds ISO dates"""
     text = "from 2024-01-15 to 2024-02-01, not 2024-1-5"
     assert extract_dates(text) == [date(2024, 1, 15), date(2024, 2, 1)]
+    assert extract_dates("2023-12-31") == [date(2023, 12, 31)]
+
+def test_order_and_repeats():
+    """keeps the order of appearance and repeats"""
+    text = "2025-03-01 came after 1999-07-04, then 2025-03-01 again"
+    assert extract_dates(text) == [date(2025, 3, 1), date(1999, 7, 4), date(2025, 3, 1)]
+
+def test_none():
+    """no dates gives an empty list"""
+    assert extract_dates("no dates here") == []
+    assert extract_dates("") == []
 ```
 
 #### Uses
@@ -210,6 +254,9 @@ def test_dates():
 
 #### Tips
 - `2024-1-5` isn't matched because `\d{2}` needs two digits, which is what the test wants. Put `\b` at both ends of the pattern if dates might be glued to other digits.
+- Write regex patterns as raw strings, `r"\d{4}"`. In a normal string `\d` is fine today but `\b` means backspace, and Python warns about the rest.
+- Groups change what `findall` returns: with one `(...)` it hands back the group, not the whole match. Keep this pattern group-free, or use `re.finditer` and `m.group(0)`.
+- `date.fromisoformat` raises `ValueError` on a real date that isn't valid, like `"2024-02-31"`. The regex checks shape, not meaning.
 
 #### Docs
 - [`re.findall`](https://docs.python.org/3/library/re.html#re.findall)
@@ -230,6 +277,16 @@ def test_runs():
     assert runs("aaabcc") == [("a", 3), ("b", 1), ("c", 2)]
     assert runs([1, 1, 2, 1]) == [(1, 2), (2, 1), (1, 1)]
     assert runs("") == []
+
+def test_single_run():
+    """one long run, or one item"""
+    assert runs([7, 7, 7, 7]) == [(7, 4)]
+    assert runs("x") == [("x", 1)]
+
+def test_alternating():
+    """every change starts a new run"""
+    assert runs("abab") == [("a", 1), ("b", 1), ("a", 1), ("b", 1)]
+    assert runs([True, False, False, True]) == [(True, 1), (False, 2), (True, 1)]
 ```
 
 #### Uses
@@ -244,6 +301,8 @@ def test_runs():
 
 #### Tips
 - This is also why `groupby` needs sorted input when you want one group per key: it only ever compares neighbours.
+- Each group is only valid until you advance to the next one. Consume it (`list(group)`, or `len(list(group))`) inside the loop; keeping the iterator for later gives you an empty one.
+- `runs("")` yields nothing, so the empty case falls out of the comprehension with no special handling.
 
 #### Docs
 - [`itertools.groupby`](https://docs.python.org/3/library/itertools.html#itertools.groupby)

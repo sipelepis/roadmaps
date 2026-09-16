@@ -86,6 +86,31 @@ function area(s: Shape): number {
 
 Narrowing applies to references TypeScript can track: variables, parameters, and property paths like `obj.a.b`. It is reset by function calls in between (the callee could have mutated the object) and does not survive into callbacks. When a narrowing "doesn't stick", copy the value into a `const` first.
 
+The callback case is the one that catches everybody. A narrowed *property* is wide again inside a closure, because the compiler cannot know when the closure runs or whether something reassigned the property first:
+
+```ts
+interface Box { value: string | number }
+
+function show(box: Box) {
+  if (typeof box.value === 'string') {
+    setTimeout(() => box.value.toUpperCase())  // error: value is string | number here
+  }
+}
+```
+
+Copying into a `const` fixes it, because a `const` cannot be reassigned, so the narrowing holds:
+
+```ts
+function show(box: Box) {
+  if (typeof box.value === 'string') {
+    const value = box.value
+    setTimeout(() => value.toUpperCase())      // fine
+  }
+}
+```
+
+A plain variable is treated more kindly: since TypeScript 5.4 a `const`, or a `let` or parameter that is never reassigned anywhere in the file, keeps its narrowing inside a closure. Add one `x = …` somewhere else and the narrowing disappears again.
+
 ```ts playground
 type Payload = string | string[] | { text: string } | null
 
@@ -130,12 +155,26 @@ function onlyUsers(values: unknown[]) {
 test('keeps only well-formed users', () => {
   expect(onlyUsers([{ name: 'Ada', age: 36 }, 'x', { name: 'Bob' }, null])).toEqual([{ name: 'Ada', age: 36 }])
 })
+test('keeps every user, in order', () => {
+  expect(onlyUsers([{ name: 'Ada', age: 36 }, 42, { name: 'Grace', age: 85 }])).toEqual([{ name: 'Ada', age: 36 }, { name: 'Grace', age: 85 }])
+})
+test('rejects properties of the wrong type', () => {
+  expect(onlyUsers([{ name: 'Ada', age: '36' }, { name: 7, age: 36 }, { age: 36 }, undefined])).toEqual([])
+})
 
 type _1 = Expect<Equal<ReturnType<typeof onlyUsers>, User[]>>
+function neverCalled(value: unknown) {
+  if (isUser(value)) {
+    // compiles only when isUser is a type predicate
+    const user: User = value
+  }
+}
 ```
 
 #### Uses
 - [Narrowing › Type predicates](#/narrowing/type-predicates)
+- [Reference › Array methods](#/reference/array-methods)
+- [Reference › Type-level assertions](#/reference/type-level-assertions)
 
 #### Hints
 - The body is already right. Only the return type changes.
@@ -143,13 +182,15 @@ type _1 = Expect<Equal<ReturnType<typeof onlyUsers>, User[]>>
 
 #### Tips
 - The compiler trusts a predicate blindly. If the checks drift away from `User`, the types will lie.
+- `filter` has an overload specifically for predicates: given `(v: unknown) => v is User`, it returns `User[]` instead of `unknown[]`. That overload is the only reason this exercise works.
+- `value !== null` matters before `'name' in value`, because `typeof null` is `'object'` and `in` on `null` throws at runtime.
 
 #### Docs
 - [Narrowing: Using type predicates](https://www.typescriptlang.org/docs/handbook/2/narrowing.html#using-type-predicates)
 
 ### 2. Exhaustive switch
 
-Implement `sound` for every animal. Add a `default` branch that assigns to a `never` so a missing case is a compile error. Dogs say `'woof'`, cats `'meow'`, birds `'tweet'`.
+Implement `sound` for every animal. Add a `default` branch that assigns to a `never` so a missing case is a compile error. Dogs say `'woof'`, cats `'meow'`, birds `'tweet'`. If some other value sneaks in at runtime, `default` throws an error.
 
 ```ts starter
 type Animal =
@@ -168,11 +209,18 @@ test('every animal has a sound', () => {
   expect(sound({ kind: 'cat' })).toBe('meow')
   expect(sound({ kind: 'bird' })).toBe('tweet')
 })
+test('throws for anything else', () => {
+  // JSON.parse returns any, which slips past the type checker
+  expect(() => sound(JSON.parse('{ "kind": "fish" }'))).toThrow()
+  expect(() => sound(JSON.parse('{}'))).toThrow()
+})
 ```
 
 #### Uses
 - [Narrowing › Exhaustiveness with `never`](#/narrowing/exhaustiveness-with-never)
 - [Narrowing › Discriminated unions](#/narrowing/discriminated-unions)
+- [Reference › Matchers](#/reference/matchers)
+- [Reference › Objects and JSON](#/reference/objects-and-json)
 
 #### Hints
 - `switch (a.kind)` with a `case` that returns each sound.
@@ -180,13 +228,15 @@ test('every animal has a sound', () => {
 
 #### Tips
 - To see it work, add `| { kind: 'fish' }` to `Animal`: the `default` line turns red until you add a case.
+- `toThrow` needs a *function* to call, which is why the test writes `expect(() => sound(…)).toThrow()`. Passing `sound(…)` directly would throw while building the argument, before the matcher ever ran.
+- The `default` branch still has to throw at runtime. `JSON.parse` returns `any`, so a `{ kind: 'fish' }` really can reach the function no matter what the types say; the `never` assignment protects you at compile time, the `throw` protects you at run time.
 
 #### Docs
 - [Narrowing: Exhaustiveness checking](https://www.typescriptlang.org/docs/handbook/2/narrowing.html#exhaustiveness-checking)
 
 ### 3. Parse an unknown
 
-`parseAge` receives untrusted input. Return the number when the input is a finite number, or a string that parses to one; otherwise return `null`. Do not use `any`.
+`parseAge` receives untrusted input. Return the number when the input is a finite number, or a string that parses to one; otherwise return `null`. The whole string must be a number, so `'36abc'` gives `null`. Do not use `any`.
 
 ```ts starter
 function parseAge(input: unknown): number | null {
@@ -198,26 +248,50 @@ function parseAge(input: unknown): number | null {
 test('accepts numbers and numeric strings', () => {
   expect(parseAge(36)).toBe(36)
   expect(parseAge('36')).toBe(36)
+  expect(parseAge(7)).toBe(7)
+  expect(parseAge('81')).toBe(81)
+})
+test('zero is a valid number', () => {
+  expect(parseAge(0)).toBe(0)
+  expect(parseAge('0')).toBe(0)
+})
+test('keeps decimals', () => {
+  expect(parseAge(2.5)).toBe(2.5)
+  expect(parseAge('36.5')).toBe(36.5)
+})
+test('rejects NaN and Infinity', () => {
+  expect(parseAge(NaN)).toBe(null)
+  expect(parseAge(Infinity)).toBe(null)
+  expect(parseAge('Infinity')).toBe(null)
+})
+test('rejects strings that are only partly numeric', () => {
+  expect(parseAge('36abc')).toBe(null)
+  expect(parseAge('12 years')).toBe(null)
 })
 test('rejects everything else', () => {
   expect(parseAge('abc')).toBe(null)
   expect(parseAge(null)).toBe(null)
+  expect(parseAge(undefined)).toBe(null)
   expect(parseAge({ age: 1 })).toBe(null)
-  expect(parseAge(NaN)).toBe(null)
+  expect(parseAge([36])).toBe(null)
+  expect(parseAge(true)).toBe(null)
 })
 ```
 
 #### Uses
 - [Narrowing › `typeof`](#/narrowing/typeof)
 - [Basic types › `unknown` – the safe `any`](#/basic-types/unknown-the-safe-any)
+- [Reference › Numbers and Math](#/reference/numbers-and-math)
 
 #### Hints
 - Narrow with `typeof`: handle `'number'` and `'string'`, and return `null` for everything else.
-- For a string, `Number(input)` converts it. `'abc'` becomes `NaN`.
+- For a string, `Number(input)` converts it. `'abc'` and `'36abc'` both become `NaN`, unlike `parseInt`, which stops at the first non-digit.
 - `Number.isFinite(x)` is `false` for `NaN` and `Infinity`. Use it on both the number input and the converted string.
 
 #### Tips
 - `Number('')` is `0`, not `NaN`. Real validation would reject empty strings as well.
+- Use `Number.isFinite`, not the global `isFinite`. The global coerces its argument first, so `isFinite('36')` is `true` and the string case would slip past unchecked.
+- `typeof NaN` is `'number'`, so the `'number'` branch still has to test the value. Narrowing tells you the type, never whether the value is sensible.
 
 #### Docs
 - [Narrowing: typeof type guards](https://www.typescriptlang.org/docs/handbook/2/narrowing.html#typeof-type-guards)

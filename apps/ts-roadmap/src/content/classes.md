@@ -132,9 +132,24 @@ class Counter {
 ```ts test
 test('increments and chains', () => {
   expect(new Counter().increment().increment().value).toBe(2)
+  expect(new Counter().increment().increment().increment().value).toBe(3)
 })
 test('starts at zero', () => {
   expect(new Counter().value).toBe(0)
+})
+test('increment returns the same counter', () => {
+  const c = new Counter()
+  expect(c.increment()).toBe(c)
+  c.increment()
+  expect(c.value).toBe(2)
+})
+test('each counter keeps its own count', () => {
+  const a = new Counter()
+  const b = new Counter()
+  a.increment().increment().increment()
+  b.increment()
+  expect(a.value).toBe(3)
+  expect(b.value).toBe(1)
 })
 
 function neverCalled() {
@@ -156,6 +171,8 @@ function neverCalled() {
 
 #### Tips
 - `private` is checked only at compile time. A `#count` field is private at runtime too.
+- Annotate `increment(): this`, not `: Counter`. `this` is what keeps chaining working in a subclass, and it is what makes `expect(c.increment()).toBe(c)` type-check as well as pass.
+- A getter with no setter is read-only to the outside, which is exactly what the `@ts-expect-error` on `value = 5` checks. Adding `set value(...)` would break that assertion.
 
 #### Docs
 - [Classes: Getters / Setters](https://www.typescriptlang.org/docs/handbook/2/classes.html#getters--setters)
@@ -180,9 +197,15 @@ abstract class Shape {
 ```ts test
 test('computes area', () => {
   expect(new Rect(2, 3).area()).toBe(6)
+  expect(new Rect(4, 5).area()).toBe(20)
 })
 test('inherits describe', () => {
   expect(new Rect(2, 3).describe()).toBe('rect with area 6')
+  expect(new Rect(10, 0.5).describe()).toBe('rect with area 5')
+})
+test('is a Shape named rect', () => {
+  expect(new Rect(2, 3) instanceof Shape).toBe(true)
+  expect(new Rect(7, 1).name).toBe('rect')
 })
 
 function neverCalled() {
@@ -202,6 +225,8 @@ function neverCalled() {
 
 #### Tips
 - Leave out `area()` and the compiler reports that `Rect` doesn't implement the abstract member. That's what `abstract` is for.
+- `super('rect')` has to come before any use of `this`, including the parameter properties the constructor declares. Put it on the first line and the ordering never bites you.
+- `abstract` only blocks `new Shape(...)`. `Rect extends Shape` still satisfies `instanceof Shape`, which the third test checks.
 
 #### Docs
 - [Classes: abstract Classes and Members](https://www.typescriptlang.org/docs/handbook/2/classes.html#abstract-classes-and-members)
@@ -234,6 +259,33 @@ test('is first-in first-out', () => {
   expect(q.dequeue()).toBe('b')
   expect(q.dequeue()).toBe(undefined)
 })
+test('size follows enqueue and dequeue', () => {
+  const q: Container<number> = new Queue<number>()
+  expect(q.size).toBe(0)
+  q.enqueue(1)
+  q.enqueue(2)
+  q.enqueue(3)
+  q.dequeue()
+  expect(q.size).toBe(2)
+  q.dequeue()
+  q.dequeue()
+  q.dequeue()
+  expect(q.size).toBe(0)
+})
+test('mixes enqueue and dequeue', () => {
+  const q: Container<number> = new Queue<number>()
+  q.enqueue(1)
+  q.enqueue(2)
+  expect(q.dequeue()).toBe(1)
+  q.enqueue(3)
+  expect(q.dequeue()).toBe(2)
+  expect(q.dequeue()).toBe(3)
+})
+
+function neverCalled() {
+  // @ts-expect-error size is a getter, so it can't be assigned
+  new Queue<string>().size = 3
+}
 ```
 
 #### Uses
@@ -248,6 +300,9 @@ test('is first-in first-out', () => {
 
 #### Tips
 - `implements` only checks. You still write every member yourself; nothing is inherited.
+- `shift()` returns `T | undefined` on an empty array, which is exactly what `dequeue` promises, so you can return it straight through with no check.
+- `shift` is O(n): it reindexes the whole array. Fine for an exercise; a real queue keeps a head index or a linked list.
+- Declaring the field as `private items: T[] = []` is enough. An `implements` clause never adds members, so a missing `items` shows up as a normal "property does not exist" error.
 
 #### Docs
 - [Classes: implements Clauses](https://www.typescriptlang.org/docs/handbook/2/classes.html#implements-clauses)

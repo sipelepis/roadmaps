@@ -194,11 +194,14 @@ import "testing"
 // keeps even numbers in order
 func TestEvens(t *testing.T) {
 	expect(t, Evens([]int{1, 2, 3, 4, 5, 6}), []int{2, 4, 6})
+	expect(t, Evens([]int{8, 3, 2, 2, 6}), []int{8, 2, 2, 6})
+	expect(t, Evens([]int{10}), []int{10})
 }
 
 // negative numbers and zero are even too
 func TestEvensNegative(t *testing.T) {
 	expect(t, Evens([]int{-4, -3, 0, 7}), []int{-4, 0})
+	expect(t, Evens([]int{-1, -2, -5, -6}), []int{-2, -6})
 }
 
 // no evens gives an empty result
@@ -207,6 +210,13 @@ func TestNoEvens(t *testing.T) {
 		t.Errorf("expected an empty slice, got %v", got)
 	}
 }
+
+// leaves the input alone
+func TestEvensInputUntouched(t *testing.T) {
+	in := []int{1, 2, 3, 4}
+	Evens(in)
+	expect(t, in, []int{1, 2, 3, 4})
+}
 ```
 
 #### Uses
@@ -214,6 +224,7 @@ func TestNoEvens(t *testing.T) {
 - [Arrays & slices › append](#/slices/append)
 - [Control flow › if](#/control-flow/if)
 - [Variables & types › Operators](#/basics/operators)
+- [Reference › How the tests here work](#/reference/how-the-tests-here-work)
 
 #### Hints
 - `var out []int` gives you a nil slice that `append` is happy to grow.
@@ -221,6 +232,7 @@ func TestNoEvens(t *testing.T) {
 
 #### Tips
 - `-3 % 2` is `-1`, not `1`, so test for even with `== 0` rather than for odd with `== 1`.
+- Returning a nil slice when nothing matches is fine: that test checks `len(got) != 0`. It uses `len` and not `expect` precisely because `expect` would tell a nil slice from an empty one.
 
 #### Docs
 - [builtin: append](https://pkg.go.dev/builtin#append)
@@ -245,6 +257,8 @@ import "testing"
 // sorts and removes duplicates
 func TestSortedUnique(t *testing.T) {
 	expect(t, SortedUnique([]int{3, 1, 3, 2, 1}), []int{1, 2, 3})
+	expect(t, SortedUnique([]int{0, -1, 5, -1}), []int{-1, 0, 5})
+	expect(t, SortedUnique([]int{7, 7, 7}), []int{7})
 }
 
 // leaves the input alone
@@ -252,6 +266,9 @@ func TestInputUntouched(t *testing.T) {
 	in := []int{5, 4, 5}
 	SortedUnique(in)
 	expect(t, in, []int{5, 4, 5})
+	in = []int{3, 1, 2}
+	SortedUnique(in)
+	expect(t, in, []int{3, 1, 2})
 }
 
 // empty in, empty out
@@ -265,6 +282,7 @@ func TestSortedUniqueEmpty(t *testing.T) {
 #### Uses
 - [Arrays & slices › copy and Clone](#/slices/copy-and-clone)
 - [Arrays & slices › The slices package](#/slices/the-slices-package)
+- [Reference › How the tests here work](#/reference/how-the-tests-here-work)
 
 #### Hints
 - `slices.Clone(nums)` gives you a copy that you are free to sort. Add `import "slices"`.
@@ -272,6 +290,7 @@ func TestSortedUniqueEmpty(t *testing.T) {
 
 #### Tips
 - `slices.Compact` only removes *neighbouring* duplicates, which is why sorting comes first.
+- `slices.Sort` has no non-mutating twin. Cloning first is the whole point of the "leaves the input alone" test.
 
 #### Docs
 - [slices.Compact](https://pkg.go.dev/slices#Compact)
@@ -297,11 +316,19 @@ import "testing"
 // splits into pieces with a short tail
 func TestChunks(t *testing.T) {
 	expect(t, Chunk([]int{1, 2, 3, 4, 5}, 2), [][]int{{1, 2}, {3, 4}, {5}})
+	expect(t, Chunk([]int{1, 2, 3, 4, 5, 6, 7}, 3), [][]int{{1, 2, 3}, {4, 5, 6}, {7}})
+}
+
+// no short tail when size divides evenly
+func TestEvenChunks(t *testing.T) {
+	expect(t, Chunk([]int{1, 2, 3, 4}, 2), [][]int{{1, 2}, {3, 4}})
+	expect(t, Chunk([]int{7, 8, 9}, 1), [][]int{{7}, {8}, {9}})
 }
 
 // one chunk when size covers everything
 func TestOneChunk(t *testing.T) {
 	expect(t, Chunk([]int{1, 2, 3}, 3), [][]int{{1, 2, 3}})
+	expect(t, Chunk([]int{1, 2}, 5), [][]int{{1, 2}})
 }
 
 // empty input gives no chunks
@@ -329,6 +356,7 @@ func TestChunkAliasing(t *testing.T) {
 - [Arrays & slices › Two-dimensional slices](#/slices/two-dimensional-slices)
 - [Control flow › for, in all its forms](#/control-flow/for-in-all-its-forms)
 - [Variables & types › Operators](#/basics/operators)
+- [Reference › How the tests here work](#/reference/how-the-tests-here-work)
 
 #### Hints
 - Use a classic `for` loop whose post statement is `i += size`, so `i` lands on the start of each chunk.
@@ -337,6 +365,7 @@ func TestChunkAliasing(t *testing.T) {
 
 #### Tips
 - `s[i:j:k]` has length `j - i` and capacity `k - i`.
+- The aliasing test appends to the *first* chunk, because that is the one whose spare capacity reaches into the next. Cap every chunk anyway: which one gets appended to is the caller's business.
 
 #### Docs
 - [Go spec: Slice expressions](https://go.dev/ref/spec#Slice_expressions)
@@ -364,9 +393,16 @@ func TestTranspose(t *testing.T) {
 	expect(t, Transpose(m), [][]int{{1, 4}, {2, 5}, {3, 6}})
 }
 
-// a row becomes a column
+// a square matrix flips across its diagonal
+func TestSquare(t *testing.T) {
+	expect(t, Transpose([][]int{{1, 2}, {3, 4}}), [][]int{{1, 3}, {2, 4}})
+	expect(t, Transpose([][]int{{5}}), [][]int{{5}})
+}
+
+// a row becomes a column, and back
 func TestRowToColumn(t *testing.T) {
 	expect(t, Transpose([][]int{{7, 8}}), [][]int{{7}, {8}})
+	expect(t, Transpose([][]int{{1}, {2}, {3}}), [][]int{{1, 2, 3}})
 }
 
 // transposing twice gives the original back
@@ -386,6 +422,7 @@ func TestTransposeEmpty(t *testing.T) {
 #### Uses
 - [Arrays & slices › Two-dimensional slices](#/slices/two-dimensional-slices)
 - [Control flow › if](#/control-flow/if)
+- [Reference › How the tests here work](#/reference/how-the-tests-here-work)
 
 #### Hints
 - The output has `len(m[0])` rows, each `len(m)` long. `make` the outer slice, then each row.
@@ -394,6 +431,7 @@ func TestTransposeEmpty(t *testing.T) {
 
 #### Tips
 - Indexing past the end panics at run time; the compiler cannot catch `m[0]` on an empty slice.
+- `Transpose(Transpose(m)) == m` is a good self-check while you work: if rows and columns get crossed anywhere, one of the two passes comes out the wrong shape.
 
 #### Docs
 - [Effective Go: Two-dimensional slices](https://go.dev/doc/effective_go#two_dimensional_slices)

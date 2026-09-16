@@ -216,11 +216,23 @@ fn many_types() {
     assert_eq!(largest(&words).map(|s| s.as_str()), Some("zucchini"));
 }
 
+/// finds it first, last, alone, or below zero
+#[test]
+fn any_position() {
+    assert_eq!(largest(&[9, 3, 2]), Some(&9));
+    assert_eq!(largest(&[1, 2, 3]), Some(&3));
+    assert_eq!(largest(&[7]), Some(&7));
+    assert_eq!(largest(&[-5, -2, -9]), Some(&-2));
+    assert_eq!(largest(&[0.5, 2.5, 1.0]), Some(&2.5));
+}
+
 /// none for an empty slice
 #[test]
 fn empty() {
     let empty: [i32; 0] = [];
     assert_eq!(largest(&empty), None);
+    let no_words: Vec<String> = Vec::new();
+    assert_eq!(largest(&no_words), None);
 }
 
 /// returns the first of equal items
@@ -228,12 +240,16 @@ fn empty() {
 fn first_on_ties() {
     let items = [(1, 'a'), (1, 'a')];
     assert!(std::ptr::eq(largest(&items).unwrap(), &items[0]));
+    let items = [0, 5, 5, 3];
+    assert!(std::ptr::eq(largest(&items).unwrap(), &items[1]));
 }
 ```
 
 #### Uses
 - [Generics & bounds › Generic functions](#/generics/generic-functions)
 - [Enums & match › Option: an enum instead of null](#/enums/option-an-enum-instead-of-null)
+- [Reference › Option](#/reference/option)
+- [Reference › Strings and &str](#/reference/strings-and-str)
 
 #### Hints
 - The bound you need is the one that makes `>` compile: `PartialOrd`.
@@ -241,7 +257,9 @@ fn first_on_ties() {
 - Replace the best only on `>`, not `>=`, so ties keep the first. Wrap the answer in `Some`.
 
 #### Tips
-- The result is a reference into `items`, not a copy, so this works even for types that can't be cloned.
+- The result is a reference into `items`, not a copy, so this works even for types that can't be cloned. That's why the signature says `Option<&T>` and not `Option<T>`.
+- `>` and not `>=` is the whole of "ties keep the first". The last test uses `std::ptr::eq` to check *which* equal item came back, so equal values aren't enough to pass it.
+- `PartialOrd` rather than `Ord` is what lets the test pass `f64`s. The price is that a slice containing `NaN` would give a meaningless answer rather than refusing to compile.
 
 #### Docs
 - [Rust book: Generic data types in function definitions](https://doc.rust-lang.org/book/ch10-01-syntax.html#in-function-definitions)
@@ -283,13 +301,26 @@ struct Opaque(u8);
 fn swaps_anything() {
     let p = Pair::new(Opaque(1), Opaque(2)).swap();
     assert_eq!((p.a.0, p.b.0), (2, 1));
+    let p = Pair::new(Opaque(7), Opaque(8)).swap().swap();
+    assert_eq!((p.a.0, p.b.0), (7, 8));
 }
 
 /// larger compares
 #[test]
 fn larger() {
     assert_eq!(*Pair::new(3, 9).larger(), 9);
+    assert_eq!(*Pair::new(9, 3).larger(), 9);
+    assert_eq!(*Pair::new(1.5, -2.0).larger(), 1.5);
     assert_eq!(Pair::new("b".to_string(), "a".to_string()).larger(), "b");
+}
+
+/// larger returns a on a tie
+#[test]
+fn larger_tie() {
+    let p = Pair::new(5, 5);
+    assert!(std::ptr::eq(p.larger(), &p.a));
+    let p = Pair::new("same", "same");
+    assert!(std::ptr::eq(p.larger(), &p.a));
 }
 
 /// show formats with Display
@@ -297,6 +328,7 @@ fn larger() {
 fn shows() {
     assert_eq!(Pair::new('x', 'y').show(), "(x, y)");
     assert_eq!(Pair::new(1, 2).swap().show(), "(2, 1)");
+    assert_eq!(Pair::new("hi", "there").show(), "(hi, there)");
 }
 ```
 
@@ -311,6 +343,8 @@ fn shows() {
 
 #### Tips
 - A method in a bounded block doesn't exist for other types. `Pair<Opaque>` can still `swap`, and calling `show` on it is a compile error, not a runtime one.
+- Putting all four methods in one `impl<T: PartialOrd + Display> Pair<T>` also compiles, and then `Opaque` loses `new` and `swap` and the first test stops building. Bounds belong on the smallest block that needs them.
+- `swap` takes `self` by value, which is what lets it move the two fields into a new pair without cloning either. `&self` would force `T: Clone`.
 
 #### Docs
 - [Rust book: Using trait bounds to conditionally implement methods](https://doc.rust-lang.org/book/ch10-02-traits.html#using-trait-bounds-to-conditionally-implement-methods)
@@ -353,12 +387,16 @@ fn custom_types() {
     #[derive(Debug)]
     struct Point { x: i32 }
     assert_eq!(Point { x: 1 }.describe(), "<Point { x: 1 }>");
+    assert_eq!(Point { x: -30 }.describe(), "<Point { x: -30 }>");
 }
 
 /// joins with spaces
 #[test]
 fn joins() {
     assert_eq!(describe_all(&[1, 2, 3]), "<1> <2> <3>");
+    assert_eq!(describe_all(&["a", "b"]), "<\"a\"> <\"b\">");
+    assert_eq!(describe_all(&[Some(1), None]), "<Some(1)> <None>");
+    assert_eq!(describe_all(&[4.5]), "<4.5>");
     assert_eq!(describe_all::<u8>(&[]), "");
 }
 ```
@@ -367,6 +405,7 @@ fn joins() {
 - [Generics & bounds › Blanket impls](#/generics/blanket-impls)
 - [Generics & bounds › Bound syntax](#/generics/bound-syntax)
 - [Ownership › Moves in loops](#/ownership/moves-in-loops)
+- [Reference › Strings and &str](#/reference/strings-and-str)
 
 #### Hints
 - The blanket impl needs `T: Debug` (from `std::fmt::Debug`) so that `{:?}` works on `self`.
@@ -375,6 +414,9 @@ fn joins() {
 
 #### Tips
 - `T: Debug` would also work for `describe_all`, but `T: Describe` says exactly what the function uses.
+- `"hi".describe()` is `"<\"hi\">"`, with the quotes, because `{:?}` on a `&str` shows it the way you'd type it. `{}` would print `hi` bare. That difference is the whole reason both traits exist.
+- One blanket impl and you're done: `5`, `Vec<i32>`, `Option<char>` and a struct declared inside a test function all get `describe` without another line of code. That's how `ToString` reaches every `Display` type.
+- The orphan rule still applies. This works because `Describe` is your trait; you couldn't write `impl<T: Debug> Display for T`.
 
 #### Docs
 - [Rust book: Using trait bounds to conditionally implement methods](https://doc.rust-lang.org/book/ch10-02-traits.html#using-trait-bounds-to-conditionally-implement-methods)
@@ -401,10 +443,21 @@ fn numbers() {
     assert_eq!(merge_sorted::<i32>(&[], &[]), Vec::<i32>::new());
 }
 
+/// keeps the rest of whichever slice is left over
+#[test]
+fn tails() {
+    assert_eq!(merge_sorted(&[5, 6, 7], &[1]), vec![1, 5, 6, 7]);
+    assert_eq!(merge_sorted(&[1, 2], &[]), vec![1, 2]);
+    assert_eq!(merge_sorted(&[1, 1, 2], &[1, 3]), vec![1, 1, 1, 2, 3]);
+}
+
 /// merges strings
 #[test]
 fn strings() {
     assert_eq!(merge_sorted(&["ant", "cat"], &["bee", "dog"]), vec!["ant", "bee", "cat", "dog"]);
+    let a = vec!["pear".to_string()];
+    let b = vec!["apple".to_string(), "zoo".to_string()];
+    assert_eq!(merge_sorted(&a, &b), vec!["apple", "pear", "zoo"]);
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -422,6 +475,9 @@ fn stable() {
     let a = [Item(1, "a"), Item(2, "a")];
     let b = [Item(1, "b"), Item(2, "b")];
     assert_eq!(merge_sorted(&a, &b), vec![Item(1, "a"), Item(1, "b"), Item(2, "a"), Item(2, "b")]);
+    let a = [Item(2, "a"), Item(3, "a")];
+    let b = [Item(1, "b"), Item(3, "b")];
+    assert_eq!(merge_sorted(&a, &b), vec![Item(1, "b"), Item(2, "a"), Item(3, "a"), Item(3, "b")]);
 }
 ```
 
@@ -437,6 +493,9 @@ fn stable() {
 
 #### Tips
 - Taking `a` on ties is what makes the merge *stable*: equal items keep their original order, which merge sort relies on.
+- `Clone` is in the bounds because the slices are borrowed. You can't move a `T` out of a `&[T]`, so every element that goes into the result has to be cloned out.
+- Use `<=` for the comparison, not `<`. With `<`, an equal pair takes `b` first and the `stable` test fails with everything else still correct, which is a hard bug to see.
+- Two tail loops, or one that pushes whatever is left of each slice, are both fine. What doesn't work is forgetting them: the merge stops as soon as one side runs out.
 
 #### Docs
 - [Rust book: Clearer trait bounds with `where` clauses](https://doc.rust-lang.org/book/ch10-02-traits.html#clearer-trait-bounds-with-where-clauses)

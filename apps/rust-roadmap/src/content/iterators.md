@@ -203,12 +203,22 @@ pub fn squares_of_evens(values: &[i32]) -> Vec<i32> {
 fn squares() {
     assert_eq!(squares_of_evens(&[1, 2, 3, 4, 5, 6]), vec![4, 16, 36]);
     assert_eq!(squares_of_evens(&[-2, 0, 7]), vec![4, 0]);
+    assert_eq!(squares_of_evens(&[8]), vec![64]);
+}
+
+/// keeps the input order and drops negative odd numbers
+#[test]
+fn order_and_negatives() {
+    assert_eq!(squares_of_evens(&[6, 2, 4]), vec![36, 4, 16]);
+    assert_eq!(squares_of_evens(&[-3, -4, 5, -1]), vec![16]);
 }
 
 /// empty when nothing is even
 #[test]
 fn none() {
     assert!(squares_of_evens(&[1, 3, 5]).is_empty());
+    assert!(squares_of_evens(&[-7]).is_empty());
+    assert!(squares_of_evens(&[]).is_empty());
 }
 ```
 
@@ -222,6 +232,8 @@ fn none() {
 
 #### Tips
 - The return type already tells `collect` to build a `Vec<i32>`, so the chain needs no annotation.
+- Order the chain so the cheap test comes first. `filter` then `map` squares only the evens; `map` then `filter` squares everything and throws half of it away.
+- Forgetting `collect` doesn't silently do nothing, it fails to compile — and the warning behind it, "iterators are lazy and do nothing unless consumed", is worth remembering for the times it's only a warning.
 
 #### Docs
 - [Rust book: Methods that produce other iterators](https://doc.rust-lang.org/book/ch13-02-iterators.html#methods-that-produce-other-iterators)
@@ -248,6 +260,9 @@ fn adder() {
     assert_eq!(add5(1), 6);
     assert_eq!(add5(-5), 0);
     assert_eq!(make_adder(-1)(10), 9);
+    let add100 = make_adder(100);
+    assert_eq!(add100(0), 100);
+    assert_eq!(add5(0), 5);
 }
 
 /// counts up from 1
@@ -257,6 +272,10 @@ fn counter() {
     assert_eq!(c(), 1);
     assert_eq!(c(), 2);
     assert_eq!(c(), 3);
+    for _ in 0..6 {
+        c();
+    }
+    assert_eq!(c(), 10);
 }
 
 /// counters are independent
@@ -282,6 +301,9 @@ fn independent() {
 
 #### Tips
 - Every call to `make_counter` creates a fresh `count`, so counters don't share. That's how closures stand in for small objects.
+- The return types are the hint. `impl Fn` promises a closure that only reads its captures; `impl FnMut` promises one that changes them, which is why the counter's caller has to declare `let mut c`.
+- Without `move`, the closure would borrow a local that's gone the moment the function returns, and the compiler says so: *closure may outlive the current function*.
+- Bump the count first, then evaluate to it, or you'll return 0 the first time. The body is a block: `{ count += 1; count }`.
 
 #### Docs
 - [Rust book: Closures](https://doc.rust-lang.org/book/ch13-01-closures.html)
@@ -313,13 +335,23 @@ pub fn parse_all(items: &[&str]) -> Result<Vec<i32>, ParseIntError> {
 fn acronyms() {
     assert_eq!(acronym("portable network graphics"), "PNG");
     assert_eq!(acronym("  Rust   is fun "), "RIF");
+    assert_eq!(acronym("hello"), "H");
     assert_eq!(acronym(""), "");
+}
+
+/// any whitespace separates words
+#[test]
+fn whitespace() {
+    assert_eq!(acronym("big\tdata\nlake"), "BDL");
+    assert_eq!(acronym(" \t\n "), "");
 }
 
 /// parses every item
 #[test]
 fn parses() {
     assert_eq!(parse_all(&["1", "-2", "30"]), Ok(vec![1, -2, 30]));
+    assert_eq!(parse_all(&["0"]), Ok(vec![0]));
+    assert_eq!(parse_all(&["2147483647", "-2147483648"]), Ok(vec![i32::MAX, i32::MIN]));
     assert_eq!(parse_all(&[]), Ok(vec![]));
 }
 
@@ -328,6 +360,10 @@ fn parses() {
 fn first_error() {
     let err = parse_all(&["1", "two", "3"]).unwrap_err();
     assert_eq!(err.to_string(), "invalid digit found in string");
+    let err = parse_all(&["4", "", "x"]).unwrap_err();
+    assert_eq!(err.to_string(), "cannot parse integer from empty string");
+    let err = parse_all(&["2147483648", "x"]).unwrap_err();
+    assert_eq!(err.to_string(), "number too large to fit in target type");
 }
 ```
 
@@ -335,6 +371,8 @@ fn first_error() {
 - [Closures & iterators › Adapters are lazy](#/iterators/adapters-are-lazy)
 - [Closures & iterators › `collect` builds whatever you ask for](#/iterators/collect-builds-whatever-you-ask-for)
 - [Strings & slices › Everyday string methods](#/strings/everyday-string-methods)
+- [Reference › Result](#/reference/result)
+- [Reference › char](#/reference/char)
 
 #### Hints
 - `acronym`: start from `phrase.split_whitespace()`, `filter_map` each word to its first `char`, `map` that to uppercase, `collect`.
@@ -342,6 +380,9 @@ fn first_error() {
 
 #### Tips
 - `filter_map` is `map` and `filter` in one: the closure returns an `Option`, and the `None`s are dropped.
+- `collect` decides what to build from the type it's asked for. Here the return types do that: `String` for one function, `Result<Vec<i32>, _>` for the other, with the same `collect` call.
+- Collecting into `Result<Vec<_>, _>` short-circuits: it stops at the first `Err` and returns it, so `["1", "two", "3"]` never parses the `"3"`. Collecting into `Vec<Result<_, _>>` instead keeps every outcome.
+- `split_whitespace` already skips blank runs, which is why `" \t\n "` gives `""` with no special case.
 
 #### Docs
 - [std: Iterator::collect](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.collect)
@@ -379,6 +420,7 @@ fn first_ten() {
 #[test]
 fn adapters() {
     assert_eq!(fibonacci().find(|n| *n > 1000), Some(1597));
+    assert_eq!(fibonacci().nth(50), Some(12_586_269_025));
     let even_sum: u64 = fibonacci().take_while(|n| *n < 100).filter(|n| n % 2 == 0).sum();
     assert_eq!(even_sum, 44);
 }
@@ -388,6 +430,8 @@ fn adapters() {
 fn ends() {
     assert_eq!(fibonacci().count(), 94);
     assert_eq!(fibonacci().last(), Some(12_200_160_415_121_876_738));
+    let tail: Vec<u64> = fibonacci().skip(91).collect();
+    assert_eq!(tail, vec![4_660_046_610_375_530_309, 7_540_113_804_746_346_429, 12_200_160_415_121_876_738]);
 }
 ```
 
@@ -403,6 +447,9 @@ fn ends() {
 
 #### Tips
 - The iterator's state lives in struct fields, where a Python generator would keep it in local variables.
+- Write `next` and the other ninety-odd methods come free. `take`, `find`, `nth`, `count`, `skip` and `sum` in the tests are all default methods built on your one function.
+- Returning `None` once is a promise you should keep: adapters like `take_while` assume an iterator that has ended stays ended. Storing `None` in the state field, rather than recomputing, is what keeps that true.
+- `checked_add` is what turns "this would overflow" into an ordinary value you can act on. Plain `+` would panic in a debug build at exactly the 94th item.
 
 #### Docs
 - [std: u64::checked_add](https://doc.rust-lang.org/std/primitive.u64.html#method.checked_add)

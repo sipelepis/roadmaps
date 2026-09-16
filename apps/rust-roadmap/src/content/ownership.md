@@ -12,7 +12,19 @@ let s = String::from("hello");  // header on the stack, "hello" on the heap
 let v = vec![1, 2, 3];          // same idea: a Vec is a growable array
 ```
 
-`vec![...]` creates a `Vec`, a growable list. `v.push(4)` appends and `v.len()` counts. The Vec & HashMap module covers it properly; here it's just a handy heap value.
+`vec![...]` creates a `Vec`, a growable list, and `Vec::new()` an empty one. A handful of its methods show up long before the Vec & HashMap module covers it properly:
+
+```rust
+let mut v = vec![1, 2, 3];
+v.push(4);        // appends: [1, 2, 3, 4]
+v.len();          // 4
+v.is_empty();     // false
+v.pop();          // Some(4), and v is [1, 2, 3] again
+v.last();         // Some(&3)
+v[0];             // 1, and panics if the index is past the end
+```
+
+`pop` returns an `Option`, because the Vec might be empty; that type is the subject of a later module. `push` and `pop` together make a `Vec` a stack.
 
 Someone has to free that heap buffer. Python and JavaScript use a garbage collector, C makes you call `free` yourself. Rust ties it to scope.
 
@@ -84,6 +96,8 @@ println!("{a} {b}");
 ```
 
 Cloning is explicit on purpose. In Rust, an expensive copy is always visible in the code as a `.clone()` call.
+
+That visibility is also a warning sign. A `.clone()` added to make the borrow checker stop complaining usually means the ownership isn't decided yet: something is being read after it was given away, or a function is taking a value it only needed to borrow. Clone when you genuinely want a second copy. When you're cloning to quiet an error, read the error first, and reach for the fixes in the next module instead.
 
 ## Ownership and functions
 
@@ -185,12 +199,21 @@ pub fn exclaim(s: String) -> String {
 fn appends() {
     let s = String::from("hello");
     assert_eq!(exclaim(s), "hello!");
+    assert_eq!(exclaim(String::from("Rust is fun")), "Rust is fun!");
+}
+
+/// adds exactly one mark
+#[test]
+fn exactly_one() {
+    assert_eq!(exclaim(String::from("wow!")), "wow!!");
+    assert_eq!(exclaim(String::from("héllo")), "héllo!");
 }
 
 /// works on an empty string
 #[test]
 fn empty() {
     assert_eq!(exclaim(String::new()), "!");
+    assert_eq!(exclaim(String::from(" ")), " !");
 }
 ```
 
@@ -204,6 +227,8 @@ fn empty() {
 
 #### Tips
 - `'!'` in single quotes is a `char`, which is what `push` takes. For a string, use `push_str("!")`.
+- `mut` on a parameter is invisible to the caller. It isn't part of the signature: it only says this function may change its own copy, which it owns outright.
+- `s.push('!')` returns `()`, so it can't be the last expression. Push on one line, then name `s` on the next.
 
 #### Docs
 - [Book: Return values and scope](https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html#return-values-and-scope)
@@ -228,12 +253,38 @@ fn pair() {
     let (name, upper) = with_upper(String::from("Ada"));
     assert_eq!(name, "Ada");
     assert_eq!(upper, "ADA");
+    let (name, upper) = with_upper(String::from("ferris"));
+    assert_eq!(name, "ferris");
+    assert_eq!(upper, "FERRIS");
+}
+
+/// keeps the name exactly as given
+#[test]
+fn keeps_name() {
+    let (name, upper) = with_upper(String::from("grace Hopper"));
+    assert_eq!(name, "grace Hopper");
+    assert_eq!(upper, "GRACE HOPPER");
+    let (name, upper) = with_upper(String::from("r2-d2"));
+    assert_eq!(name, "r2-d2");
+    assert_eq!(upper, "R2-D2");
+}
+
+/// uppercases non-ASCII letters too
+#[test]
+fn non_ascii() {
+    let (name, upper) = with_upper(String::from("Zoë"));
+    assert_eq!(name, "Zoë");
+    assert_eq!(upper, "ZOË");
+    let (name, upper) = with_upper(String::from("élodie"));
+    assert_eq!(name, "élodie");
+    assert_eq!(upper, "ÉLODIE");
 }
 ```
 
 #### Uses
 - [Ownership › Moves](#/ownership/moves)
 - [Ownership › Ownership and functions](#/ownership/ownership-and-functions)
+- [Reference › Strings and &str](#/reference/strings-and-str)
 
 #### Hints
 - Do the reading before the moving: compute the uppercase copy first and store it in its own variable.
@@ -241,6 +292,8 @@ fn pair() {
 
 #### Tips
 - Calling a method like `to_uppercase` only reads `name`; it doesn't move it. The move happens when `name` itself is placed in the tuple.
+- Reordering two lines is the cheapest fix for a move error, and it's the first thing to try. `name.clone()` also compiles, and allocates a whole second string to avoid writing the lines the other way round.
+- `to_uppercase` returns a `String`, not a `&str`, because uppercasing can change the length: `ß` becomes `SS`. That's why it has to allocate rather than hand back a view.
 
 #### Docs
 - [std: `str::to_uppercase`](https://doc.rust-lang.org/std/primitive.str.html#method.to_uppercase)
@@ -273,6 +326,33 @@ fn splits() {
     assert_eq!(short, strings(&["a", "on"]));
 }
 
+/// a word of exactly `min` bytes is long
+#[test]
+fn boundary() {
+    let (long, short) = split_by_length(strings(&["abc", "ab", "abcd", "a"]), 3);
+    assert_eq!(long, strings(&["abc", "abcd"]));
+    assert_eq!(short, strings(&["ab", "a"]));
+}
+
+/// counts bytes, not characters
+#[test]
+fn bytes() {
+    let (long, short) = split_by_length(strings(&["über", "hi", "naïve", "tree"]), 5);
+    assert_eq!(long, strings(&["über", "naïve"]));
+    assert_eq!(short, strings(&["hi", "tree"]));
+}
+
+/// everything can land in one pile
+#[test]
+fn one_pile() {
+    let (long, short) = split_by_length(strings(&["a", "bb"]), 0);
+    assert_eq!(long, strings(&["a", "bb"]));
+    assert_eq!(short.len(), 0);
+    let (long, short) = split_by_length(strings(&["a", "bb"]), 9);
+    assert_eq!(long.len(), 0);
+    assert_eq!(short, strings(&["a", "bb"]));
+}
+
 /// empty input gives two empty piles
 #[test]
 fn empty() {
@@ -293,6 +373,8 @@ fn empty() {
 
 #### Tips
 - You never write the piles' element type. The compiler works out `Vec<String>` from what you push and from the return type.
+- `for word in words` uses `words` up, one `String` at a time, and that's exactly what "don't clone anything" means here. Each word is moved into a pile, not copied.
+- `word.len()` counts bytes, so `"über"` is five and `"tree"` is four. The `bytes` test depends on that; counting characters would need `word.chars().count()`.
 
 #### Docs
 - [std: `Vec::push`](https://doc.rust-lang.org/std/vec/struct.Vec.html#method.push)
@@ -323,18 +405,24 @@ fn strings(words: &[&str]) -> Vec<String> {
 #[test]
 fn repeats() {
     assert_eq!(repeat_each(strings(&["a", "b"]), 2), strings(&["a", "a", "b", "b"]));
+    assert_eq!(
+        repeat_each(strings(&["x", "y", "x"]), 3),
+        strings(&["x", "x", "x", "y", "y", "y", "x", "x", "x"])
+    );
 }
 
 /// once returns the same words
 #[test]
 fn once() {
     assert_eq!(repeat_each(strings(&["x", "y"]), 1), strings(&["x", "y"]));
+    assert_eq!(repeat_each(strings(&["only"]), 1), strings(&["only"]));
 }
 
-/// zero times returns nothing
+/// zero times, or no words, returns nothing
 #[test]
 fn zero() {
     assert_eq!(repeat_each(strings(&["x", "y"]), 0), Vec::<String>::new());
+    assert_eq!(repeat_each(Vec::new(), 4), Vec::<String>::new());
 }
 ```
 
@@ -350,6 +438,8 @@ fn zero() {
 
 #### Tips
 - Cloning all `times` copies and letting the original drop also passes. It just allocates one extra `String` per word.
+- This is the case where `.clone()` is the right answer, not a dodge: you genuinely need `times` separate strings, and only one of them can be the original.
+- `times = 0` is the trap in the save-one-clone version. `times - 1` on a `usize` underflows and panics, so handle zero before you subtract.
 
 #### Docs
 - [Book: Variables and data interacting with clone](https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html#variables-and-data-interacting-with-clone)

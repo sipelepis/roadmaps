@@ -73,7 +73,10 @@ func Balanced(s string) bool {
 ```go test
 package main
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // accepts balanced input
 func TestBalancedTrue(t *testing.T) {
@@ -86,11 +89,20 @@ func TestBalancedTrue(t *testing.T) {
 
 // rejects mismatched, unclosed and early closers
 func TestBalancedFalse(t *testing.T) {
-	for _, s := range []string{"(]", "((", ")(", "{[}]", "]", "(()"} {
+	for _, s := range []string{"(]", "((", ")(", "{[}]", "]", "(()", "())(", "([)]", "a)"} {
 		if Balanced(s) {
 			t.Errorf("Balanced(%q) = true, want false", s)
 		}
 	}
+}
+
+// deep nesting and non-ASCII text
+func TestBalancedDeep(t *testing.T) {
+	deep := strings.Repeat("([{", 100) + strings.Repeat("}])", 100)
+	expect(t, Balanced(deep), true)
+	expect(t, Balanced(deep+"("), false)
+	expect(t, Balanced(deep[1:]), false)
+	expect(t, Balanced("é(日[本]){ü}"), true)
 }
 ```
 
@@ -107,6 +119,7 @@ func TestBalancedFalse(t *testing.T) {
 
 #### Tips
 - A small `map[rune]rune{')': '(', ']': '[', '}': '{'}` from closer to opener saves three near-identical branches.
+- Check that the stack is non-empty *before* reading its top. `Balanced(")")` panics otherwise, and a panic fails only that one test, which makes it easy to miss.
 
 #### Docs
 - [Go spec: For statements with range clause](https://go.dev/ref/spec#For_range)
@@ -140,6 +153,15 @@ func TestRLE(t *testing.T) {
 func TestRLEUnicode(t *testing.T) {
 	expect(t, RLE("ééé"), "3é")
 	expect(t, RLE("日日本"), "2日1本")
+	expect(t, RLE("aéé"), "1a2é")
+}
+
+// a character that comes back starts a new run
+func TestRLERepeats(t *testing.T) {
+	expect(t, RLE("aabaa"), "2a1b2a")
+	expect(t, RLE("abab"), "1a1b1a1b")
+	expect(t, RLE("x"), "1x")
+	expect(t, RLE("111"), "31")
 }
 ```
 
@@ -155,6 +177,7 @@ func TestRLEUnicode(t *testing.T) {
 
 #### Tips
 - Counts can have several digits (`12z`), so a decoder would read digits until it hits the character.
+- Two indexes over `[]rune(s)` avoid both a "previous rune" variable and the special case for the final run. The loop just never runs on empty input.
 
 #### Docs
 - [strings.Builder](https://pkg.go.dev/strings#Builder)
@@ -188,6 +211,12 @@ func TestGroupAnagramsEdges(t *testing.T) {
 	expect(t, GroupAnagrams([]string{"go"}), [][]string{{"go"}})
 	expect(t, len(GroupAnagrams(nil)), 0)
 }
+
+// same letters in the same amounts, not just the same set or sum
+func TestGroupAnagramsKeys(t *testing.T) {
+	words := []string{"ad", "bab", "bc", "abb", "ab", "silent", "listen"}
+	expect(t, GroupAnagrams(words), [][]string{{"ab"}, {"abb", "bab"}, {"ad"}, {"bc"}, {"listen", "silent"}})
+}
 ```
 
 #### Uses
@@ -203,6 +232,8 @@ func TestGroupAnagramsEdges(t *testing.T) {
 
 #### Tips
 - Map iteration order is random, so the final sort of the groups is what makes the output stable.
+- Sort the letters as a `[]rune`, not as a string: strings are immutable, and `slices.Sort` works in place.
+- `"ab"` and `"bab"` must not collide, so the key has to keep every letter with its count. Sorted letters do; a set of letters or a sum of their codes would not.
 
 #### Docs
 - [slices.SortFunc](https://pkg.go.dev/slices#SortFunc)
@@ -230,11 +261,15 @@ import "testing"
 func TestTopWords(t *testing.T) {
 	text := "the cat and the hat. The cat sat!"
 	expect(t, TopWords(text, 2), []string{"the", "cat"})
+	expect(t, TopWords(text, 1), []string{"the"})
+	expect(t, TopWords("a b b c c c d d d d", 3), []string{"d", "c", "b"})
 }
 
 // ties break alphabetically
 func TestTopWordsTies(t *testing.T) {
 	expect(t, TopWords("b a c b a c d", 3), []string{"a", "b", "c"})
+	expect(t, TopWords("pear fig kiwi apple date lime", 4), []string{"apple", "date", "fig", "kiwi"})
+	expect(t, TopWords("z y y x x", 2), []string{"x", "y"})
 }
 
 // k larger than the vocabulary
@@ -242,12 +277,18 @@ func TestTopWordsSmall(t *testing.T) {
 	expect(t, TopWords("Go, go, GO! stop", 10), []string{"go", "stop"})
 	expect(t, len(TopWords("", 3)), 0)
 }
+
+// digits and apostrophes split words too
+func TestTopWordsLetters(t *testing.T) {
+	expect(t, TopWords("it's 3 o'clock... IT'S", 5), []string{"it", "s", "clock", "o"})
+}
 ```
 
 #### Uses
 - [Maps › Missing keys and comma-ok](#/maps/missing-keys-and-comma-ok)
 - [Standard library tour › `slices`, `maps` and `sort`](#/stdlib/slices-maps-and-sort)
 - [Arrays & slices › Slicing shares memory](#/slices/slicing-shares-memory)
+- [Strings & runes › The strings package](#/strings/the-strings-package)
 
 #### Hints
 - Lowercase the text, split it with `strings.FieldsFunc` on anything that isn't a letter, and count the words in a `map[string]int`.
@@ -256,6 +297,8 @@ func TestTopWordsSmall(t *testing.T) {
 
 #### Tips
 - To sort from highest to lowest, swap the arguments: `cmp.Compare(counts[b], counts[a])`.
+- `min(k, len(words))` handles both "k is too big" and the empty text: for `TopWords("", 3)` it is 0, and `words[:0]` is a valid empty slice.
+- `FieldsFunc` splits on anything that is not a letter, so `it's` becomes `it` and `s`. That is what the last test is checking, not a bug.
 
 #### Docs
 - [cmp.Or](https://pkg.go.dev/cmp#Or)
@@ -282,12 +325,16 @@ import "testing"
 func TestMergeIntervals(t *testing.T) {
 	expect(t, MergeIntervals([][2]int{{1, 3}, {2, 6}, {8, 10}, {15, 18}}), [][2]int{{1, 6}, {8, 10}, {15, 18}})
 	expect(t, MergeIntervals([][2]int{{1, 4}, {4, 5}}), [][2]int{{1, 5}})
+	expect(t, MergeIntervals([][2]int{{1, 2}, {3, 4}}), [][2]int{{1, 2}, {3, 4}})
+	expect(t, MergeIntervals([][2]int{{1, 2}, {2, 3}, {3, 4}, {6, 6}}), [][2]int{{1, 4}, {6, 6}})
+	expect(t, MergeIntervals([][2]int{{4, 4}}), [][2]int{{4, 4}})
 }
 
 // handles unsorted and nested input
 func TestMergeIntervalsUnsorted(t *testing.T) {
 	expect(t, MergeIntervals([][2]int{{5, 7}, {1, 10}, {2, 3}}), [][2]int{{1, 10}})
 	expect(t, MergeIntervals([][2]int{{9, 9}, {0, 1}}), [][2]int{{0, 1}, {9, 9}})
+	expect(t, MergeIntervals([][2]int{{6, 8}, {1, 5}, {2, 3}, {4, 6}}), [][2]int{{1, 8}})
 	expect(t, len(MergeIntervals(nil)), 0)
 }
 
@@ -310,6 +357,7 @@ func TestMergeIntervalsInput(t *testing.T) {
 
 #### Tips
 - `[2]int` is a value. `out[n-1][1] = ...` changes the element stored in `out`, but assigning to the loop variable's `iv[1]` would change only a copy.
+- Touching counts as overlapping here: `{1,4}` and `{4,5}` merge into `{1,5}`, so the test is `start <= lastEnd`, not `<`.
 
 #### Docs
 - [slices.Clone](https://pkg.go.dev/slices#Clone)
@@ -350,12 +398,16 @@ func TestMatMulSquare(t *testing.T) {
 
 // multiplies rectangular matrices
 func TestMatMulRect(t *testing.T) {
-	a := [][]int{{1, 2, 3}}      // 1x3
-	b := [][]int{{4}, {5}, {6}}  // 3x1
+	a := [][]int{{1, 2, 3}}     // 1x3
+	b := [][]int{{4}, {5}, {6}} // 3x1
 	got, _ := MatMul(a, b)
 	expect(t, got, [][]int{{32}})
 	got, _ = MatMul(b, a)
 	expect(t, got, [][]int{{4, 8, 12}, {5, 10, 15}, {6, 12, 18}})
+	c := [][]int{{1, 2, 3}, {4, 5, 6}}      // 2x3
+	d := [][]int{{7, 8}, {9, 10}, {-11, 0}} // 3x2
+	got, _ = MatMul(c, d)
+	expect(t, got, [][]int{{-8, 28}, {7, 82}})
 }
 
 // rejects mismatched shapes
@@ -365,6 +417,11 @@ func TestMatMulShape(t *testing.T) {
 		t.Fatalf("want ErrShape, got %v", err)
 	}
 	expect(t, err.Error(), "2x3 times 2x2: incompatible shapes")
+	_, err = MatMul([][]int{{1, 2}}, [][]int{{1}, {2}, {3}})
+	if !errors.Is(err, ErrShape) {
+		t.Fatalf("want ErrShape, got %v", err)
+	}
+	expect(t, err.Error(), "1x2 times 3x1: incompatible shapes")
 }
 ```
 
@@ -379,6 +436,7 @@ func TestMatMulShape(t *testing.T) {
 
 #### Tips
 - Nothing forces a `[][]int` to be rectangular. This exercise trusts that every row is as long as the first; real code would check.
+- The error message needs both shapes, so work out all four sizes before the compatibility check — and guard the empty cases before you index `a[0]` or `b[0]`.
 
 #### Docs
 - [Effective Go: Two-dimensional slices](https://go.dev/doc/effective_go#two_dimensional_slices)
@@ -448,6 +506,17 @@ func TestQueueEmpty(t *testing.T) {
 	v, ok := q.Pop()
 	expect(t, v, 0.0)
 	expect(t, ok, false)
+	q.Push(1.5)
+	q.Push(2.5)
+	q.Pop()
+	q.Pop()
+	_, ok = q.Pop()
+	expect(t, ok, false)
+	expect(t, q.Len(), 0)
+	q.Push(9) // still works after emptying
+	v, ok = q.Pop()
+	expect(t, v, 9.0)
+	expect(t, ok, true)
 }
 ```
 
@@ -462,6 +531,7 @@ func TestQueueEmpty(t *testing.T) {
 
 #### Tips
 - Setting `q.items[0]` to the zero value before reslicing lets the garbage collector reclaim whatever it pointed to.
+- `q.items[1:]` never reuses the front of the backing array, so a long-lived queue keeps allocating. At this size it is fine; a real one uses a ring buffer.
 
 #### Docs
 - [Go tutorial: Getting started with generics](https://go.dev/doc/tutorial/generics)
@@ -539,6 +609,40 @@ func TestLRUUpdate(t *testing.T) {
 	_, ok = c.Get("b")
 	expect(t, ok, false)
 }
+
+// updating a key in a full cache evicts nothing
+func TestLRUUpdateFull(t *testing.T) {
+	c := NewLRU(2)
+	c.Put("a", 1)
+	c.Put("b", 2)
+	c.Put("b", 20)
+	v, ok := c.Get("a")
+	expect(t, v, 1)
+	expect(t, ok, true)
+	v, _ = c.Get("b")
+	expect(t, v, 20)
+}
+
+// capacity one, a stored zero, and a run of evictions
+func TestLRUSmall(t *testing.T) {
+	c := NewLRU(1)
+	c.Put("z", 0)
+	v, ok := c.Get("z")
+	expect(t, v, 0)
+	expect(t, ok, true)
+	c.Put("y", 5)
+	_, ok = c.Get("z")
+	expect(t, ok, false)
+	c3 := NewLRU(3)
+	for i, k := range []string{"a", "b", "c", "d", "e"} {
+		c3.Put(k, i)
+	}
+	_, ok = c3.Get("b")
+	expect(t, ok, false)
+	v, ok = c3.Get("c")
+	expect(t, v, 2)
+	expect(t, ok, true)
+}
 ```
 
 #### Uses
@@ -554,6 +658,8 @@ func TestLRUUpdate(t *testing.T) {
 
 #### Tips
 - `slices.Delete` returns the shorter slice. Assign it back, like `append`.
+- A `Get` that misses must not touch the order. Only a hit counts as a use, which is what the eviction test pins down.
+- `NewLRU` has to create the map. A nil map reads fine but panics on the first write, and the first `Put` is a write.
 
 #### Docs
 - [slices.Delete](https://pkg.go.dev/slices#Delete)
@@ -595,6 +701,8 @@ func TestFlattenJSON(t *testing.T) {
 func TestFlattenJSONArrays(t *testing.T) {
 	got, _ := FlattenJSON([]byte(`{"users": [{"name": "ada"}, {"name": "bob", "age": 30}]}`))
 	expect(t, got, map[string]any{"users.0.name": "ada", "users.1.name": "bob", "users.1.age": 30.0})
+	got, _ = FlattenJSON([]byte(`{"grid": [[1, 2], [3]], "id": "7"}`))
+	expect(t, got, map[string]any{"grid.0.0": 1.0, "grid.0.1": 2.0, "grid.1.0": 3.0, "id": "7"})
 }
 
 // returns decoding errors
@@ -621,6 +729,8 @@ func TestFlattenJSONInvalid(t *testing.T) {
 
 #### Tips
 - Maps are references, so the helper can fill `out` without returning it.
+- Every number comes back as `float64`, which is why the tests expect `1.0` and `30.0`. Decoding into `any` always does this, whatever the JSON looked like.
+- Only the top level needs the "no dot in front" case. Passing the key down as the new prefix keeps the recursion to one branch.
 
 #### Docs
 - [encoding/json.Unmarshal](https://pkg.go.dev/encoding/json#Unmarshal)
@@ -641,7 +751,10 @@ func SumAll(chans ...<-chan int) int {
 ```go test
 package main
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func produceForTest(nums ...int) <-chan int {
 	ch := make(chan int)
@@ -657,6 +770,7 @@ func produceForTest(nums ...int) <-chan int {
 // sums values from every channel
 func TestSumAll(t *testing.T) {
 	expect(t, SumAll(produceForTest(1, 2, 3), produceForTest(10, 20), produceForTest(100)), 136)
+	expect(t, SumAll(produceForTest(-5, 5, -1)), -1)
 }
 
 // handles many channels and empty ones
@@ -670,6 +784,25 @@ func TestSumAllMany(t *testing.T) {
 	chans = append(chans, produceForTest())
 	expect(t, SumAll(chans...), want)
 	expect(t, SumAll(), 0)
+}
+
+// reads every channel at the same time
+func TestSumAllConcurrent(t *testing.T) {
+	a, b := make(chan int), make(chan int)
+	go func() {
+		b <- 1 // b sends first: reading a, then b, would wait here forever
+		a <- 2
+		close(a)
+		close(b)
+	}()
+	done := make(chan int)
+	go func() { done <- SumAll(a, b) }()
+	select {
+	case got := <-done:
+		expect(t, got, 3)
+	case <-time.After(time.Second):
+		t.Fatal("SumAll reads one channel at a time")
+	}
 }
 ```
 
@@ -685,6 +818,7 @@ func TestSumAllMany(t *testing.T) {
 
 #### Tips
 - With an unbuffered results channel, calling `wg.Wait()` before reading deadlocks: every goroutine is stuck on its send.
+- Each goroutine adds up its own channel and sends one subtotal, so there is nothing shared to protect. A mutex around a running total works too, and is more code for the same answer.
 
 #### Docs
 - [sync.WaitGroup.Go](https://pkg.go.dev/sync#WaitGroup.Go)
@@ -736,6 +870,7 @@ func peakTracker[T, U any](f func(T) U) (func(T) U, *atomic.Int32) {
 func TestParallelMapOrder(t *testing.T) {
 	f, _ := peakTracker(strconv.Itoa)
 	expect(t, ParallelMap([]int{5, 4, 3, 2, 1, 0}, 3, f), []string{"5", "4", "3", "2", "1", "0"})
+	expect(t, ParallelMap([]int{-7, 12}, 5, f), []string{"-7", "12"}) // more workers than items
 	expect(t, len(ParallelMap([]int{}, 2, f)), 0)
 }
 
@@ -761,6 +896,7 @@ func TestParallelMapParallel(t *testing.T) {
 - [Select, sync & context › Worker pools](#/concurrency/worker-pools)
 - [Generics › Type parameters](#/generics/type-parameters)
 - [Goroutines & channels › `close` and `range`](#/goroutines/close-and-range)
+- [Reference › sync and sync/atomic](#/reference/sync-and-sync-atomic)
 
 #### Hints
 - It's `Process` from the concurrency module with `T` and `U` in place of `int`: send indexes on a channel and let `workers` goroutines receive them.
@@ -768,6 +904,7 @@ func TestParallelMapParallel(t *testing.T) {
 
 #### Tips
 - Type parameters don't change the concurrency at all. The compiler just checks that `f` fits `in` and `out`.
+- `out` is allocated at full length before any worker starts, so each one writes an index that already exists. Appending from goroutines instead would be a data race.
 
 #### Docs
 - [Effective Go: Channels](https://go.dev/doc/effective_go#channels)

@@ -208,6 +208,8 @@ pub fn is_leap_year(year: u32) -> bool {
 fn ordinary() {
     assert_eq!(is_leap_year(2023), false);
     assert_eq!(is_leap_year(2024), true);
+    assert_eq!(is_leap_year(2019), false);
+    assert_eq!(is_leap_year(1996), true);
 }
 
 /// centuries are not leap years
@@ -215,12 +217,15 @@ fn ordinary() {
 fn century() {
     assert_eq!(is_leap_year(1900), false);
     assert_eq!(is_leap_year(2100), false);
+    assert_eq!(is_leap_year(1800), false);
 }
 
 /// every 400 years they are
 #[test]
 fn four_hundred() {
     assert_eq!(is_leap_year(2000), true);
+    assert_eq!(is_leap_year(1600), true);
+    assert_eq!(is_leap_year(2400), true);
 }
 ```
 
@@ -235,6 +240,8 @@ fn four_hundred() {
 
 #### Tips
 - `&&` binds tighter than `||`, so `a && b || c` means `(a && b) || c`. Parentheses make the intent obvious either way.
+- Don't write `if ... { true } else { false }`. The condition already *is* the `bool`; returning it directly is shorter and is what the compiler's `clippy` lint will tell you.
+- 1900 and 2000 are the two cases that separate a right answer from a plausible one. Check both before you believe it works.
 
 #### Docs
 - [Reference: Lazy boolean operators](https://doc.rust-lang.org/reference/expressions/operator-expr.html#lazy-boolean-operators)
@@ -256,12 +263,16 @@ pub fn gcd(a: u64, b: u64) -> u64 {
 fn common() {
     assert_eq!(gcd(12, 18), 6);
     assert_eq!(gcd(18, 12), 6);
+    assert_eq!(gcd(1071, 462), 21);
+    assert_eq!(gcd(9, 9), 9);
 }
 
 /// coprime numbers
 #[test]
 fn coprime() {
     assert_eq!(gcd(17, 5), 1);
+    assert_eq!(gcd(35, 64), 1);
+    assert_eq!(gcd(1, 1_000_000), 1);
 }
 
 /// zero on either side
@@ -269,6 +280,14 @@ fn coprime() {
 fn zero() {
     assert_eq!(gcd(7, 0), 7);
     assert_eq!(gcd(0, 7), 7);
+    assert_eq!(gcd(0, 0), 0);
+}
+
+/// works across the whole u64 range
+#[test]
+fn large() {
+    assert_eq!(gcd(u64::MAX, u64::MAX), u64::MAX);
+    assert_eq!(gcd(6_000_000_000, 4_000_000_000), 2_000_000_000);
 }
 ```
 
@@ -282,6 +301,9 @@ fn zero() {
 
 #### Tips
 - `a % b` is always smaller than `b`, so the second argument shrinks on every call and the recursion is sure to reach 0.
+- `gcd(0, 0)` is 0 here, and it falls out of the base case without a special branch. Take the edge cases from the tests before you add code for them.
+- Euclid's algorithm converges fast: `gcd(u64::MAX, u64::MAX)` finishes in one step, so there's no depth to worry about. Recursion that shrinks by subtraction instead of remainder would not.
+- No `mut`, no loop variable, no accumulator. When the definition is already recursive, writing it as a single `if` expression is usually the shortest correct version.
 
 #### Docs
 - [Book: Functions with return values](https://doc.rust-lang.org/book/ch03-03-how-functions-work.html#functions-with-return-values)
@@ -305,12 +327,15 @@ pub fn floor_divmod(a: i32, b: i32) -> (i32, i32) {
 fn positive() {
     assert_eq!(floor_divmod(7, 2), (3, 1));
     assert_eq!(floor_divmod(6, 3), (2, 0));
+    assert_eq!(floor_divmod(1, 5), (0, 1));
 }
 
 /// negative dividend floors
 #[test]
 fn negative_dividend() {
     assert_eq!(floor_divmod(-7, 2), (-4, 1));
+    assert_eq!(floor_divmod(-1, 3), (-1, 2));
+    assert_eq!(floor_divmod(-9, 4), (-3, 3));
 }
 
 /// negative divisor floors
@@ -318,12 +343,17 @@ fn negative_dividend() {
 fn negative_divisor() {
     assert_eq!(floor_divmod(7, -2), (-4, -1));
     assert_eq!(floor_divmod(-7, -2), (3, -1));
+    assert_eq!(floor_divmod(1, -3), (-1, -2));
+    assert_eq!(floor_divmod(-1, -3), (0, -1));
 }
 
 /// exact division needs no adjustment
 #[test]
 fn exact() {
     assert_eq!(floor_divmod(-6, 3), (-2, 0));
+    assert_eq!(floor_divmod(6, -3), (-2, 0));
+    assert_eq!(floor_divmod(-6, -3), (2, 0));
+    assert_eq!(floor_divmod(0, -5), (0, 0));
 }
 ```
 
@@ -338,7 +368,9 @@ fn exact() {
 - When both hold, floor division is one lower and the remainder moves by one divisor: `(q - 1, r + b)`.
 
 #### Tips
-- `i32::rem_euclid` looks like the answer, but its remainder is never negative, so it disagrees with Python whenever `b` is negative.
+- `i32::rem_euclid` looks like the answer, but its remainder is never negative, so it disagrees with Python whenever `b` is negative. The `negative_divisor` test is what separates the two.
+- `(r < 0) != (b < 0)` is "the signs differ" written as a comparison of two `bool`s. It reads better than four combinations of `&&` and `||`, and it's harder to get wrong.
+- The `exact` test is the one the adjustment must not touch. Guard on `r != 0` and division that comes out even keeps Rust's answer, which is already Python's.
 
 #### Docs
 - [Reference: Arithmetic and logical binary operators](https://doc.rust-lang.org/reference/expressions/operator-expr.html#arithmetic-and-logical-binary-operators)
@@ -363,17 +395,30 @@ fn dec(x: i64) -> i64 {
     x - 1
 }
 
+fn square(x: i64) -> i64 {
+    x * x
+}
+
 /// applies f repeatedly
 #[test]
 fn repeats() {
     assert_eq!(apply_n(double, 10, 1), 1024);
     assert_eq!(apply_n(dec, 3, 0), -3);
+    assert_eq!(apply_n(square, 3, 2), 256);
+}
+
+/// once is a single call
+#[test]
+fn once() {
+    assert_eq!(apply_n(dec, 1, 10), 9);
+    assert_eq!(apply_n(double, 1, -3), -6);
 }
 
 /// zero times returns x
 #[test]
 fn zero_times() {
     assert_eq!(apply_n(double, 0, 5), 5);
+    assert_eq!(apply_n(dec, 0, -8), -8);
 }
 ```
 
@@ -387,7 +432,9 @@ fn zero_times() {
 - The recursive call is `apply_n(f, n - 1, f(x))`.
 
 #### Tips
-- Once you've done Control flow, a loop works too: `for _ in 0..n` over a `let mut` copy of `x`.
+- Once you've done Control flow, a loop works too: `for _ in 0..n` over a `let mut` copy of `x`. `_` is the name for a loop variable you don't use; any other name earns an unused-variable warning.
+- `f: fn(i64) -> i64` is a function *pointer*, the plain kind that captures nothing. A closure like `|x| x + offset` won't fit it. The Closures & iterators module covers the version that does.
+- The order matters: `apply_n(f, n - 1, f(x))` applies `f` to `x` first. Writing `f(apply_n(f, n - 1, x))` also passes here, because applying the same function *n* times commutes with itself; it wouldn't if there were two different functions.
 
 #### Docs
 - [Book: Function pointers](https://doc.rust-lang.org/book/ch20-04-advanced-functions-and-closures.html#function-pointers)

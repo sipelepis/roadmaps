@@ -135,6 +135,20 @@ let neither = !either;          // true: "not"
 
 Comparisons produce a `bool`. `&&` and `||` short-circuit: the right side is only evaluated when it can still change the answer. The compound forms `+=`, `-=`, `*=`, `/=` and `%=` update a `mut` variable in place.
 
+Some arithmetic is a method rather than an operator:
+
+```rust
+let a = 7;
+a.min(2);            // 2, the smaller of the two
+a.max(2);            // 7
+(-4_i32).abs();      // 4
+2_i32.pow(10);       // 1024
+7_usize.div_ceil(2); // 4: division rounded up, where 7 / 2 is 3
+(-7_i32).rem_euclid(2); // 1: a remainder that is never negative, where -7 % 2 is -1
+```
+
+`min` and `max` work on floats too, and on anything that can be ordered. `div_ceil` is how you answer "how many chunks of size *n* do I need", without the `(x + n - 1) / n` trick that can overflow.
+
 ## Tuples and arrays
 
 A tuple groups a fixed number of values of possibly different types. Read fields with `.0`, `.1`, or destructure:
@@ -215,12 +229,16 @@ fn small_numbers() {
 #[test]
 fn negatives() {
     assert_eq!(average(-3, 0, 3), 0.0);
+    assert_eq!(average(-1, -2, -4), -7.0 / 3.0);
+    assert_eq!(average(-10, -20, -30), -20.0);
 }
 
 /// does not overflow near i32::MAX
 #[test]
 fn no_overflow() {
     assert_eq!(average(i32::MAX, i32::MAX, i32::MAX), i32::MAX as f64);
+    assert_eq!(average(i32::MAX, i32::MAX, 1), 1431655765.0);
+    assert_eq!(average(i32::MIN, i32::MIN, i32::MIN), i32::MIN as f64);
 }
 ```
 
@@ -234,6 +252,8 @@ fn no_overflow() {
 
 #### Tips
 - `f64::from(a)` does the same conversion and only compiles when it can't lose information. Every `i32` fits exactly in an `f64`.
+- Convert *before* you add, not after. `(a + b + c) as f64` overflows on the third test in a debug build, and the cast happens too late to help.
+- Floats are compared exactly by `assert_eq!`. That works here only because the expected values are written as the same expressions, like `7.0 / 3.0`. For real float comparisons you check that the difference is small enough.
 
 #### Docs
 - [Reference: Type cast expressions](https://doc.rust-lang.org/reference/expressions/operator-expr.html#type-cast-expressions)
@@ -254,18 +274,29 @@ pub fn hms(total_seconds: u32) -> (u32, u32, u32) {
 #[test]
 fn splits() {
     assert_eq!(hms(3725), (1, 2, 5));
+    assert_eq!(hms(45296), (12, 34, 56));
 }
 
-/// zero is all zeros
+/// zero, a few seconds, one minute
 #[test]
 fn zero() {
     assert_eq!(hms(0), (0, 0, 0));
+    assert_eq!(hms(59), (0, 0, 59));
+    assert_eq!(hms(60), (0, 1, 0));
+}
+
+/// rolls over at a full hour
+#[test]
+fn hour_boundary() {
+    assert_eq!(hms(3599), (0, 59, 59));
+    assert_eq!(hms(3600), (1, 0, 0));
 }
 
 /// hours are not capped at 24
 #[test]
 fn many_hours() {
     assert_eq!(hms(90_000), (25, 0, 0));
+    assert_eq!(hms(u32::MAX), (1193046, 28, 15));
 }
 ```
 
@@ -277,6 +308,10 @@ fn many_hours() {
 - An hour is 3600 seconds, so `total_seconds / 3600` is the hours.
 - `total_seconds % 3600` is what's left after taking out the hours. Split that into minutes the same way. The seconds are `total_seconds % 60`.
 - Build the result as a tuple, `(hours, minutes, seconds)`, and leave it as the last expression.
+
+#### Tips
+- Take the remainder *before* dividing for the minutes. `total_seconds / 60` is the total minutes, not the minutes past the hour, and the last two tests catch the difference.
+- Hours aren't capped at 24 here, which is why the type is `u32` and not a wrapped clock value. `u32::MAX` seconds is over a million hours, and the test says so.
 
 #### Docs
 - [Book: Numeric operations](https://doc.rust-lang.org/book/ch03-02-data-types.html#numeric-operations)
@@ -297,18 +332,23 @@ pub fn add_bytes(a: u8, b: u8) -> (u8, u8, bool) {
 #[test]
 fn fits() {
     assert_eq!(add_bytes(1, 2), (3, 3, false));
+    assert_eq!(add_bytes(100, 155), (255, 255, false));
 }
 
 /// wraps, clamps and reports overflow
 #[test]
 fn overflows() {
     assert_eq!(add_bytes(200, 100), (44, 255, true));
+    assert_eq!(add_bytes(128, 128), (0, 255, true));
+    assert_eq!(add_bytes(255, 255), (254, 255, true));
 }
 
-/// 255 + 0 is not an overflow
+/// 255 + 0 is not an overflow, 255 + 1 is
 #[test]
 fn edge() {
     assert_eq!(add_bytes(255, 0), (255, 255, false));
+    assert_eq!(add_bytes(0, 0), (0, 0, false));
+    assert_eq!(add_bytes(255, 1), (0, 255, true));
 }
 ```
 
@@ -321,7 +361,9 @@ fn edge() {
 - `a.overflowing_add(b)` returns a pair `(sum, overflowed)`. You only need its second field, `.1`.
 
 #### Tips
-- Plain `a + b` would panic on `200 + 100` in a debug build, which is exactly why these methods exist.
+- Plain `a + b` would panic on `200 + 100` in a debug build, which is exactly why these methods exist. In a release build it would quietly wrap instead, and that difference is why you never rely on either.
+- The three methods answer three different questions: wrap, clamp, or tell me. There's a fourth, `checked_add`, which returns `None` on overflow; the Option module picks it up.
+- `255 + 0` is not an overflow and `255 + 1` is, so the boundary is the true sum exceeding the type, not reaching its maximum. The last test is there to catch an off-by-one.
 
 #### Docs
 - [std: `u8::wrapping_add`](https://doc.rust-lang.org/std/primitive.u8.html#method.wrapping_add)
@@ -350,6 +392,8 @@ fn packs() {
     assert_eq!(pack(0x12, 0x34, 0x56), 0x123456);
     assert_eq!(pack(255, 255, 255), 0xFFFFFF);
     assert_eq!(pack(0, 0, 1), 1);
+    assert_eq!(pack(0, 1, 0), 0x100);
+    assert_eq!(pack(1, 0, 0), 0x10000);
 }
 
 /// unpacks 0xRRGGBB into bytes
@@ -357,6 +401,8 @@ fn packs() {
 fn unpacks() {
     assert_eq!(unpack(0x123456), (0x12, 0x34, 0x56));
     assert_eq!(unpack(0xFF8000), (255, 128, 0));
+    assert_eq!(unpack(0x000001), (0, 0, 1));
+    assert_eq!(unpack(0x010000), (1, 0, 0));
 }
 
 /// round-trips
@@ -364,6 +410,9 @@ fn unpacks() {
 fn round_trip() {
     let (r, g, b) = unpack(0xABCDEF);
     assert_eq!(pack(r, g, b), 0xABCDEF);
+    let (r, g, b) = unpack(0x0F00F0);
+    assert_eq!(pack(r, g, b), 0x0F00F0);
+    assert_eq!(unpack(pack(9, 87, 250)), (9, 87, 250));
 }
 ```
 
@@ -378,6 +427,8 @@ fn round_trip() {
 
 #### Tips
 - Write the cast in parentheses: `(r as u32) << 16`. Without them, the compiler reads `u32 <<` as the start of a generic type and reports a confusing error.
+- Cast up before shifting left, cast down after shifting right. `(r as u8) << 16` would shift a byte 16 places and leave nothing behind.
+- `as u8` on a `u32` keeps the low eight bits and silently drops the rest. That's exactly what `unpack` wants, and exactly what bites you when a cast wasn't meant to be lossy.
 
 #### Docs
 - [Reference: Arithmetic and logical binary operators](https://doc.rust-lang.org/reference/expressions/operator-expr.html#arithmetic-and-logical-binary-operators)

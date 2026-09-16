@@ -113,10 +113,16 @@ export function withOverrides(overrides): Config {
 ```ts test
 test('merges overrides on the defaults', () => {
   expect(withOverrides({ port: 8080 })).toEqual({ port: 8080, host: 'localhost' })
+  expect(withOverrides({ host: 'example.com' })).toEqual({ port: 3000, host: 'example.com' })
+  expect(withOverrides({ port: 1, host: 'a.io' })).toEqual({ port: 1, host: 'a.io' })
+})
+test('no overrides gives the defaults', () => {
+  expect(withOverrides({})).toEqual({ port: 3000, host: 'localhost' })
 })
 test('leaves the defaults alone', () => {
   withOverrides({ host: 'example.com' })
-  expect(defaults.host).toBe('localhost')
+  withOverrides({ port: 9090 })
+  expect(defaults).toEqual({ port: 3000, host: 'localhost' })
 })
 
 type _1 = Expect<Equal<typeof defaults, Config>>
@@ -126,6 +132,7 @@ type _2 = Expect<Equal<Parameters<typeof withOverrides>[0], { port?: number; hos
 #### Uses
 - [Modules › Exports and imports](#/modules/exports-and-imports)
 - [Objects and interfaces › `interface` and `type`](#/objects/interface-and-type)
+- [Reference › Objects and JSON](#/reference/objects-and-json)
 
 #### Hints
 - Annotate `defaults` with `Config`, otherwise its type is an anonymous object literal type.
@@ -134,6 +141,8 @@ type _2 = Expect<Equal<Parameters<typeof withOverrides>[0], { port?: number; hos
 
 #### Tips
 - The Utility types module has a shortcut for "every field optional": `Partial<Config>`. It produces the same type as the one you write by hand here.
+- Annotating `defaults: Config` is what the first type test checks. Without it the constant's type is `{ port: number; host: string }`, which happens to be structurally identical but drifts the moment `Config` gains a field.
+- Spread copies one level. These values are primitives so it doesn't matter here, but a nested `Config` would end up sharing the default object between every caller.
 
 #### Docs
 - [Modules: ES Module Syntax](https://www.typescriptlang.org/docs/handbook/2/modules.html#es-module-syntax)
@@ -154,12 +163,21 @@ export function resetIds(): void {
 ```
 
 ```ts test
+test('starts at 1 before any reset', () => {
+  expect(nextId()).toBe(1)
+  expect(nextId()).toBe(2)
+  expect(nextId()).toBe(3)
+})
 test('counts up and resets', () => {
   resetIds()
   expect(nextId()).toBe(1)
   expect(nextId()).toBe(2)
   resetIds()
   expect(nextId()).toBe(1)
+})
+test('every call gives the next id', () => {
+  resetIds()
+  expect([nextId(), nextId(), nextId(), nextId(), nextId()]).toEqual([1, 2, 3, 4, 5])
 })
 ```
 
@@ -172,6 +190,8 @@ test('counts up and resets', () => {
 
 #### Tips
 - `return ++count` increments first and returns the new value. `count++` would return the old one.
+- Module state is created once, when the module first loads, and shared by every importer. That is a feature here and a trap in real code: two tests that both touch the counter are not independent, which is why `resetIds` exists.
+- Leaving the counter unexported is the entire encapsulation. There is no `private` for modules; not exporting *is* private.
 
 #### Docs
 - [Modules: How JavaScript Modules are Defined](https://www.typescriptlang.org/docs/handbook/2/modules.html#how-javascript-modules-are-defined)

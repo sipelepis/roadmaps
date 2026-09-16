@@ -52,7 +52,29 @@ function greet(name: string): string {
 
 ## How this roadmap works
 
-Each module has an article, a live playground, and exercises. The exercises ship with test cases: runtime checks written with `test`/`expect`, and *type-level* checks written as `type _ = Expect<Equal<A, B>>` that only compile when the types match. A problem passes when it type-checks cleanly and every test passes.
+Each module has an article, a live playground, and exercises. You write your answer in the editor; a hidden test file is appended to it and the two are compiled together as one module.
+
+That test file holds two kinds of check. Runtime tests use `test` and `expect`:
+
+```ts
+test('greets by name', () => {
+  expect(greet('Ada')).toBe('Hello, Ada!')
+})
+```
+
+`test(name, fn)` registers a test; the whole file runs first, then each `fn` in order. `expect(...)` gives you the matchers: `toBe` for identity, `toEqual` for arrays and objects, `toThrow` for a function that should fail.
+
+Type-level checks are written as a type alias that only compiles when the types match:
+
+```ts
+type _1 = Expect<Equal<ReturnType<typeof greet>, string>>
+```
+
+`Equal<A, B>` is `true` only when `A` and `B` are exactly the same type, and `Expect<T>` accepts nothing but `true`. So a mismatch is a compile error on that line. **A type error anywhere in the file is a failure**, even if every runtime test would have passed: nothing runs until the file compiles.
+
+You will also see `// @ts-expect-error` above a line that is *supposed* to be rejected, sometimes inside a function named `neverCalled` that only exists to hold compile-time checks.
+
+The [Reference](#/reference) page documents every matcher, the type-level assertions, and the JavaScript built-ins the exercises use. Keep it open in a second tab.
 
 ```ts playground
 // Fix the type error, then press Run.
@@ -79,6 +101,8 @@ function greet(name) {
 ```ts test
 test('greets by name', () => {
   expect(greet('Ada')).toBe('Hello, Ada!')
+  expect(greet('Grace')).toBe('Hello, Grace!')
+  expect(greet('world')).toBe('Hello, world!')
 })
 
 type _1 = Expect<Equal<Parameters<typeof greet>[0], string>>
@@ -87,6 +111,9 @@ type _2 = Expect<Equal<ReturnType<typeof greet>, string>>
 
 #### Uses
 - [What is TypeScript? › Annotations and inference](#/intro/annotations-and-inference)
+- [What is TypeScript? › How this roadmap works](#/intro/how-this-roadmap-works)
+- [Reference › Type-level assertions](#/reference/type-level-assertions)
+- [Reference › Built-in utility types](#/reference/built-in-utility-types)
 
 #### Hints
 - Parameters are the one place TypeScript won't infer a type. Annotate `name` with the type it should accept.
@@ -94,6 +121,8 @@ type _2 = Expect<Equal<ReturnType<typeof greet>, string>>
 
 #### Tips
 - Under `strict`, an unannotated parameter is an error (`noImplicitAny`), not a silent `any`.
+- The two `type _1 = Expect<…>` lines in the test are compile-time assertions. `Parameters<typeof greet>[0]` is the type of the first parameter and `ReturnType<typeof greet>` is what it returns; if either is wrong the line goes red and nothing runs.
+- Don't annotate the return type here. `Hello, ${name}!` is already a `string`, and letting the compiler infer it means one less thing to keep in sync.
 
 #### Docs
 - [Everyday Types: Parameter type annotations](https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#parameter-type-annotations)
@@ -111,6 +140,15 @@ function sum(numbers) {
 ```ts test
 test('adds numbers', () => {
   expect(sum([1, 2, 3])).toBe(6)
+  expect(sum([10, 20, 30, 40])).toBe(100)
+})
+test('a single number is its own sum', () => {
+  expect(sum([7])).toBe(7)
+  expect(sum([0])).toBe(0)
+})
+test('handles negative numbers', () => {
+  expect(sum([5, -2, -3])).toBe(0)
+  expect(sum([-1, -1])).toBe(-2)
 })
 test('empty list is 0', () => {
   expect(sum([])).toBe(0)
@@ -123,6 +161,7 @@ type _2 = Expect<Equal<ReturnType<typeof sum>, number>>
 #### Uses
 - [What is TypeScript? › Why bother?](#/intro/why-bother)
 - [What is TypeScript? › Annotations and inference](#/intro/annotations-and-inference)
+- [Reference › Array methods](#/reference/array-methods)
 
 #### Hints
 - Annotate the parameter as `number[]`, and put `: number` after the parentheses for the return type.
@@ -130,6 +169,8 @@ type _2 = Expect<Equal<ReturnType<typeof sum>, number>>
 
 #### Tips
 - Always give `reduce` a starting value. Without one, an empty array throws a `TypeError` instead of returning `0`.
+- The starting value also fixes the accumulator's type. `reduce((a, b) => a + b, 0)` is `number`; drop the `0` and the compiler has to guess from the first element.
+- A plain `for (const n of numbers)` loop is just as good. `reduce` is idiomatic, not compulsory.
 
 #### Docs
 - [Everyday Types: Arrays](https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#arrays)

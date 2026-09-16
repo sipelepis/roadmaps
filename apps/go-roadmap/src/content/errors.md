@@ -202,21 +202,37 @@ func TestDivide(t *testing.T) {
 	q, err := Divide(7, 2)
 	expect(t, q, 3)
 	expect(t, err, nil)
+	q, err = Divide(1, 7)
+	expect(t, q, 0)
+	expect(t, err, nil)
+}
+
+// negative numbers divide normally too
+func TestDivideNegative(t *testing.T) {
+	q, err := Divide(-9, 3)
+	expect(t, q, -3)
+	expect(t, err, nil)
+	q, err = Divide(7, -2)
+	expect(t, q, -3)
+	expect(t, err, nil)
 }
 
 // returns ErrDivByZero for b == 0
 func TestDivideByZero(t *testing.T) {
-	q, err := Divide(1, 0)
-	if !errors.Is(err, ErrDivByZero) {
-		t.Fatalf("want ErrDivByZero, got %v", err)
+	for _, a := range []int{1, -5, 0} {
+		q, err := Divide(a, 0)
+		if !errors.Is(err, ErrDivByZero) {
+			t.Fatalf("Divide(%d, 0): want ErrDivByZero, got %v", a, err)
+		}
+		expect(t, q, 0)
 	}
-	expect(t, q, 0)
 }
 ```
 
 #### Uses
 - [Errors › Sentinel errors and `errors.Is`](#/errors/sentinel-errors-and-errors-is)
 - [Functions › Multiple return values](#/functions/multiple-return-values)
+- [Reference › How the tests here work](#/reference/how-the-tests-here-work)
 
 #### Hints
 - Check `b` before you divide: an integer division by zero panics.
@@ -224,6 +240,7 @@ func TestDivideByZero(t *testing.T) {
 
 #### Tips
 - Return the sentinel itself, not a copy made with `errors.New`. Callers match it with `errors.Is`, which keeps working even if you later wrap it with context.
+- The zero check has to come before the division, not inside an `if a != 0`: the tests call `Divide(0, 0)` too, and `0 / 0` panics like any other integer division by zero.
 
 #### Docs
 - [errors.New](https://pkg.go.dev/errors#New)
@@ -265,6 +282,16 @@ func TestParsePortValid(t *testing.T) {
 	expect(t, err, nil)
 }
 
+// 1 and 65535 are both valid
+func TestParsePortBounds(t *testing.T) {
+	p, err := ParsePort("1")
+	expect(t, p, 1)
+	expect(t, err, nil)
+	p, err = ParsePort("65535")
+	expect(t, p, 65535)
+	expect(t, err, nil)
+}
+
 // wraps the Atoi error with %w
 func TestParsePortSyntax(t *testing.T) {
 	_, err := ParsePort("abc")
@@ -272,17 +299,24 @@ func TestParsePortSyntax(t *testing.T) {
 		t.Fatalf("want an error wrapping strconv.ErrSyntax, got %v", err)
 	}
 	expect(t, err.Error(), `port "abc": strconv.Atoi: parsing "abc": invalid syntax`)
+	_, err = ParsePort("")
+	if !errors.Is(err, strconv.ErrSyntax) {
+		t.Fatalf("want an error wrapping strconv.ErrSyntax, got %v", err)
+	}
+	expect(t, err.Error(), `port "": strconv.Atoi: parsing "": invalid syntax`)
 }
 
 // wraps ErrOutOfRange with the number
 func TestParsePortRange(t *testing.T) {
-	for _, s := range []string{"0", "70000", "-1"} {
+	for _, s := range []string{"0", "70000", "-1", "65536"} {
 		if _, err := ParsePort(s); !errors.Is(err, ErrOutOfRange) {
 			t.Fatalf("ParsePort(%q): want ErrOutOfRange, got %v", s, err)
 		}
 	}
 	_, err := ParsePort("70000")
 	expect(t, err.Error(), "port 70000: out of range")
+	_, err = ParsePort("-1")
+	expect(t, err.Error(), "port -1: out of range")
 }
 ```
 
@@ -290,6 +324,7 @@ func TestParsePortRange(t *testing.T) {
 - [Errors › Errors are values](#/errors/errors-are-values)
 - [Errors › Wrapping with `%w`](#/errors/wrapping-with-w)
 - [Variables & types › Printing with fmt](#/basics/printing-with-fmt)
+- [Reference › How the tests here work](#/reference/how-the-tests-here-work)
 
 #### Hints
 - Call `strconv.Atoi(s)` first and return early if it fails. Add `"fmt"` and `"strconv"` to the imports.
@@ -298,6 +333,7 @@ func TestParsePortRange(t *testing.T) {
 
 #### Tips
 - Don't repeat what the cause already says. `Atoi`'s error text already reads `strconv.Atoi: parsing "abc": invalid syntax`, so you only add the `port "abc": ` prefix.
+- `%v` would produce exactly the same message and still fail the test, because `errors.Is(err, strconv.ErrSyntax)` only works when `%w` kept the cause attached.
 
 #### Docs
 - [fmt.Errorf](https://pkg.go.dev/fmt#Errorf)
@@ -307,7 +343,7 @@ func TestParsePortRange(t *testing.T) {
 
 `ValidationError` carries the field that failed and why. Make its `Error()` return `"<field>: <reason>"`.
 
-`Validate(name, age)` returns a `ValidationError` for field `"name"` with reason `"required"` when the name is empty, or field `"age"` with reason `"must be 0-150"` when the age is out of range. Otherwise it returns `nil`.
+`Validate(name, age)` returns a `ValidationError` for field `"name"` with reason `"required"` when the name is empty, or field `"age"` with reason `"must be 0-150"` when the age is out of range. If both are wrong, it reports the name. Otherwise it returns `nil`.
 
 `Register(name, age)` calls `Validate` and wraps any failure as `register: <err>` with `%w`, so callers can still reach the `ValidationError` with `errors.As`.
 
@@ -340,9 +376,11 @@ import (
 	"testing"
 )
 
-// valid input returns nil
+// valid input returns nil, ages 0 and 150 included
 func TestValidateOK(t *testing.T) {
 	expect(t, Validate("Ada", 36), nil)
+	expect(t, Validate("Bo", 0), nil)
+	expect(t, Validate("Grace", 150), nil)
 }
 
 // reports the failing field
@@ -358,6 +396,26 @@ func TestValidateFields(t *testing.T) {
 	expect(t, ve.Error(), "age: must be 0-150")
 }
 
+// ages just outside 0-150 fail
+func TestValidateAgeBounds(t *testing.T) {
+	for _, age := range []int{-1, 151} {
+		var ve ValidationError
+		if !errors.As(Validate("Ada", age), &ve) {
+			t.Fatalf("want a ValidationError for age %d", age)
+		}
+		expect(t, ve, ValidationError{"age", "must be 0-150"})
+	}
+}
+
+// with both wrong, the name is reported
+func TestValidateBoth(t *testing.T) {
+	var ve ValidationError
+	if !errors.As(Validate("", 200), &ve) {
+		t.Fatal("want a ValidationError")
+	}
+	expect(t, ve, ValidationError{"name", "required"})
+}
+
 // errors.As sees through the wrap
 func TestRegisterWraps(t *testing.T) {
 	err := Register("Ada", -1)
@@ -367,6 +425,12 @@ func TestRegisterWraps(t *testing.T) {
 	}
 	expect(t, ve.Field, "age")
 	expect(t, err.Error(), "register: age: must be 0-150")
+	err = Register("", 5)
+	if !errors.As(err, &ve) {
+		t.Fatalf("want a wrapped ValidationError, got %v", err)
+	}
+	expect(t, ve.Field, "name")
+	expect(t, err.Error(), "register: name: required")
 	expect(t, Register("Ada", 36), nil)
 }
 ```
@@ -375,14 +439,16 @@ func TestRegisterWraps(t *testing.T) {
 - [Errors › Custom error types and `errors.As`](#/errors/custom-error-types-and-errors-as)
 - [Errors › Wrapping with `%w`](#/errors/wrapping-with-w)
 - [Errors › Errors are values](#/errors/errors-are-values)
+- [Reference › How the tests here work](#/reference/how-the-tests-here-work)
 
 #### Hints
 - `Error()` only formats the two fields, `e.Field` and `e.Reason`, with `": "` between them. `fmt.Sprintf` with two `%s` verbs does it.
-- `Validate` can return a `ValidationError{...}` value directly as its `error`: the type has an `Error()` method, so it is one.
+- `Validate` can return a `ValidationError{...}` value directly as its `error`: the type has an `Error()` method, so it is one. Check the name first.
 - In `Register`, wrap with `%w` only when `Validate` returned an error, and return `nil` otherwise.
 
 #### Tips
 - Return a literal `nil` for success. An empty `ValidationError{}` is still a non-nil error, just with an odd message.
+- Declare the result as `error`, not as `ValidationError`. A concrete result type is what turns "no error" into a non-nil interface holding a zero value — the trap the Interfaces module spends a whole exercise on.
 
 #### Docs
 - [errors.As](https://pkg.go.dev/errors#As)
@@ -429,6 +495,11 @@ func TestSafeCallString(t *testing.T) {
 		t.Fatal("want an error")
 	}
 	expect(t, err.Error(), "recovered: disk on fire")
+	err = SafeCall(func() { panic(42) })
+	if err == nil {
+		t.Fatal("want an error")
+	}
+	expect(t, err.Error(), "recovered: 42")
 }
 
 // wraps a panicked error with %w
@@ -437,6 +508,7 @@ func TestSafeCallError(t *testing.T) {
 	if !errors.Is(err, errBoomForTest) {
 		t.Fatalf("want an error wrapping errBoomForTest, got %v", err)
 	}
+	expect(t, err.Error(), "recovered: boom")
 }
 
 // catches runtime panics too
@@ -448,12 +520,14 @@ func TestSafeCallRuntime(t *testing.T) {
 	if err == nil {
 		t.Fatal("want an error for an index out of range")
 	}
+	expect(t, err.Error(), "recovered: runtime error: index out of range [3] with length 0")
 }
 ```
 
 #### Uses
 - [Errors › `panic`, `defer` and `recover`](#/errors/panic-defer-and-recover)
 - [Functions › defer and named results](#/functions/defer-and-named-results)
+- [Reference › How the tests here work](#/reference/how-the-tests-here-work)
 
 #### Hints
 - Put a `defer func() { ... }()` before the call to `f()`. Inside it, `r := recover()` is `nil` unless `f` panicked.
@@ -462,6 +536,8 @@ func TestSafeCallRuntime(t *testing.T) {
 
 #### Tips
 - `recover` only stops a panic when it's called directly inside a deferred function. Anywhere else it just returns `nil`.
+- The `defer` has to be registered before `f()` runs. Once `f` is panicking it is too late to schedule anything.
+- `recover()` returns `any`, so `r != nil` is the whole test for "there was a panic". The type assertion then decides between `%w` and `%v`.
 
 #### Docs
 - [Effective Go: Recover](https://go.dev/doc/effective_go#recover)

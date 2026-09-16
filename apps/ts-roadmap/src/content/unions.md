@@ -104,16 +104,27 @@ function area(shape: Shape): number {
 ```ts test
 test('circle area', () => {
   expect(area({ kind: 'circle', radius: 1 })).toBe(Math.PI)
+  expect(area({ kind: 'circle', radius: 2 })).toBe(Math.PI * 4)
+  expect(area({ kind: 'circle', radius: 0.5 })).toBe(Math.PI / 4)
 })
 test('rectangle area', () => {
   expect(area({ kind: 'rect', width: 2, height: 3 })).toBe(6)
+  expect(area({ kind: 'rect', width: 4, height: 5 })).toBe(20)
+  expect(area({ kind: 'rect', width: 1.5, height: 2 })).toBe(3)
 })
 
 type _1 = Expect<Equal<Shape['kind'], 'circle' | 'rect'>>
+function neverCalled() {
+  // @ts-expect-error a circle needs a radius
+  area({ kind: 'circle' })
+  // @ts-expect-error a rectangle needs a height
+  area({ kind: 'rect', width: 2 })
+}
 ```
 
 #### Uses
 - [Unions, literals, and intersections › Discriminated unions](#/unions/discriminated-unions)
+- [Reference › Type-level assertions](#/reference/type-level-assertions)
 
 #### Hints
 - Write two object types joined with `|`. Each has a `kind` property with its own literal value.
@@ -122,6 +133,8 @@ type _1 = Expect<Equal<Shape['kind'], 'circle' | 'rect'>>
 
 #### Tips
 - Because the switch covers every `kind`, TypeScript knows the function always returns and doesn't ask for a trailing `return`.
+- The discriminant has to be a *literal* type. `kind: string` on both variants would compile and narrow nothing.
+- The two `@ts-expect-error` lines in `neverCalled` check that a variant can't be built with a missing field. They only pass while each variant really requires its own property, so don't make `radius` or `height` optional.
 
 #### Docs
 - [Narrowing: Discriminated unions](https://www.typescriptlang.org/docs/handbook/2/narrowing.html#discriminated-unions)
@@ -146,9 +159,18 @@ test('moves in each direction', () => {
   expect(move({ x: 0, y: 0 }, 'left')).toEqual({ x: -1, y: 0 })
   expect(move({ x: 0, y: 0 }, 'right')).toEqual({ x: 1, y: 0 })
 })
+test('moves from any position', () => {
+  expect(move({ x: 2, y: 5 }, 'up')).toEqual({ x: 2, y: 4 })
+  expect(move({ x: 2, y: 5 }, 'down')).toEqual({ x: 2, y: 6 })
+  expect(move({ x: -3, y: 7 }, 'left')).toEqual({ x: -4, y: 7 })
+  expect(move({ x: -3, y: 7 }, 'right')).toEqual({ x: -2, y: 7 })
+})
 test('does not mutate', () => {
   const start = { x: 5, y: 5 }
   move(start, 'up')
+  move(start, 'down')
+  move(start, 'left')
+  move(start, 'right')
   expect(start).toEqual({ x: 5, y: 5 })
 })
 
@@ -169,6 +191,8 @@ function neverCalled() {
 
 #### Tips
 - `{ ...pos, y: pos.y - 1 }` copies the object and overrides one property, which scales better than retyping every field.
+- `toEqual` compares the serialised object, so returning the *same* object with mutated fields would pass the first two tests and fail the third. Build a new one.
+- A `switch` beats a chain of `if`s here: once every direction has a case, adding a fifth to `Direction` makes the compiler complain that the function can return `undefined`.
 
 #### Docs
 - [Everyday Types: Literal types](https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#literal-types)
@@ -190,9 +214,11 @@ function summary(p: Audited): string {
 ```ts test
 test('summarises', () => {
   expect(summary({ title: 'Hi', author: 'Ada', createdAt: '2024-01-01', updatedAt: '2024-01-02' })).toBe('Hi by Ada (2024-01-01)')
+  expect(summary({ title: 'Notes', author: 'Grace', createdAt: '2023-06-15', updatedAt: '2024-03-09' })).toBe('Notes by Grace (2023-06-15)')
 })
 
 type _1 = Expect<Equal<keyof Audited, 'title' | 'author' | 'createdAt' | 'updatedAt'>>
+type _2 = Expect<Equal<Audited, Post & Timestamps>>
 ```
 
 #### Uses
@@ -204,6 +230,8 @@ type _1 = Expect<Equal<keyof Audited, 'title' | 'author' | 'createdAt' | 'update
 
 #### Tips
 - `|` would mean *either* shape, and then you could only read properties they share. `&` means both.
+- `keyof (A & B)` is `keyof A | keyof B`: intersecting the objects unions their keys. That is what the first type test checks.
+- Intersections are not merges. If both sides declared `title` with different types, you'd get `string & number`, which is `never`, and the error would only surface when someone tried to build the value.
 
 #### Docs
 - [Object Types: Intersection types](https://www.typescriptlang.org/docs/handbook/2/objects.html#intersection-types)

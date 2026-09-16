@@ -116,17 +116,30 @@ function safeParse(text: string): Parsed {
 ```ts test
 test('parses valid JSON', () => {
   expect(safeParse('{"a":1}')).toEqual({ ok: true, value: { a: 1 } })
+  expect(safeParse('[1,"two"]')).toEqual({ ok: true, value: [1, 'two'] })
+})
+test('falsy values are still values', () => {
+  expect(safeParse('0')).toEqual({ ok: true, value: 0 })
+  expect(safeParse('null')).toEqual({ ok: true, value: null })
+  expect(safeParse('""')).toEqual({ ok: true, value: '' })
 })
 test('reports invalid JSON', () => {
   const r = safeParse('{oops')
   expect(r.ok).toBe(false)
   expect(!r.ok && r.error.length > 0).toBe(true)
+  expect(safeParse('').ok).toBe(false)
+})
+test('the error is the SyntaxError message', () => {
+  let message = ''
+  try { JSON.parse('[1,') } catch (e) { message = (e as Error).message }
+  expect(safeParse('[1,')).toEqual({ ok: false, error: message })
 })
 ```
 
 #### Uses
 - [Validating unknown data › `JSON.parse` lies](#/runtime-validation/json-parse-lies)
 - [Async and Promises › Errors are `unknown`](#/async-types/errors-are-unknown)
+- [Reference › Objects and JSON](#/reference/objects-and-json)
 
 #### Hints
 - Wrap the `JSON.parse` call in `try`, and return the success object from inside it.
@@ -134,6 +147,8 @@ test('reports invalid JSON', () => {
 
 #### Tips
 - Put only the risky call inside `try`. A `try` around a lot of code catches bugs you didn't mean to hide.
+- Annotate the parsed value as `unknown` on the way out. `JSON.parse` returns `any`, and returning that `any` inside `{ ok: true, value }` would quietly widen the whole `Parsed` type's usefulness away.
+- Don't invent your own message. The last test compares against the real `SyntaxError` message, so pass `e.message` straight through.
 
 #### Docs
 - [MDN: `JSON.parse()`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse)
@@ -160,6 +175,15 @@ test('accepts only arrays of strings', () => {
   expect(tags('["a",1]')).toEqual([])
   expect(tags('"a"')).toEqual([])
   expect(tags('[]')).toEqual([])
+  expect(tags('null')).toEqual([])
+  expect(tags('{"0":"a","length":1}')).toEqual([])
+})
+test('the guard itself', () => {
+  expect(isStringArray(['x', 'y', 'z'])).toBe(true)
+  expect(isStringArray([])).toBe(true)
+  expect(isStringArray(['x', null])).toBe(false)
+  expect(isStringArray([['x']])).toBe(false)
+  expect(isStringArray('xyz')).toBe(false)
 })
 
 type _1 = Expect<Equal<ReturnType<typeof isStringArray>, boolean>>
@@ -174,6 +198,8 @@ function typeOnly(probe: unknown) {
 - [Narrowing › Type predicates](#/narrowing/type-predicates)
 - [Validating unknown data › Composing guards](#/runtime-validation/composing-guards)
 - [Basic types › `unknown` – the safe `any`](#/basic-types/unknown-the-safe-any)
+- [Reference › Array methods](#/reference/array-methods)
+- [Reference › Type-level assertions](#/reference/type-level-assertions)
 
 #### Hints
 - Give `isStringArray` the return type `v is string[]`.
@@ -182,6 +208,9 @@ function typeOnly(probe: unknown) {
 
 #### Tips
 - TypeScript 5.5+ can infer this predicate on its own, because the `every` callback is itself an inferred predicate. Writing `v is string[]` still documents the intent. The compiler never checks an explicit predicate against the body, so keep the two in sync.
+- `every` on an empty array is `true`, which is why `isStringArray([])` passes and `tags('[]')` gives `[]`.
+- `Array.isArray` has to come first. It is what narrows `v` from `unknown` to something with an `every` method at all, and at runtime it is what rejects the array-like `{"0":"a","length":1}` in the last test.
+- The `typeOnly` function never runs. Its job is to hold the second assertion, which checks that the guard actually *narrows* `probe` to `string[]` inside the `if`.
 
 #### Docs
 - [Narrowing: Using type predicates](https://www.typescriptlang.org/docs/handbook/2/narrowing.html#using-type-predicates)
@@ -204,10 +233,21 @@ function decodeUser(v: unknown): Decoded<User> {
 test('decodes a valid user and drops extra fields', () => {
   expect(decodeUser({ id: 1, name: 'Ada', admin: true })).toEqual({ ok: true, value: { id: 1, name: 'Ada' } })
 })
+test('decodes other users too', () => {
+  expect(decodeUser({ id: 2, name: 'Grace' })).toEqual({ ok: true, value: { id: 2, name: 'Grace' } })
+  expect(decodeUser({ id: 0, name: '' })).toEqual({ ok: true, value: { id: 0, name: '' } })
+})
 test('explains failures', () => {
   expect(decodeUser(null)).toEqual({ ok: false, error: 'expected an object' })
+  expect(decodeUser('Ada')).toEqual({ ok: false, error: 'expected an object' })
   expect(decodeUser({ id: '1', name: 'Ada' })).toEqual({ ok: false, error: 'id must be a number' })
+  expect(decodeUser({ name: 'Ada' })).toEqual({ ok: false, error: 'id must be a number' })
   expect(decodeUser({ id: 1 })).toEqual({ ok: false, error: 'name must be a string' })
+  expect(decodeUser({ id: 1, name: 42 })).toEqual({ ok: false, error: 'name must be a string' })
+})
+test('names the first bad field', () => {
+  expect(decodeUser({})).toEqual({ ok: false, error: 'id must be a number' })
+  expect(decodeUser({ id: 'x', name: 5 })).toEqual({ ok: false, error: 'id must be a number' })
 })
 ```
 
@@ -223,6 +263,8 @@ test('explains failures', () => {
 
 #### Tips
 - Returning `v` itself won't compile: narrowing `v.id` doesn't change the type of `v`, which is still `object & Record<'id', unknown> & …`. Building a fresh object is also what strips the extra `admin` field.
+- The order of the checks is part of the specification. `decodeUser({})` has to say `'id must be a number'`, so test `id` before `name` and return on the first failure.
+- `toEqual` is key-order sensitive, so build the value as `{ id: v.id, name: v.name }` in that order, matching the tests.
 
 #### Docs
 - [Narrowing: The `in` operator narrowing](https://www.typescriptlang.org/docs/handbook/2/narrowing.html#the-in-operator-narrowing)
@@ -246,16 +288,30 @@ function decodeArray(item) {
 
 ```ts test
 const decodeNumbers = decodeArray(decodeNumber)
+const decodeUpper: Decoder<string> = v =>
+  typeof v === 'string' ? { ok: true, value: v.toUpperCase() } : { ok: false, error: 'expected a string' }
+const decodeUppers = decodeArray(decodeUpper)
 
 test('decodes every item', () => {
   expect(decodeNumbers([1, 2, 3])).toEqual({ ok: true, value: [1, 2, 3] })
+  expect(decodeNumbers([])).toEqual({ ok: true, value: [] })
+})
+test('keeps what the item decoder returns', () => {
+  expect(decodeUppers(['a', 'b'])).toEqual({ ok: true, value: ['A', 'B'] })
+  expect(decodeUppers(['a', 2])).toEqual({ ok: false, error: '[1]: expected a string' })
 })
 test('rejects non-arrays and bad items', () => {
   expect(decodeNumbers('x')).toEqual({ ok: false, error: 'expected an array' })
+  expect(decodeNumbers(null)).toEqual({ ok: false, error: 'expected an array' })
   expect(decodeNumbers([1, 'two'])).toEqual({ ok: false, error: '[1]: expected a number' })
+})
+test('reports only the first bad item', () => {
+  expect(decodeNumbers(['a', 'b'])).toEqual({ ok: false, error: '[0]: expected a number' })
+  expect(decodeNumbers([1, 2, null, 'x'])).toEqual({ ok: false, error: '[2]: expected a number' })
 })
 
 type _1 = Expect<Equal<typeof decodeNumbers, Decoder<number[]>>>
+type _2 = Expect<Equal<typeof decodeUppers, Decoder<string[]>>>
 ```
 
 #### Uses
@@ -271,6 +327,8 @@ type _1 = Expect<Equal<typeof decodeNumbers, Decoder<number[]>>>
 
 #### Tips
 - Annotating the return type as `Decoder<T[]>` lets TypeScript type `v` as `unknown` and check each returned object literal for you.
+- Return as soon as an item fails. Collecting every error would be friendlier, and the tests deliberately ask for the first one so the signature stays a plain `Decoded<T[]>`.
+- A `for` loop with an index is the straightforward choice here: `map` gives you the index too, but you cannot return early out of it.
 
 #### Docs
 - [Generics: Generic Types](https://www.typescriptlang.org/docs/handbook/2/generics.html#generic-types)

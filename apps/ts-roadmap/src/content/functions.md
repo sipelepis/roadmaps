@@ -104,6 +104,10 @@ test('applies the function two times', () => {
   expect(applyTwice((n: number) => n * 3, 2)).toBe(18)
   expect(applyTwice((n: number) => n + 1, 0)).toBe(2)
 })
+test('feeds the first result into the second call', () => {
+  expect(applyTwice((n: number) => n * n, 3)).toBe(81)
+  expect(applyTwice((n: number) => n - 5, 1)).toBe(-9)
+})
 
 type _1 = Expect<Equal<Parameters<typeof applyTwice>, [fn: (n: number) => number, value: number]>>
 type _2 = Expect<Equal<ReturnType<typeof applyTwice>, number>>
@@ -120,6 +124,8 @@ type _2 = Expect<Equal<ReturnType<typeof applyTwice>, number>>
 
 #### Tips
 - The parameter name inside a function type is documentation only. `(x: number) => number` is the same type as `(n: number) => number`.
+- Annotate the whole parameter in one go: `fn: (n: number) => number`. Writing `fn: Function` would compile and then let you call it with anything, which is the bug this exercise is about.
+- The type test spells the parameters as `[fn: (n: number) => number, value: number]`. Those labels come from your parameter names, so calling them something else is fine, but the types have to line up exactly.
 
 #### Docs
 - [More on Functions: Function type expressions](https://www.typescriptlang.org/docs/handbook/2/functions.html#function-type-expressions)
@@ -137,9 +143,15 @@ function fullName(first: string, last: string): string {
 ```ts test
 test('joins both names', () => {
   expect(fullName('Ada', 'Lovelace')).toBe('Ada Lovelace')
+  expect(fullName('Grace', 'Hopper')).toBe('Grace Hopper')
 })
 test('last name is optional', () => {
   expect(fullName('Ada')).toBe('Ada')
+  expect(fullName('Linus')).toBe('Linus')
+})
+test('an undefined last name counts as missing', () => {
+  expect(fullName('Ada', undefined)).toBe('Ada')
+  expect(fullName('Linus', undefined)).toBe('Linus')
 })
 
 type _1 = Expect<Equal<Parameters<typeof fullName>, [first: string, last?: string | undefined]>>
@@ -154,6 +166,8 @@ type _1 = Expect<Equal<Parameters<typeof fullName>, [first: string, last?: strin
 
 #### Tips
 - Optional parameters must come after the required ones.
+- `last` is `string | undefined` inside the body, so the compiler makes you handle the missing case before you can use it in a template literal.
+- A default value (`last = ''`) would also compile, but it changes the type: the parameter is then `string`, and `fullName('Ada')` would return `'Ada '` with a trailing space.
 
 #### Docs
 - [More on Functions: Optional parameters](https://www.typescriptlang.org/docs/handbook/2/functions.html#optional-parameters)
@@ -171,6 +185,15 @@ function average(): number {
 ```ts test
 test('averages', () => {
   expect(average(2, 4, 6)).toBe(4)
+  expect(average(10, 20, 30, 40)).toBe(25)
+})
+test('keeps fractions', () => {
+  expect(average(1, 2)).toBe(1.5)
+  expect(average(1, 2, 4, 4)).toBe(2.75)
+})
+test('one value is its own average', () => {
+  expect(average(5)).toBe(5)
+  expect(average(-3)).toBe(-3)
 })
 test('no values is zero', () => {
   expect(average()).toBe(0)
@@ -188,6 +211,8 @@ type _1 = Expect<Equal<Parameters<typeof average>, number[]>>
 
 #### Tips
 - Without the empty check you'd compute `0 / 0`, which is `NaN`, not `0`.
+- The type test asserts `Parameters<typeof average>` is `number[]`, not a tuple. That is what a rest parameter produces, and it is how you can tell one from a fixed parameter list.
+- Inside the body `nums` is an ordinary array. The `...` only exists at the call site, where it gathers the loose arguments.
 
 #### Docs
 - [More on Functions: Rest parameters](https://www.typescriptlang.org/docs/handbook/2/functions.html#rest-parameters)

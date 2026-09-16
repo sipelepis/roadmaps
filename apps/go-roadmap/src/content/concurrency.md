@@ -217,13 +217,17 @@ func TestCounterBasic(t *testing.T) {
 	expect(t, c.Value("a"), 2)
 	expect(t, c.Value("b"), 1)
 	expect(t, c.Value("missing"), 0)
+	other := NewCounter()
+	other.Inc("a")
+	expect(t, other.Value("a"), 1) // each counter has its own counts
+	expect(t, c.Value("a"), 2)
 }
 
 // no lost updates under concurrency
 func TestCounterConcurrent(t *testing.T) {
 	c := NewCounter()
 	var wg sync.WaitGroup
-	for g := range 50 {
+	for g := range 100 {
 		wg.Go(func() {
 			for range 100 {
 				c.Inc("hits")
@@ -235,8 +239,28 @@ func TestCounterConcurrent(t *testing.T) {
 		})
 	}
 	wg.Wait()
-	expect(t, c.Value("hits"), 5000)
-	expect(t, c.Value("even"), 2500)
+	expect(t, c.Value("hits"), 10000)
+	expect(t, c.Value("even"), 5000)
+}
+
+// many keys, each written by many goroutines
+func TestCounterManyKeys(t *testing.T) {
+	c := NewCounter()
+	keys := []string{"a", "b", "c", "d", "e"}
+	var wg sync.WaitGroup
+	for range 100 {
+		wg.Go(func() {
+			for _, k := range keys {
+				for range 20 {
+					c.Inc(k)
+				}
+			}
+		})
+	}
+	wg.Wait()
+	for _, k := range keys {
+		expect(t, c.Value(k), 2000)
+	}
 }
 ```
 
@@ -250,6 +274,8 @@ func TestCounterConcurrent(t *testing.T) {
 
 #### Tips
 - `defer` unlocks on every way out of the method, including a panic. Keep the locked part short.
+- `c.counts[key]++` is a read and a write. Without the lock two goroutines can both read 4 and both store 5, and one increment simply disappears.
+- `Counter` holds a `sync.Mutex`, so it must never be copied. That is the real reason every method takes `*Counter`.
 
 #### Docs
 - [sync.Mutex](https://pkg.go.dev/sync#Mutex)
@@ -293,6 +319,11 @@ func TestReceiveValue(t *testing.T) {
 	v, err := Receive(ch, time.Second)
 	expect(t, v, "hello")
 	expect(t, err, nil)
+	empty := make(chan string, 1)
+	empty <- "" // an empty string is still a value
+	v, err = Receive(empty, time.Second)
+	expect(t, v, "")
+	expect(t, err, nil)
 }
 
 // waits for a value sent later
@@ -301,18 +332,31 @@ func TestReceiveLater(t *testing.T) {
 	go func() {
 		time.Sleep(10 * time.Millisecond)
 		ch <- "late"
+		time.Sleep(100 * time.Millisecond)
+		ch <- "later"
 	}()
 	v, err := Receive(ch, time.Second)
 	expect(t, v, "late")
 	expect(t, err, nil)
+	v, err = Receive(ch, time.Second)
+	expect(t, v, "later")
+	expect(t, err, nil)
 }
 
-// gives up after the timeout
+// gives up after the timeout it was given
 func TestReceiveTimeout(t *testing.T) {
 	ch := make(chan string)
+	start := time.Now()
 	_, err := Receive(ch, 50*time.Millisecond)
 	if !errors.Is(err, ErrTimeout) {
 		t.Fatalf("want ErrTimeout, got %v", err)
+	}
+	_, err = Receive(ch, 20*time.Millisecond)
+	if !errors.Is(err, ErrTimeout) {
+		t.Fatalf("want ErrTimeout, got %v", err)
+	}
+	if waited := time.Since(start); waited > 500*time.Millisecond {
+		t.Fatalf("two short timeouts took %v", waited)
 	}
 }
 
@@ -331,6 +375,9 @@ func TestReceiveClosed(t *testing.T) {
 - [Select, sync & context › `select`](#/concurrency/select)
 - [Select, sync & context › Timeouts](#/concurrency/timeouts)
 - [Goroutines & channels › `close` and `range`](#/goroutines/close-and-range)
+- [Reference › time](#/reference/time)
+- [Reference › errors](#/reference/errors)
+- [Reference › How the tests here work](#/reference/how-the-tests-here-work)
 
 #### Hints
 - One `select` with two cases: a receive from `ch`, and a receive from `time.After(timeout)`.
@@ -338,6 +385,8 @@ func TestReceiveClosed(t *testing.T) {
 
 #### Tips
 - A closed channel is always ready to receive from, so the closed case wins at once instead of waiting out the timeout.
+- Call `time.After(timeout)` inside the `select`, so each call gets its own fresh timer. A timer created once outside would already be half spent on the second call.
+- The tests check that the error wraps `ErrTimeout` with `errors.Is`, so returning the sentinel itself is enough; wrapping it with context would also pass.
 
 #### Docs
 - [time.After](https://pkg.go.dev/time#After)
@@ -391,6 +440,7 @@ func tracker(fn func(int) int) (func(int) int, *atomic.Int32) {
 func TestProcessResults(t *testing.T) {
 	fn, _ := tracker(func(n int) int { return n * n })
 	expect(t, Process([]int{1, 2, 3, 4, 5, 6, 7}, 3, fn), []int{1, 4, 9, 16, 25, 36, 49})
+	expect(t, Process([]int{10, -3, 7}, 8, fn), []int{100, 9, 49}) // more workers than jobs
 	expect(t, len(Process(nil, 2, fn)), 0)
 }
 
@@ -415,6 +465,8 @@ func TestProcessParallel(t *testing.T) {
 - [Select, sync & context › Worker pools](#/concurrency/worker-pools)
 - [Goroutines & channels › `close` and `range`](#/goroutines/close-and-range)
 - [Goroutines & channels › `sync.WaitGroup`](#/goroutines/sync-waitgroup)
+- [Reference › sync and sync/atomic](#/reference/sync-and-sync-atomic)
+- [Reference › How the tests here work](#/reference/how-the-tests-here-work)
 
 #### Hints
 - Make an unbuffered `chan int` for job indexes and start `workers` goroutines that each `range` over it.
@@ -422,6 +474,8 @@ func TestProcessParallel(t *testing.T) {
 
 #### Tips
 - Sending indexes instead of values lets every worker write straight into its own slot, so the results stay in order with no locking.
+- `workers` can exceed `len(jobs)`. The extra goroutines find the channel closed, their `range` ends immediately, and nothing special is needed.
+- Close the index channel *after* the last send and *before* `wg.Wait()`. Forgetting the close leaves every worker parked on an empty channel and the whole run deadlocks.
 
 #### Docs
 - [Effective Go: Channels](https://go.dev/doc/effective_go#channels)
@@ -504,6 +558,20 @@ func TestRunAllWaits(t *testing.T) {
 	expect(t, done.Load(), true)
 }
 
+// a later error does not replace the first one
+func TestRunAllFirstError(t *testing.T) {
+	errLate := errors.New("late failure")
+	fast := func(context.Context) error { return errFailForTest }
+	late := func(context.Context) error {
+		time.Sleep(20 * time.Millisecond)
+		return errLate
+	}
+	err := RunAll(context.Background(), late, fast, late)
+	if !errors.Is(err, errFailForTest) {
+		t.Fatalf("want the first error, errFailForTest, got %v", err)
+	}
+}
+
 // respects an already-cancelled parent
 func TestRunAllParent(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -525,6 +593,8 @@ func TestRunAllParent(t *testing.T) {
 - [Select, sync & context › `context`](#/concurrency/context)
 - [Select, sync & context › `sync.Once`](#/concurrency/sync-once)
 - [Goroutines & channels › `sync.WaitGroup`](#/goroutines/sync-waitgroup)
+- [Reference › errors](#/reference/errors)
+- [Reference › sync and sync/atomic](#/reference/sync-and-sync-atomic)
 
 #### Hints
 - `ctx, cancel := context.WithCancel(ctx)` works like `WithTimeout` without the deadline. `defer cancel()`, and give this new `ctx` to every task.
@@ -533,6 +603,8 @@ func TestRunAllParent(t *testing.T) {
 
 #### Tips
 - Calling `cancel` more than once is safe, so the `defer` and the call on failure don't conflict.
+- Several goroutines write the shared error variable, but only from inside `once.Do`, which runs one of them and makes the others wait. That is what keeps it safe without a mutex.
+- Give the tasks the *derived* context, not the one you were handed. Passing the original through means cancelling changes nothing and the "cancels the others" test hangs until its own timeout.
 
 #### Docs
 - [context.WithCancel](https://pkg.go.dev/context#WithCancel)

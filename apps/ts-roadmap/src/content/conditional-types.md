@@ -93,7 +93,7 @@ console.log(a, b, c)
 
 ### 1. `IsString`
 
-Implement `IsString<T>`, which is `true` for string types (including literals) and `false` otherwise.
+Implement `IsString<T>`, which is `true` for string types (including literals) and `false` otherwise. A union is checked member by member, so `IsString<string | number>` is `boolean`.
 
 ```ts starter
 type IsString<T> = unknown
@@ -104,6 +104,8 @@ type _1 = Expect<Equal<IsString<string>, true>>
 type _2 = Expect<Equal<IsString<'hi'>, true>>
 type _3 = Expect<Equal<IsString<number>, false>>
 type _4 = Expect<Equal<IsString<string[]>, false>>
+type _5 = Expect<Equal<IsString<boolean>, false>>
+type _6 = Expect<Equal<IsString<string | number>, boolean>>
 ```
 
 #### Uses
@@ -115,6 +117,7 @@ type _4 = Expect<Equal<IsString<string[]>, false>>
 
 #### Tips
 - `'hi' extends string` holds because a literal type is a subtype of its primitive. And since `T` is a naked type parameter, `IsString<string | number>` distributes to `true | false`, which is `boolean`.
+- Write `true` and `false`, not `boolean`, in the branches. `boolean` in either branch would make every answer `boolean` and the first four tests would fail.
 
 #### Docs
 - [Conditional Types](https://www.typescriptlang.org/docs/handbook/2/conditional-types.html)
@@ -131,6 +134,8 @@ type ElementOf<T> = unknown
 type _1 = Expect<Equal<ElementOf<string[]>, string>>
 type _2 = Expect<Equal<ElementOf<readonly number[]>, number>>
 type _3 = Expect<Equal<ElementOf<boolean>, boolean>>
+type _4 = Expect<Equal<ElementOf<(string | number)[]>, string | number>>
+type _5 = Expect<Equal<ElementOf<boolean[][]>, boolean[]>>
 ```
 
 #### Uses
@@ -140,6 +145,10 @@ type _3 = Expect<Equal<ElementOf<boolean>, boolean>>
 #### Hints
 - Start from `ElementType` in the article, which uses `(infer U)[]`. Try it: the `readonly number[]` test fails.
 - A mutable array is assignable to a readonly one, but not the other way round. So match against `readonly (infer U)[]` and both kinds fit.
+
+#### Tips
+- Matching the *wider* pattern is the general trick with `infer`: `readonly T[]` accepts both kinds of array, so it is the one to write in an `extends` clause.
+- The last test is the reason to stop at one level. `ElementOf<boolean[][]>` is `boolean[]`, not `boolean`; recursing would flatten it and break that assertion.
 
 #### Docs
 - [Conditional Types: Inferring Within Conditional Types](https://www.typescriptlang.org/docs/handbook/2/conditional-types.html#inferring-within-conditional-types)
@@ -156,6 +165,8 @@ type MyReturnType<F> = unknown
 type _1 = Expect<Equal<MyReturnType<() => string>, string>>
 type _2 = Expect<Equal<MyReturnType<(a: number) => Promise<void>>, Promise<void>>>
 type _3 = Expect<Equal<MyReturnType<string>, never>>
+type _4 = Expect<Equal<MyReturnType<(a: string, b: number) => boolean>, boolean>>
+type _5 = Expect<Equal<MyReturnType<{ name: string }>, never>>
 ```
 
 #### Uses
@@ -170,6 +181,7 @@ type _3 = Expect<Equal<MyReturnType<string>, never>>
 
 #### Tips
 - `(...args: unknown[])` looks safer but fails: a function that needs a `number` can't accept any `unknown` argument, so `(a: number) => void` doesn't match it. `any[]` sidesteps that.
+- This is the rare place `any` is the right answer. It appears only inside a pattern that is matched against, never in a type anyone can hold a value of.
 
 #### Docs
 - [Conditional Types: Inferring Within Conditional Types](https://www.typescriptlang.org/docs/handbook/2/conditional-types.html#inferring-within-conditional-types)
@@ -189,6 +201,9 @@ type _1 = Expect<Equal<IsUnion<'a' | 'b'>, true>>
 type _2 = Expect<Equal<IsUnion<string | number>, true>>
 type _3 = Expect<Equal<IsUnion<string>, false>>
 type _4 = Expect<Equal<IsUnion<never>, false>>
+type _5 = Expect<Equal<IsUnion<'a'>, false>>
+type _6 = Expect<Equal<IsUnion<1 | 2 | 3>, true>>
+type _7 = Expect<Equal<IsUnion<boolean>, true>>
 ```
 
 #### Uses
@@ -202,6 +217,8 @@ type _4 = Expect<Equal<IsUnion<never>, false>>
 
 #### Tips
 - `boolean` is secretly `true | false`, so `IsUnion<boolean>` is `true`.
+- The `Whole = T` default is the standard way to keep an undistributed copy of a type parameter. You will see it in most real-world conditional types that need to look at the union as a whole.
+- Remember the two halves of the trick: a bare `T` in the `extends` position distributes, and `[T] extends [U]` does not. Every puzzle in this family is built from those two.
 
 #### Docs
 - [Conditional Types: Distributive Conditional Types](https://www.typescriptlang.org/docs/handbook/2/conditional-types.html#distributive-conditional-types)

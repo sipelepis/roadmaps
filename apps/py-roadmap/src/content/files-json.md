@@ -38,10 +38,13 @@ p.parent, p.name, p.suffix, p.stem     # data, users.json, .json, users
 p.exists(), p.is_file()
 p.read_text(), p.write_text("...")
 p.parent.mkdir(parents=True, exist_ok=True)
+p.unlink(missing_ok=True)              # delete it; no error if it was never there
 list(Path(".").glob("*.py"))
 ```
 
 Prefer `pathlib` over `os.path` in new code.
+
+`missing_ok=True` is the pattern worth copying: it turns "delete if present" into one call instead of an `exists()` check that can go stale between the test and the delete. The exercise tests below use it to start each run from a clean file.
 
 ## JSON
 
@@ -100,7 +103,7 @@ for p in Path(".").glob("*.json"):
 
 ### 1. Line count
 
-`count_lines(path)` returns the number of lines in a text file. The tests create the file first.
+`count_lines(path)` returns the number of lines in a text file. Blank lines count, and the last line may or may not end with a newline. The tests create the file first.
 
 ```python starter
 def count_lines(path):
@@ -114,6 +117,22 @@ def test_count():
     """counts lines"""
     Path("sample.txt").write_text("a\nb\nc\n")
     assert count_lines("sample.txt") == 3
+    Path("many.txt").write_text("line\n" * 50)
+    assert count_lines("many.txt") == 50
+
+def test_no_final_newline():
+    """last line without a newline still counts"""
+    Path("partial.txt").write_text("a\nb")
+    assert count_lines("partial.txt") == 2
+    Path("one.txt").write_text("single")
+    assert count_lines("one.txt") == 1
+
+def test_blank_lines():
+    """blank lines count too"""
+    Path("blank.txt").write_text("\n\n\n")
+    assert count_lines("blank.txt") == 3
+    Path("gap.txt").write_text("x\n\ny\n")
+    assert count_lines("gap.txt") == 3
 
 def test_empty():
     """empty file has zero lines"""
@@ -132,6 +151,8 @@ def test_empty():
 
 #### Tips
 - `len(f.read().splitlines())` also works, but it reads the whole file into memory first. The loop copes with files of any size.
+- `sum(1 for _ in f)` is the one-liner version of the same loop, and stays lazy.
+- Counting `"\n"` characters would get `"a\nb"` wrong: a last line with no newline still counts. Iterating the file counts lines, not separators.
 
 #### Docs
 - [Python tutorial: Methods of file objects](https://docs.python.org/3/tutorial/inputoutput.html#methods-of-file-objects)
@@ -154,10 +175,25 @@ def test_append():
     log("app.log", "started")
     log("app.log", "stopped")
     assert Path("app.log").read_text() == "started\nstopped\n"
+
+def test_creates():
+    """creates the file when it's missing"""
+    Path("fresh.log").unlink(missing_ok=True)
+    log("fresh.log", "hello world")
+    assert Path("fresh.log").read_text() == "hello world\n"
+
+def test_keeps_existing():
+    """keeps what the file already had"""
+    Path("old.log").write_text("old line\n")
+    log("old.log", "a")
+    log("old.log", "b")
+    log("old.log", "c")
+    assert Path("old.log").read_text() == "old line\na\nb\nc\n"
 ```
 
 #### Uses
 - [Files and JSON › `open` and `with`](#/files-json/open-and-with)
+- [Files and JSON › `pathlib`](#/files-json/pathlib)
 
 #### Hints
 - Mode `"a"` opens a file for appending, and creates it when it doesn't exist yet.
@@ -165,13 +201,15 @@ def test_append():
 
 #### Tips
 - Mode `"w"` would wipe the file on every call and leave only the last message.
+- `with` closes the file at the end of the block, which is also when the write is flushed to disk. Without it, a later read can see nothing.
+- The tests call `Path(...).unlink(missing_ok=True)` first so each one starts from an empty file. Append-mode bugs otherwise hide behind whatever the previous run left.
 
 #### Docs
 - [Built-in functions: `open`](https://docs.python.org/3/library/functions.html#open)
 
 ### 3. Load settings with defaults
 
-`load_settings(path)` reads a JSON object from `path` and merges it over `DEFAULTS`. If the file is missing, return a copy of `DEFAULTS`. If it contains invalid JSON, raise `ValueError`.
+`load_settings(path)` reads a JSON object from `path` and merges it over `DEFAULTS`, keeping keys the defaults don't have. `DEFAULTS` itself never changes. If the file is missing, return a copy of `DEFAULTS`. If it contains invalid JSON, raise `ValueError`.
 
 ```python starter
 import json
@@ -189,21 +227,34 @@ def test_merges():
     """file values override defaults"""
     Path("s.json").write_text('{"theme": "light"}')
     assert load_settings("s.json") == {"theme": "light", "font_size": 14}
+    Path("s2.json").write_text('{"font_size": 20, "theme": "blue"}')
+    assert load_settings("s2.json") == {"theme": "blue", "font_size": 20}
+    assert DEFAULTS == {"theme": "dark", "font_size": 14}
+
+def test_extra_keys():
+    """keeps keys the defaults don't have"""
+    Path("extra.json").write_text('{"lang": "en"}')
+    assert load_settings("extra.json") == {"theme": "dark", "font_size": 14, "lang": "en"}
+    Path("blank.json").write_text("{}")
+    assert load_settings("blank.json") == {"theme": "dark", "font_size": 14}
 
 def test_missing():
     """missing file gives the defaults, as a copy"""
     Path("nope.json").unlink(missing_ok=True)
     s = load_settings("nope.json")
     assert s == DEFAULTS and s is not DEFAULTS
+    s["theme"] = "changed"
+    assert load_settings("nope.json") == {"theme": "dark", "font_size": 14}
 
 def test_invalid():
     """invalid JSON raises ValueError"""
-    Path("bad.json").write_text("{not json")
-    try:
-        load_settings("bad.json")
-    except ValueError:
-        return
-    assert False, "expected ValueError"
+    for text in ["{not json", ""]:
+        Path("bad.json").write_text(text)
+        try:
+            load_settings("bad.json")
+        except ValueError:
+            continue
+        assert False, f"expected ValueError for {text!r}"
 ```
 
 #### Uses
@@ -219,6 +270,8 @@ def test_invalid():
 
 #### Tips
 - Returning `DEFAULTS` itself would let a caller change your defaults by accident. That's what the `is not` in the test guards against.
+- `{**DEFAULTS, **loaded}` is already a new dict, so the merge path needs no explicit copy — only the missing-file path does.
+- Catch `FileNotFoundError`, not `OSError`. The narrower the handler, the more real problems (a directory where a file was expected, a permissions error) still reach you.
 
 #### Docs
 - [`json.load`](https://docs.python.org/3/library/json.html#json.load)
@@ -226,7 +279,7 @@ def test_invalid():
 
 ### 4. CSV totals
 
-`total_by_category(path)` reads a CSV with `category,amount` columns and returns a dict of category to summed amount (as floats).
+`total_by_category(path)` reads a CSV with `category,amount` columns and returns a dict of category to summed amount (as floats). A category may contain a comma if it's in quotes, as CSV allows.
 
 ```python starter
 def total_by_category(path):
@@ -240,6 +293,20 @@ def test_totals():
     """sums amounts per category"""
     Path("spend.csv").write_text("category,amount\nfood,10.5\nrent,800\nfood,4.5\n")
     assert total_by_category("spend.csv") == {"food": 15.0, "rent": 800.0}
+    Path("trip.csv").write_text("category,amount\ntravel,120.25\nfun,3\ntravel,79.75\n")
+    totals = total_by_category("trip.csv")
+    assert totals == {"travel": 200.0, "fun": 3.0}
+    assert isinstance(totals["fun"], float)
+
+def test_header_only():
+    """no rows gives an empty dict"""
+    Path("none.csv").write_text("category,amount\n")
+    assert total_by_category("none.csv") == {}
+
+def test_quoted():
+    """quoted fields may hold commas"""
+    Path("quoted.csv").write_text('category,amount\n"books, magazines",12\nfood,2\n"books, magazines",0.5\n')
+    assert total_by_category("quoted.csv") == {"books, magazines": 12.5, "food": 2.0}
 ```
 
 #### Uses
@@ -254,6 +321,8 @@ def test_totals():
 
 #### Tips
 - `DictReader` takes the column names from the first line, so the header never shows up as a data row.
+- `newline=""` is not optional: without it, the `csv` module and the file object both translate line endings, and a quoted field containing a newline is split in two.
+- `0` plus a float is a float, so the totals come out as floats even for the whole-number rows. `float(row["amount"])` is what does the conversion.
 
 #### Docs
 - [`csv.DictReader`](https://docs.python.org/3/library/csv.html#csv.DictReader)

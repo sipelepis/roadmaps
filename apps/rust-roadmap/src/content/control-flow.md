@@ -178,12 +178,15 @@ pub fn fizzbuzz(n: u32) -> String {
 fn numbers() {
     assert_eq!(fizzbuzz(1), "1");
     assert_eq!(fizzbuzz(7), "7");
+    assert_eq!(fizzbuzz(98), "98");
 }
 
 /// Fizz and Buzz
 #[test]
 fn fizz_and_buzz() {
+    assert_eq!(fizzbuzz(3), "Fizz");
     assert_eq!(fizzbuzz(9), "Fizz");
+    assert_eq!(fizzbuzz(5), "Buzz");
     assert_eq!(fizzbuzz(10), "Buzz");
 }
 
@@ -191,6 +194,7 @@ fn fizz_and_buzz() {
 #[test]
 fn fizzbuzz_both() {
     assert_eq!(fizzbuzz(15), "FizzBuzz");
+    assert_eq!(fizzbuzz(30), "FizzBuzz");
     assert_eq!(fizzbuzz(45), "FizzBuzz");
 }
 ```
@@ -198,6 +202,7 @@ fn fizzbuzz_both() {
 #### Uses
 - [Control flow › `if` is an expression](#/control-flow/if-is-an-expression)
 - [Variables & types › Operators](#/basics/operators)
+- [What is Rust? › How the exercises work](#/intro/how-the-exercises-work)
 
 #### Hints
 - "Divisible by 3" is `n % 3 == 0`.
@@ -206,6 +211,8 @@ fn fizzbuzz_both() {
 
 #### Tips
 - Divisible by both 3 and 5 is the same as divisible by 15.
+- Every branch has to produce the same type, and the return type is `String`. `"Fizz"` on its own is a `&str`, so each literal branch needs `.to_string()` and the number branch needs `n.to_string()`.
+- `assert_eq!(fizzbuzz(3), "Fizz")` compares a `String` with a `&str` quite happily. You only need the conversion inside the function, not in the test.
 
 #### Docs
 - [Book: `if` expressions](https://doc.rust-lang.org/book/ch03-05-control-flow.html#if-expressions)
@@ -226,13 +233,30 @@ pub fn sum_of_multiples(limit: u32) -> u32 {
 #[test]
 fn below_ten() {
     assert_eq!(sum_of_multiples(10), 23);
+    assert_eq!(sum_of_multiples(7), 14);
 }
 
 /// nothing below 3
 #[test]
 fn tiny() {
     assert_eq!(sum_of_multiples(0), 0);
+    assert_eq!(sum_of_multiples(1), 0);
     assert_eq!(sum_of_multiples(3), 0);
+}
+
+/// limit itself is not included
+#[test]
+fn excludes_limit() {
+    assert_eq!(sum_of_multiples(4), 3);
+    assert_eq!(sum_of_multiples(5), 3);
+    assert_eq!(sum_of_multiples(6), 8);
+}
+
+/// multiples of both count once
+#[test]
+fn counts_once() {
+    assert_eq!(sum_of_multiples(16), 60);
+    assert_eq!(sum_of_multiples(31), 225);
 }
 
 /// below 1000
@@ -253,7 +277,9 @@ fn below_thousand() {
 - Inside the loop, one `if` with `||` checks "divisible by 3 or by 5".
 
 #### Tips
-- A number like 15 is divisible by both, but `||` still adds it once. Two separate `if`s would count it twice.
+- A number like 15 is divisible by both, but `||` still adds it once. Two separate `if`s would count it twice, and the `counts_once` test is there for exactly that mistake.
+- `1..limit` excludes `limit`, so `sum_of_multiples(5)` is `3`, not `8`. Reach for `..=` only when you mean to include the end.
+- The three tiny inputs need no special case. `1..0` and `1..1` are empty ranges that simply don't run the body, so the total stays 0.
 
 #### Docs
 - [Book: Looping through a collection with `for`](https://doc.rust-lang.org/book/ch03-05-control-flow.html#looping-through-a-collection-with-for)
@@ -280,13 +306,18 @@ fn one() {
 #[test]
 fn small() {
     assert_eq!(collatz_steps(2), 1);
+    assert_eq!(collatz_steps(3), 7);
+    assert_eq!(collatz_steps(4), 2);
     assert_eq!(collatz_steps(6), 8);
+    assert_eq!(collatz_steps(7), 16);
 }
 
-/// 27 takes a long detour
+/// long detours
 #[test]
 fn twenty_seven() {
     assert_eq!(collatz_steps(27), 111);
+    assert_eq!(collatz_steps(97), 118);
+    assert_eq!(collatz_steps(837_799), 524);
 }
 ```
 
@@ -302,6 +333,8 @@ fn twenty_seven() {
 
 #### Tips
 - `loop` with `break steps` works just as well; the `loop` section of this module computes exactly this sequence.
+- `let mut n = n;` is shadowing, not a second variable with a new name. It's the idiomatic way to get a mutable copy of a parameter you were given by value.
+- The parameter is a `u64` for a reason. Starting from 837,799 the sequence climbs past 2.7 billion on the way down, which would overflow a `u32` and panic in a debug build.
 
 #### Docs
 - [Book: Conditional loops with `while`](https://doc.rust-lang.org/book/ch03-05-control-flow.html#conditional-loops-with-while)
@@ -324,6 +357,8 @@ pub fn triple_with_sum(sum: u32) -> (u32, u32, u32) {
 #[test]
 fn twelve() {
     assert_eq!(triple_with_sum(12), (3, 4, 5));
+    assert_eq!(triple_with_sum(24), (6, 8, 10));
+    assert_eq!(triple_with_sum(30), (5, 12, 13));
 }
 
 /// a larger one
@@ -336,6 +371,7 @@ fn thousand() {
 #[test]
 fn several() {
     assert_eq!(triple_with_sum(60), (10, 24, 26));
+    assert_eq!(triple_with_sum(120), (20, 48, 52));
 }
 
 /// none exists
@@ -343,6 +379,8 @@ fn several() {
 fn none() {
     assert_eq!(triple_with_sum(10), (0, 0, 0));
     assert_eq!(triple_with_sum(0), (0, 0, 0));
+    assert_eq!(triple_with_sum(1), (0, 0, 0));
+    assert_eq!(triple_with_sum(13), (0, 0, 0));
 }
 ```
 
@@ -358,6 +396,8 @@ fn none() {
 
 #### Tips
 - A `for` loop can't `break` with a value, which is why the answer goes into a variable declared outside.
+- Watch the subtraction. `sum - a - b` on a `u32` panics the moment it would go below zero, so bound the inner range rather than testing the result afterwards.
+- `a * a + b * b == c * c` stays in `u32` here, but for a sum near the top of the type it wouldn't. Squaring is the step that overflows first.
 
 #### Docs
 - [Book: Loop labels](https://doc.rust-lang.org/book/ch03-05-control-flow.html#loop-labels-to-disambiguate-between-multiple-loops)

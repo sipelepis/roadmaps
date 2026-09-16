@@ -113,13 +113,32 @@ from dataclasses import dataclass
 ```
 
 ```python test
+from dataclasses import fields
+
 def test_book():
-    """fields, default and equality"""
+    """fields and default"""
     b = Book("Dune", "Herbert", 1965)
     assert (b.title, b.author, b.year) == ("Dune", "Herbert", 1965)
+    b = Book(title="Emma", author="Austen", year=1815)
+    assert (b.title, b.author, b.year) == ("Emma", "Austen", 1815)
     assert Book("X", "Y").year == 2000
+
+def test_equality():
+    """equal when every field matches"""
     assert Book("X", "Y") == Book("X", "Y")
+    assert Book("X", "Y") == Book("X", "Y", 2000)
+    assert Book("X", "Y") != Book("X", "Y", 2001)
+    assert Book("X", "Y") != Book("X", "Z")
+    assert Book("X", "Y") != Book("W", "Y")
+
+def test_repr():
+    """generated repr"""
     assert repr(Book("X", "Y")) == "Book(title='X', author='Y', year=2000)"
+    assert repr(Book("Dune", "Herbert", 1965)) == "Book(title='Dune', author='Herbert', year=1965)"
+
+def test_is_dataclass():
+    """is a dataclass with three fields, in order"""
+    assert [f.name for f in fields(Book)] == ["title", "author", "year"]
 ```
 
 #### Uses
@@ -131,6 +150,8 @@ def test_book():
 
 #### Tips
 - The generated `__repr__` and `__eq__` are built from the fields, which is why the repr test passes with no extra code.
+- The annotation is what makes something a field. `title = ""` with no `: str` is just a class attribute, and the generated `__init__` will not take it.
+- The types are never checked at runtime: `Book(1, 2, "x")` builds happily. Annotations here define the constructor, and a type checker is what turns them into a guarantee.
 
 #### Docs
 - [`dataclasses.dataclass`](https://docs.python.org/3/library/dataclasses.html#dataclasses.dataclass)
@@ -148,11 +169,26 @@ class Playlist:
 ```
 
 ```python test
+def test_starts_empty():
+    """has a name and starts empty"""
+    p = Playlist("road trip")
+    assert p.name == "road trip" and p.songs == []
+
+def test_add_chains():
+    """add appends in order and returns the playlist"""
+    p = Playlist("mix")
+    assert p.add("a") is p
+    p.add("b").add("c")
+    assert p.songs == ["a", "b", "c"]
+
 def test_independent_lists():
     """each playlist owns its list"""
     a, b = Playlist("a"), Playlist("b")
     a.add("song 1").add("song 2")
     assert a.songs == ["song 1", "song 2"] and b.songs == []
+    b.add("other")
+    assert a.songs == ["song 1", "song 2"] and b.songs == ["other"]
+    assert Playlist("c").songs == []
 ```
 
 #### Uses
@@ -166,6 +202,8 @@ def test_independent_lists():
 
 #### Tips
 - `songs: list = []` is refused with a `ValueError` as soon as the class is defined. That's the dataclass catching the shared-default bug for you.
+- `default_factory` takes the function itself, not a call: `field(default_factory=list)`, never `field(default_factory=list())`. It is called once per instance.
+- `field(default_factory=lambda: [1, 2])` is how to start from a non-empty default, since any zero-argument callable will do.
 
 #### Docs
 - [Dataclasses: Mutable default values](https://docs.python.org/3/library/dataclasses.html#mutable-default-values)
@@ -188,30 +226,42 @@ from dataclasses import dataclass
 
 ```python test
 def test_frozen():
-    """cannot be modified, can be a set member"""
+    """cannot be modified"""
     m = Money(5, "EUR")
-    try:
-        m.amount = 6
-    except Exception:
-        pass
-    else:
-        assert False, "expected an error"
+    for field_name in ["amount", "currency"]:
+        try:
+            setattr(m, field_name, 6)   # same as m.amount = 6
+        except Exception:
+            continue
+        assert False, f"expected an error setting {field_name}"
+    assert m == Money(5, "EUR")
+
+def test_hashable():
+    """can be a set member"""
     assert len({Money(1, "EUR"), Money(1, "EUR")}) == 1
+    assert len({Money(1, "EUR"), Money(1, "USD"), Money(2, "EUR")}) == 3
 
 def test_add():
     """adds same-currency money"""
     assert Money(5, "EUR") + Money(7, "EUR") == Money(12, "EUR")
-    try:
-        Money(1, "EUR") + Money(1, "USD")
-    except ValueError:
-        return
-    assert False
+    assert Money(0, "USD") + Money(3, "USD") == Money(3, "USD")
+    assert Money(1, "GBP") + Money(2, "GBP") + Money(3, "GBP") == Money(6, "GBP")
+
+def test_mismatch():
+    """rejects mixed currencies"""
+    for a, b in [(Money(1, "EUR"), Money(1, "USD")), (Money(5, "USD"), Money(2, "EUR"))]:
+        try:
+            a + b
+        except ValueError:
+            continue
+        assert False, f"expected ValueError for {a} + {b}"
 ```
 
 #### Uses
 - [Dataclasses › Frozen and ordered](#/dataclasses/frozen-and-ordered)
 - [Dataclasses › `__post_init__`](#/dataclasses/post-init)
 - [Classes › Defining a class](#/classes/defining-a-class)
+- [Classes › Attribute access](#/classes/attribute-access)
 
 #### Hints
 - `@dataclass(frozen=True)` blocks assignment and makes instances hashable, which covers the first test.
@@ -220,6 +270,8 @@ def test_add():
 
 #### Tips
 - A frozen dataclass gets a `__hash__` built from its fields. That's safe only because the fields can't change once the object is in a set.
+- `frozen=True` raises `FrozenInstanceError`, which is an `AttributeError`. The test catches plain `Exception` so either answer passes, but knowing the type matters when you write the handler.
+- `Money(1, "GBP") + Money(2, "GBP") + Money(3, "GBP")` works because `__add__` returns a `Money`, not a number. Returning the raw amount would break the second `+`.
 
 #### Docs
 - [Dataclasses: Frozen instances](https://docs.python.org/3/library/dataclasses.html#frozen-instances)
@@ -227,7 +279,7 @@ def test_add():
 
 ### 4. Validate in `__post_init__`
 
-`Temperature(celsius: float)` raises `ValueError` below absolute zero (−273.15) and exposes a `fahrenheit` property.
+`Temperature(celsius: float)` raises `ValueError` below absolute zero (−273.15) and exposes a `fahrenheit` property. Exactly −273.15 is allowed.
 
 ```python starter
 from dataclasses import dataclass
@@ -237,14 +289,29 @@ from dataclasses import dataclass
 def test_fahrenheit():
     """converts"""
     assert Temperature(100).fahrenheit == 212.0
+    assert Temperature(0).fahrenheit == 32.0
+    assert Temperature(-40).fahrenheit == -40.0
+    assert Temperature(25).fahrenheit == 77.0
+
+def test_follows_celsius():
+    """fahrenheit follows a changed celsius"""
+    t = Temperature(0)
+    t.celsius = 100
+    assert t.fahrenheit == 212.0
 
 def test_validates():
     """rejects impossible temperatures"""
-    try:
-        Temperature(-300)
-    except ValueError:
-        return
-    assert False
+    for c in [-300, -273.16, -1000]:
+        try:
+            Temperature(c)
+        except ValueError:
+            continue
+        assert False, f"expected ValueError for {c}"
+
+def test_absolute_zero():
+    """absolute zero itself is allowed"""
+    assert Temperature(-273.15).celsius == -273.15
+    assert Temperature(-273.1).celsius == -273.1
 ```
 
 #### Uses
@@ -256,7 +323,9 @@ def test_validates():
 - `fahrenheit` is a `@property` that works out `celsius * 9 / 5 + 32`.
 
 #### Tips
-- A derived value like `fahrenheit` belongs in a property, not a field, so it can never disagree with `celsius`.
+- A derived value like `fahrenheit` belongs in a property, not a field, so it can never disagree with `celsius`. The second test proves it by changing `celsius` afterwards.
+- `__post_init__` only runs from the generated `__init__`. A later `t.celsius = -1000` is not re-checked; a property setter would be, at the cost of some ceremony.
+- `-273.15` must be allowed, so the test is `< -273.15`, not `<=`. Boundary values are where validation code is usually wrong.
 
 #### Docs
 - [Dataclasses: Post-init processing](https://docs.python.org/3/library/dataclasses.html#post-init-processing)

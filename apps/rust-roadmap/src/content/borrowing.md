@@ -216,18 +216,24 @@ fn finds_largest() {
     let v = vec![3, 9, 2];
     assert_eq!(largest(&v), 9);
     assert_eq!(v.len(), 3); // still usable after the call
+    assert_eq!(largest(&vec![9, 1, 4]), 9);
+    assert_eq!(largest(&vec![1, 4, 10]), 10);
+    assert_eq!(largest(&vec![2, 4, 8, 8, 3]), 8);
 }
 
 /// works with negatives
 #[test]
 fn negatives() {
     assert_eq!(largest(&vec![-5, -2, -9]), -2);
+    assert_eq!(largest(&vec![i32::MIN, -1]), -1);
 }
 
 /// a single element
 #[test]
 fn single() {
     assert_eq!(largest(&vec![7]), 7);
+    assert_eq!(largest(&vec![-7]), -7);
+    assert_eq!(largest(&vec![i32::MIN]), i32::MIN);
 }
 ```
 
@@ -242,6 +248,8 @@ fn single() {
 
 #### Tips
 - Starting from `0` instead of the first element looks fine until every value is negative. The second test checks that.
+- The first test calls `v.len()` *after* `largest(&v)`. That only compiles because you borrowed the Vec instead of taking it: a `Vec<i32>` parameter would have moved it and the next line would fail.
+- Taking `&Vec<i32>` is what the signature asks for, but `&[i32]` is the better habit. It accepts Vecs, arrays and sub-slices alike, and the body is identical.
 
 #### Docs
 - [Book: References and borrowing](https://doc.rust-lang.org/book/ch04-02-references-and-borrowing.html)
@@ -264,6 +272,19 @@ fn doubles() {
     let mut v = vec![1, -2, 3];
     double_all(&mut v);
     assert_eq!(v, vec![2, -4, 6]);
+    let mut v = vec![0, 50, -25, 7];
+    double_all(&mut v);
+    assert_eq!(v, vec![0, 100, -50, 14]);
+}
+
+/// a single value
+#[test]
+fn single() {
+    let mut v = vec![21];
+    double_all(&mut v);
+    assert_eq!(v, vec![42]);
+    double_all(&mut v);
+    assert_eq!(v, vec![84]);
 }
 
 /// empty stays empty
@@ -285,6 +306,8 @@ fn empty() {
 
 #### Tips
 - There's nothing to return. The Vec was changed where it lives, so the caller already has the result.
+- `v *= 2` without the `*` doesn't compile: `v` is a `&mut i32`, and you can't multiply a reference. The `*` is how you reach the number it points at.
+- The caller writes `double_all(&mut v)` and `v` must be a `let mut`. Both ends have to agree, which is how you can tell at a glance which arguments a call might change.
 
 #### Docs
 - [Book: Mutable references](https://doc.rust-lang.org/book/ch04-02-references-and-borrowing.html#mutable-references)
@@ -315,6 +338,19 @@ fn counts() {
     let (mut yes, mut no) = (0, 0);
     tally(&votes(&["yes", "no", "yes", "maybe"]), &mut yes, &mut no);
     assert_eq!((yes, no), (2, 1));
+    let (mut yes, mut no) = (0, 0);
+    tally(&votes(&["no", "yes", "no", "no"]), &mut yes, &mut no);
+    assert_eq!((yes, no), (1, 3));
+}
+
+/// ignores every other value
+#[test]
+fn ignores_others() {
+    let (mut yes, mut no) = (1, 1);
+    tally(&votes(&["Yes", "NO", "maybe", "", "yes!"]), &mut yes, &mut no);
+    assert_eq!((yes, no), (1, 1));
+    tally(&votes(&[]), &mut yes, &mut no);
+    assert_eq!((yes, no), (1, 1));
 }
 
 /// adds to existing counts
@@ -337,6 +373,8 @@ fn accumulates() {
 
 #### Tips
 - `yes += 1` without the `*` fails: it tries to add to the reference, not to the counter it points at.
+- Two `&mut` parameters are fine because they point at two different variables. Calling `tally(&v, &mut n, &mut n)` would not compile: that's one value borrowed mutably twice.
+- The `ignores_others` test starts the counters at 1 and expects 1 back. Nothing resets them, so the function has to add to what's already there rather than assign.
 
 #### Docs
 - [Book: Mutable references](https://doc.rust-lang.org/book/ch04-02-references-and-borrowing.html#mutable-references)
@@ -379,6 +417,30 @@ fn appends() {
     assert_eq!(to, vec![0, 8]);
     assert_eq!(from, vec![9]);
 }
+
+/// zero and negative evens move too
+#[test]
+fn negatives() {
+    let mut from = vec![0, -3, -2, 5];
+    let mut to = Vec::new();
+    move_evens(&mut from, &mut to);
+    assert_eq!(from, vec![-3, 5]);
+    assert_eq!(to, vec![0, -2]);
+}
+
+/// all odd or all even
+#[test]
+fn one_side() {
+    let mut from = vec![1, 3];
+    let mut to = Vec::new();
+    move_evens(&mut from, &mut to);
+    assert_eq!(from, vec![1, 3]);
+    assert_eq!(to, Vec::<i32>::new());
+    let mut from = vec![2, 4];
+    move_evens(&mut from, &mut to);
+    assert_eq!(from, Vec::<i32>::new());
+    assert_eq!(to, vec![2, 4]);
+}
 ```
 
 #### Uses
@@ -393,6 +455,8 @@ fn appends() {
 
 #### Tips
 - This is fix number 3 from the list above: collect the changes first, apply them afterwards. The starter's `from.clone()` also dodges the conflict, but copies the whole Vec to do it.
+- `*from = kept;` replaces the Vec behind the reference and drops the old one. It doesn't rebind the reference, which is why the caller sees the change.
+- `from.retain(|x| x % 2 != 0)` would strip the evens in one line, but it can't hand them to `to` on the way out. `retain` is the tool when you only need what's left.
 
 #### Docs
 - [std: slice `iter`](https://doc.rust-lang.org/std/primitive.slice.html#method.iter)

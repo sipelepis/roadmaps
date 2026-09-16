@@ -85,6 +85,9 @@ let first = word.and_then(|w| w.chars().next());   // Some('r')
 - `and_then` is for a transform that itself returns an `Option`. With `map` you'd get `Option<Option<char>>`; `and_then` flattens it.
 - `unwrap_or(v)` evaluates `v` even when it isn't needed. For anything costly, like a `format!` or an allocation, use `unwrap_or_else(|| ...)`.
 - `as_deref()` turns `&Option<String>` into `Option<&str>`. You need it when the `Option` lives in a struct you've only borrowed: `config.name.as_deref().unwrap_or("anon")`.
+- `as_ref()` is the general form: `&Option<T>` becomes `Option<&T>`, so you can look inside an `Option` you don't own without moving the value out of it.
+- `is_some()` and `is_none()` answer the question without taking anything. They're for conditions and assertions; when you want the value, `if let` or `match` gets it in the same step.
+- `take()` on a `&mut Option<T>` moves the value out and leaves `None` behind. That's how you steal a field out of `&mut self`, which would otherwise leave the struct half-empty.
 
 ## Working with `Result`
 
@@ -96,7 +99,15 @@ let maybe = "7".parse::<i32>().ok();                         // Some(7), error d
 let needed = Some(3).ok_or("missing");                       // Ok(3)
 ```
 
-`ok()` goes from `Result` to `Option`; `ok_or(e)` and `ok_or_else(|| e)` go the other way. `map_err` changes the error type, which you'll do constantly to make errors line up.
+`ok()` goes from `Result` to `Option`; `ok_or(e)` and `ok_or_else(|| e)` go the other way. `map_err` changes the error type, which you'll do constantly to make errors line up. `is_ok()` and `is_err()` ask without taking.
+
+`unwrap_err()` is `unwrap` the other way round: it gives you the error and panics on an `Ok`. You'll mostly see it in tests, where it's the way to inspect a failure:
+
+```rust
+let e = "x".parse::<i32>().unwrap_err();
+println!("{e}");                  // invalid digit found in string
+println!("{}", "".parse::<i32>().unwrap_err());  // cannot parse integer from empty string
+```
 
 ## The `?` operator
 
@@ -202,6 +213,16 @@ fn invalid_ports() {
     assert_eq!(parse_port("70000"), None);
     assert_eq!(parse_port("-1"), None);
 }
+
+/// the smallest and one past the largest port, and blank text
+#[test]
+fn edges() {
+    assert_eq!(parse_port("1"), Some(1));
+    assert_eq!(parse_port("\t22\n"), Some(22));
+    assert_eq!(parse_port("65536"), None);
+    assert_eq!(parse_port(""), None);
+    assert_eq!(parse_port("   "), None);
+}
 ```
 
 #### Uses
@@ -217,6 +238,8 @@ fn invalid_ports() {
 
 #### Tips
 - Picking `u16` does the range check for you: `"70000"` and `"-1"` simply fail to parse. The tightest type is often the cheapest validation.
+- `filter`'s closure gets a `&u16`, not a `u16`, because `filter` must not consume the value it might hand back. Write `|p| *p != 0`.
+- Order the chain so each step narrows: trim, parse, drop the error, drop zero. `parse` on untrimmed text fails on `" 443 "`, and no amount of filtering afterwards recovers it.
 
 #### Docs
 - [std: str::parse](https://doc.rust-lang.org/std/primitive.str.html#method.parse)
@@ -243,14 +266,23 @@ pub fn address(config: &Config) -> String {
 fn both_present() {
     let c = Config { host: Some("example.com".to_string()), port: Some(8443) };
     assert_eq!(address(&c), "example.com:8443");
+    let c = Config { host: Some("10.0.0.7".to_string()), port: Some(22) };
+    assert_eq!(address(&c), "10.0.0.7:22");
 }
 
-/// falls back to defaults
+/// falls back to localhost without a host
 #[test]
-fn defaults() {
-    assert_eq!(address(&Config { host: None, port: None }), "localhost:80");
+fn default_host() {
     assert_eq!(address(&Config { host: None, port: Some(3000) }), "localhost:3000");
+    assert_eq!(address(&Config { host: None, port: Some(443) }), "localhost:443");
+    assert_eq!(address(&Config { host: None, port: None }), "localhost:80");
+}
+
+/// falls back to port 80 without a port
+#[test]
+fn default_port() {
     assert_eq!(address(&Config { host: Some("db".to_string()), port: None }), "db:80");
+    assert_eq!(address(&Config { host: Some("example.com".to_string()), port: None }), "example.com:80");
 }
 ```
 
@@ -264,7 +296,9 @@ fn defaults() {
 - `Option<u16>` is `Copy`, so `config.port.unwrap_or(80)` needs no `as_deref`.
 
 #### Tips
-- `config.host.clone().unwrap_or(...)` also compiles, but it copies the string just to read it.
+- `config.host.clone().unwrap_or(...)` also compiles, but it copies the string just to read it. That's the clone-as-a-crutch pattern: it makes the error go away without answering the question the error asked.
+- `Option<u16>` is `Copy`, so `unwrap_or(80)` takes it by value and the struct is untouched. `Option<String>` isn't, which is the whole reason the two fields need different treatment.
+- `as_deref()` is `as_ref()` plus a deref: `&Option<String>` becomes `Option<&str>`, and the `"localhost"` literal fits straight into `unwrap_or`.
 
 #### Docs
 - [std: Option::as_deref](https://doc.rust-lang.org/std/option/enum.Option.html#method.as_deref)
@@ -288,11 +322,20 @@ fn two_or_more_words() {
     assert_eq!(initials("  alan   turing "), Some("AT".to_string()));
 }
 
+/// skips every middle word
+#[test]
+fn many_words() {
+    assert_eq!(initials("john ronald reuel tolkien"), Some("JT".to_string()));
+    assert_eq!(initials("x y"), Some("XY".to_string()));
+}
+
 /// needs at least two words
 #[test]
 fn too_short() {
     assert_eq!(initials("Plato"), None);
+    assert_eq!(initials("  plato  "), None);
     assert_eq!(initials(""), None);
+    assert_eq!(initials("   "), None);
 }
 ```
 
@@ -307,6 +350,8 @@ fn too_short() {
 
 #### Tips
 - `?` on an `Option` returns `None` early, the same way it returns an `Err` early from a function returning `Result`.
+- `words` has to be `mut`. `next()` takes `&mut self` because it moves the iterator forward; that's also why `words.last()` afterwards sees only what's left, which is exactly what makes a one-word name return `None`.
+- `to_ascii_uppercase` on a `char` returns a `char`, so both initials can go straight into one `format!`. The Unicode `to_uppercase` returns an iterator instead, which would need collecting.
 
 #### Docs
 - [Rust book: Where the `?` operator can be used](https://doc.rust-lang.org/book/ch09-02-recoverable-errors-with-result.html#where-the--operator-can-be-used)
@@ -332,12 +377,16 @@ pub fn sum_pair(text: &str) -> Result<i32, String> {
 fn adds() {
     assert_eq!(sum_pair("3,4"), Ok(7));
     assert_eq!(sum_pair(" 10 , -2 "), Ok(8));
+    assert_eq!(sum_pair("0,0"), Ok(0));
+    assert_eq!(sum_pair("-5,-6"), Ok(-11));
 }
 
 /// reports a missing comma
 #[test]
 fn missing_comma() {
     assert_eq!(sum_pair("34"), Err("missing comma".to_string()));
+    assert_eq!(sum_pair("3 4"), Err("missing comma".to_string()));
+    assert_eq!(sum_pair(""), Err("missing comma".to_string()));
 }
 
 /// reports the first bad number
@@ -345,6 +394,9 @@ fn missing_comma() {
 fn bad_numbers() {
     assert_eq!(sum_pair("3, x "), Err("bad number: x".to_string()));
     assert_eq!(sum_pair("a,b"), Err("bad number: a".to_string()));
+    assert_eq!(sum_pair(" 1.5 ,2"), Err("bad number: 1.5".to_string()));
+    assert_eq!(sum_pair("3,"), Err("bad number: ".to_string()));
+    assert_eq!(sum_pair("3000000000,1"), Err("bad number: 3000000000".to_string()));
 }
 ```
 
@@ -360,6 +412,8 @@ fn bad_numbers() {
 
 #### Tips
 - The error type is `String`, so `ok_or("missing comma")` alone is a `&str` and won't fit. Add `.to_string()`.
+- Trim once and keep the result in a variable. The error message has to show the trimmed text, so parsing `value.trim()` and then reporting `value` gives `"bad number:  x "` instead of `"bad number: x"`.
+- `?` after `map_err` is what makes this read top to bottom: each line either produces a value or leaves the function. Nesting `match`es would say the same thing three levels deep.
 
 #### Docs
 - [std: str::split_once](https://doc.rust-lang.org/std/primitive.str.html#method.split_once)

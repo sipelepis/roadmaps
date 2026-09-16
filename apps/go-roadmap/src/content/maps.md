@@ -193,17 +193,21 @@ import "testing"
 // counts each word
 func TestWordCount(t *testing.T) {
 	expect(t, WordCount("the cat and the hat"), map[string]int{"the": 2, "cat": 1, "and": 1, "hat": 1})
+	expect(t, WordCount("one two three"), map[string]int{"one": 1, "two": 1, "three": 1})
 }
 
 // ignores case and extra spaces
 func TestWordCountCase(t *testing.T) {
 	expect(t, WordCount("  Go go  GO\n"), map[string]int{"go": 3})
+	expect(t, WordCount("Hello\tHELLO\nworld hello"), map[string]int{"hello": 3, "world": 1})
 }
 
 // empty text has no words
 func TestWordCountEmpty(t *testing.T) {
-	if got := WordCount(""); len(got) != 0 {
-		t.Errorf("expected no words, got %v", got)
+	for _, text := range []string{"", "  \n\t "} {
+		if got := WordCount(text); len(got) != 0 {
+			t.Errorf("WordCount(%q): expected no words, got %v", text, got)
+		}
 	}
 }
 ```
@@ -212,6 +216,8 @@ func TestWordCountEmpty(t *testing.T) {
 - [Maps › Creating and using maps](#/maps/creating-and-using-maps)
 - [Maps › Missing keys and comma-ok](#/maps/missing-keys-and-comma-ok)
 - [Maps › nil maps](#/maps/nil-maps)
+- [Strings & runes › The strings package](#/strings/the-strings-package)
+- [Reference › How the tests here work](#/reference/how-the-tests-here-work)
 
 #### Hints
 - Start from an empty map, `map[string]int{}`, not a nil one: you are about to write to it.
@@ -219,6 +225,7 @@ func TestWordCountEmpty(t *testing.T) {
 
 #### Tips
 - Lowercase the key, not the whole text afterwards: the map only ever sees what you index it with.
+- Empty input needs no special case. `strings.Fields("")` returns no words, so the loop simply never runs and you hand back an empty map.
 
 #### Docs
 - [strings.Fields](https://pkg.go.dev/strings#Fields)
@@ -251,6 +258,14 @@ func TestGroupByLen(t *testing.T) {
 // repeated words stay repeated
 func TestGroupRepeats(t *testing.T) {
 	expect(t, GroupByLen([]string{"ab", "ab"}), map[int][]string{2: {"ab", "ab"}})
+	expect(t, GroupByLen([]string{"b", "a", "b"}), map[int][]string{1: {"b", "a", "b"}})
+}
+
+// input order, not alphabetical order
+func TestGroupOrder(t *testing.T) {
+	got := GroupByLen([]string{"pear", "fig", "kiwi", "ant", "plum"})
+	want := map[int][]string{3: {"fig", "ant"}, 4: {"pear", "kiwi", "plum"}}
+	expect(t, got, want)
 }
 ```
 
@@ -264,6 +279,7 @@ func TestGroupRepeats(t *testing.T) {
 
 #### Tips
 - `len(w)` counts bytes, so it only matches the number of letters for ASCII words.
+- `out[len(w)] = append(out[len(w)], w)` reads the key twice. Pulling `k := len(w)` out first is the same code, easier to read.
 
 #### Docs
 - [builtin: append](https://pkg.go.dev/builtin#append)
@@ -288,6 +304,13 @@ import "testing"
 // finds shared items, sorted and unique
 func TestCommon(t *testing.T) {
 	expect(t, Common([]string{"x", "y", "z", "y"}, []string{"z", "w", "y", "y"}), []string{"y", "z"})
+	expect(t, Common([]string{"c", "b", "a"}, []string{"a", "c", "b"}), []string{"a", "b", "c"})
+}
+
+// once, even when only one side repeats it
+func TestCommonOnce(t *testing.T) {
+	expect(t, Common([]string{"q", "q", "r"}, []string{"q"}), []string{"q"})
+	expect(t, Common([]string{"q"}, []string{"r", "q", "q"}), []string{"q"})
 }
 
 // order of arguments does not matter
@@ -303,6 +326,9 @@ func TestNothingCommon(t *testing.T) {
 	if got := Common([]string{"a"}, []string{"b"}); len(got) != 0 {
 		t.Errorf("expected nothing in common, got %v", got)
 	}
+	if got := Common(nil, []string{"a"}); len(got) != 0 {
+		t.Errorf("expected nothing in common, got %v", got)
+	}
 }
 ```
 
@@ -310,6 +336,7 @@ func TestNothingCommon(t *testing.T) {
 - [Maps › Sets](#/maps/sets)
 - [Maps › Creating and using maps](#/maps/creating-and-using-maps)
 - [Arrays & slices › The slices package](#/slices/the-slices-package)
+- [Reference › How the tests here work](#/reference/how-the-tests-here-work)
 
 #### Hints
 - Put every string from `a` into a `map[string]bool`.
@@ -318,6 +345,7 @@ func TestNothingCommon(t *testing.T) {
 
 #### Tips
 - Missing keys read as `false`, so testing a `map[string]bool` set needs no comma-ok.
+- Deleting from the set as you match is what makes a repeat in `b` count once. Without it, `Common(["q"], ["q", "q"])` would return `q` twice.
 
 #### Docs
 - [Go spec: Map types](https://go.dev/ref/spec#Map_types)
@@ -344,18 +372,23 @@ import "testing"
 func TestTopN(t *testing.T) {
 	counts := map[string]int{"go": 5, "rust": 3, "zig": 9, "c": 1}
 	expect(t, TopN(counts, 2), []string{"zig", "go"})
+	expect(t, TopN(counts, 1), []string{"zig"})
+	expect(t, TopN(counts, 4), []string{"zig", "go", "rust", "c"})
 }
 
 // ties are alphabetical
 func TestTopNTies(t *testing.T) {
 	counts := map[string]int{"b": 2, "a": 2, "d": 2, "c": 7}
 	expect(t, TopN(counts, 3), []string{"c", "a", "b"})
+	fruit := map[string]int{"pear": 4, "fig": 4, "kiwi": 4, "plum": 9, "lime": 1}
+	expect(t, TopN(fruit, 5), []string{"plum", "fig", "kiwi", "pear", "lime"})
 }
 
 // n larger than the map returns everything
 func TestTopNAll(t *testing.T) {
 	counts := map[string]int{"x": 1, "y": 2}
 	expect(t, TopN(counts, 10), []string{"y", "x"})
+	expect(t, TopN(counts, 3), []string{"y", "x"})
 }
 ```
 
@@ -372,6 +405,8 @@ func TestTopNAll(t *testing.T) {
 
 #### Tips
 - `if c := cmp.Compare(...); c != 0 { return c }` keeps the tie-break readable.
+- `cmp.Or(cmp.Compare(counts[b], counts[a]), cmp.Compare(a, b))` is the same thing in one line: the first non-zero result wins.
+- `keys[:n]` shares its array with `keys`, which is fine here because nothing appends to the result afterwards.
 
 #### Docs
 - [slices.SortFunc](https://pkg.go.dev/slices#SortFunc)

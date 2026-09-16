@@ -26,6 +26,8 @@ for value in user.values(): ...
 
 Modifying a dict while iterating over it raises `RuntimeError`. Iterate over `list(d)` if you must delete keys.
 
+Dicts keep insertion order, and have done since 3.7. Two dicts with the same pairs in a different order still compare equal, so `{"a": 1, "b": 2} == {"b": 2, "a": 1}` is `True`; the order only shows up when you iterate or print. Sets have no order at all, which is why anything that needs a predictable sequence out of a set goes through `sorted`.
+
 ## Counting and grouping
 
 The two idioms you'll write most:
@@ -102,16 +104,25 @@ def word_counts(text):
 def test_counts():
     """counts words case-insensitively"""
     assert word_counts("The cat the CAT") == {"the": 2, "cat": 2}
+    assert word_counts("a b a c a") == {"a": 3, "b": 1, "c": 1}
+    assert word_counts("Hello") == {"hello": 1}
+
+def test_any_whitespace():
+    """any whitespace separates words"""
+    assert word_counts("one\ttwo  one\nthree") == {"one": 2, "two": 1, "three": 1}
+    assert word_counts("  Up  up ") == {"up": 2}
 
 def test_empty():
     """empty text gives an empty dict"""
     assert word_counts("") == {}
+    assert word_counts("   ") == {}
 ```
 
 #### Uses
 - [Dicts and sets › Counting and grouping](#/dicts-sets/counting-and-grouping)
 - [Dicts and sets › Dict basics](#/dicts-sets/dict-basics)
 - [What is Python? › `if` and `for`](#/intro/if-and-for)
+- [Reference › Strings](#/reference/strings)
 
 #### Hints
 - Lowercase and split the text, then loop over the words with an empty dict ready.
@@ -119,6 +130,8 @@ def test_empty():
 
 #### Tips
 - `collections.Counter` does this in one call; the Standard library tour covers it.
+- Lowercase the whole text once, before splitting. Calling `.lower()` on each word costs the same but gives one more place to forget it.
+- Bare `.split()` drops the empty pieces, so `"   "` produces no words at all and the empty-input test passes without a special case.
 
 #### Docs
 - [Library reference: `dict.get`](https://docs.python.org/3/library/stdtypes.html#dict.get)
@@ -138,6 +151,17 @@ def test_groups():
     """groups names by team, sorted"""
     members = {"cy": "blue", "ada": "red", "bob": "blue"}
     assert by_team(members) == {"blue": ["bob", "cy"], "red": ["ada"]}
+    members = {"zoe": "red", "amy": "red", "max": "red"}
+    assert by_team(members) == {"red": ["amy", "max", "zoe"]}
+
+def test_single_members():
+    """a team of one still gets a list"""
+    assert by_team({"ada": "x", "bob": "y"}) == {"x": ["ada"], "y": ["bob"]}
+    assert by_team({"solo": "z"}) == {"z": ["solo"]}
+
+def test_empty():
+    """no members gives no teams"""
+    assert by_team({}) == {}
 ```
 
 #### Uses
@@ -152,6 +176,8 @@ def test_groups():
 
 #### Tips
 - `sorted(members)` sorts a dict's keys, because iterating over a dict gives its keys.
+- Visiting the names in sorted order means each team's list is built sorted, so no second pass is needed. Sorting at the end is just as correct and easier to read.
+- `setdefault` evaluates its default every time, even when the key is already there. That is harmless for `[]`, but it is why `collections.defaultdict(list)` exists.
 
 #### Docs
 - [Library reference: `dict.setdefault`](https://docs.python.org/3/library/stdtypes.html#dict.setdefault)
@@ -169,6 +195,21 @@ def common_and_unique(a, b):
 def test_sets():
     """intersection and both differences"""
     assert common_and_unique([1, 2, 3, 3], [3, 4]) == ([3], [1, 2], [4])
+    assert common_and_unique(["b", "c", "a"], ["d", "c"]) == (["c"], ["a", "b"], ["d"])
+
+def test_sorted():
+    """each list comes out sorted"""
+    result = common_and_unique([12, 4, 100, 7, 50], [100, 50, 3, 60])
+    assert result == ([50, 100], [4, 7, 12], [3, 60])
+
+def test_shapes():
+    """returns a tuple of lists, even when some are empty"""
+    result = common_and_unique([1, 2], [3])
+    assert isinstance(result, tuple)
+    assert result == ([], [1, 2], [3])
+    assert all(isinstance(part, list) for part in result)
+    assert common_and_unique([2, 1], [1, 2, 2]) == ([1, 2], [], [])
+    assert common_and_unique([], []) == ([], [], [])
 ```
 
 #### Uses
@@ -183,6 +224,8 @@ def test_sets():
 
 #### Tips
 - `sorted` accepts any iterable, sets included, and always gives back a new list.
+- Converting to sets is what makes this fast *and* what drops the duplicates. Both are wanted here; when duplicates matter, sets are the wrong tool.
+- `a - b` and `b - a` are different answers. Set difference is not symmetric, unlike `&` and `|`.
 
 #### Docs
 - [Python tutorial: Sets](https://docs.python.org/3/tutorial/datastructures.html#sets)
@@ -202,17 +245,34 @@ data = {"user": {"address": {"city": "Berlin"}, "tags": ["a"]}}
 def test_found():
     """walks nested keys"""
     assert deep_get(data, "user.address.city") == "Berlin"
+    assert deep_get(data, "user.address") == {"city": "Berlin"}
+    assert deep_get(data, "user.tags") == ["a"]
 
 def test_missing():
     """default when a step is missing"""
     assert deep_get(data, "user.phone.home") is None
     assert deep_get(data, "user.tags.0", "x") == "x"
+    assert deep_get(data, "nope") is None
+    assert deep_get(data, "user.phone", "n/a") == "n/a"
+
+def test_not_a_dict():
+    """default when a step lands on something that isn't a dict"""
+    assert deep_get(data, "user.tags.a", "x") == "x"
+    assert deep_get(data, "user.address.city.B", "?") == "?"
+
+def test_falsy_values():
+    """a stored falsy value is returned, not the default"""
+    stored = {"a": {"zero": 0, "blank": "", "none": None}}
+    assert deep_get(stored, "a.zero", 5) == 0
+    assert deep_get(stored, "a.blank", "x") == ""
+    assert deep_get(stored, "a.none", "x") is None
 ```
 
 #### Uses
 - [Dicts and sets › Dict basics](#/dicts-sets/dict-basics)
 - [Variables and types › The core types](#/variables-types/the-core-types)
 - [What is Python? › `if` and `for`](#/intro/if-and-for)
+- [Reference › Strings](#/reference/strings)
 
 #### Hints
 - Split the path and walk it one key at a time, replacing the current value with `current[key]` at each step.
@@ -221,6 +281,8 @@ def test_missing():
 
 #### Tips
 - `in` on a list checks values, not positions. Without the `isinstance` check, `"0" in ["a"]` only gives the right answer by accident.
+- Test `isinstance(current, dict)` *before* the `in`, not after. `in` is legal on a list and a string too, so the wrong order gives a wrong answer instead of an error.
+- Never use truthiness to decide whether a step succeeded. A stored `0`, `""` or `None` is a real value, and the last test exists to catch exactly that shortcut.
 
 #### Docs
 - [Python tutorial: Dictionaries](https://docs.python.org/3/tutorial/datastructures.html#dictionaries)

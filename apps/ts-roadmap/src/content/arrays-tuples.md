@@ -90,9 +90,15 @@ function splitName(full: string) {
 ```ts test
 test('splits into first and last', () => {
   expect(splitName('Ada Lovelace')).toEqual(['Ada', 'Lovelace'])
+  expect(splitName('Alan Turing')).toEqual(['Alan', 'Turing'])
 })
 test('uses the last word when there are middle names', () => {
   expect(splitName('Grace Brewster Hopper')).toEqual(['Grace', 'Hopper'])
+  expect(splitName('Johann Sebastian Bach')).toEqual(['Johann', 'Bach'])
+})
+test('skips any number of middle names', () => {
+  expect(splitName('Maria Salomea Sklodowska Curie')).toEqual(['Maria', 'Curie'])
+  expect(splitName('Pablo Diego José Francisco Picasso')).toEqual(['Pablo', 'Picasso'])
 })
 
 type _1 = Expect<Equal<ReturnType<typeof splitName>, [string, string]>>
@@ -101,6 +107,8 @@ type _1 = Expect<Equal<ReturnType<typeof splitName>, [string, string]>>
 #### Uses
 - [Arrays and tuples › Tuples](#/arrays-tuples/tuples)
 - [Arrays and tuples › Arrays](#/arrays-tuples/arrays)
+- [Reference › String methods](#/reference/string-methods)
+- [Reference › Matchers](#/reference/matchers)
 
 #### Hints
 - Annotate the return type as a two-element tuple of strings. Without it, returning `[a, b]` is inferred as `string[]`.
@@ -108,6 +116,8 @@ type _1 = Expect<Equal<ReturnType<typeof splitName>, [string, string]>>
 
 #### Tips
 - Index access on a `string[]` is typed `string` even when nothing is there. That's why this compiles, and why `noUncheckedIndexedAccess` exists.
+- Returning `[first, last]` from a function annotated `: [string, string]` is enough. `as const` or a cast would work too, but the annotation is the one that also checks you returned two elements.
+- `toEqual` compares arrays element by element, so the order of the two words is part of the assertion.
 
 #### Docs
 - [Object Types: Tuple types](https://www.typescriptlang.org/docs/handbook/2/objects.html#tuple-types)
@@ -125,6 +135,11 @@ function range(n: number): number[] {
 ```ts test
 test('counts from zero', () => {
   expect(range(3)).toEqual([0, 1, 2])
+  expect(range(6)).toEqual([0, 1, 2, 3, 4, 5])
+})
+test('stops before n', () => {
+  expect(range(1)).toEqual([0])
+  expect(range(2)).toEqual([0, 1])
 })
 test('zero gives an empty array', () => {
   expect(range(0)).toEqual([])
@@ -134,6 +149,7 @@ test('zero gives an empty array', () => {
 #### Uses
 - [Arrays and tuples › Arrays](#/arrays-tuples/arrays)
 - [Basic types › Inference rules of thumb](#/basic-types/inference-rules-of-thumb)
+- [Reference › Array methods](#/reference/array-methods)
 
 #### Hints
 - Start from an empty array annotated as `number[]`, then fill it.
@@ -141,6 +157,8 @@ test('zero gives an empty array', () => {
 
 #### Tips
 - `Array.from({ length: n }, (_, i) => i)` builds the same array in one expression.
+- An unannotated `const out = []` works here, because TypeScript lets an empty array literal *evolve* from what you push into it. Annotating `number[]` is still better: the evolution stops as soon as the array leaves the function, and the annotation catches a stray `push('x')` at the push, not later.
+- `new Array(n).map((_, i) => i)` looks equivalent and isn't: the array has holes, and `map` skips them, so you get `[empty × n]`. `Array.from` fills them.
 
 #### Docs
 - [Everyday Types: Arrays](https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#arrays)
@@ -157,13 +175,22 @@ function firstAndLast(xs: string[]): [string | undefined, string | undefined] {
 
 ```ts test
 const frozen: readonly string[] = ['a', 'b', 'c']
+const days = ['mon', 'tue', 'wed', 'thu'] as const
+const mutable: string[] = ['x', 'y']
 
 test('accepts readonly arrays', () => {
   expect(firstAndLast(frozen)).toEqual(['a', 'c'])
+  expect(firstAndLast(days)).toEqual(['mon', 'thu'])
+})
+test('still accepts mutable arrays', () => {
+  expect(firstAndLast(mutable)).toEqual(['x', 'y'])
+  expect(firstAndLast(['p', 'q', 'r', 's', 't'])).toEqual(['p', 't'])
 })
 test('handles empty', () => {
   expect(firstAndLast([])).toEqual([undefined, undefined])
 })
+
+type _1 = Expect<Equal<Parameters<typeof firstAndLast>[0], readonly string[]>>
 ```
 
 #### Uses
@@ -175,6 +202,8 @@ test('handles empty', () => {
 
 #### Tips
 - The other direction is fine: a mutable array is assignable to a readonly one, so a readonly parameter accepts both.
+- Make this the default for parameters you only read. It costs nothing, documents that the function won't mutate, and widens what callers can pass.
+- `days` is `readonly ['mon', 'tue', 'wed', 'thu']` thanks to `as const`. A tuple is assignable to an array of the same element type, so the only thing stopping it from reaching a `string[]` parameter is the `readonly`.
 
 #### Docs
 - [Object Types: The ReadonlyArray type](https://www.typescriptlang.org/docs/handbook/2/objects.html#the-readonlyarray-type)

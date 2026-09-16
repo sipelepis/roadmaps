@@ -92,6 +92,8 @@ interface User { id: number; name: string }
 
 type _1 = Expect<Equal<MyPartial<User>, { id?: number; name?: string }>>
 type _2 = Expect<Equal<MyPartial<User>, Partial<User>>>
+type _3 = Expect<Equal<MyPartial<{ readonly a: string; b?: boolean }>, { readonly a?: string; b?: boolean }>>
+type _4 = Expect<Equal<MyPartial<{ nested: { x: number } }>, { nested?: { x: number } }>>
 ```
 
 #### Uses
@@ -101,6 +103,10 @@ type _2 = Expect<Equal<MyPartial<User>, Partial<User>>>
 #### Hints
 - Iterate every key with `[K in keyof T]` and keep each property's type with `T[K]`.
 - A `?` right after the closing bracket makes each property optional.
+
+#### Tips
+- Mapping over `keyof T` makes this *homomorphic*, which is why the third test keeps `readonly a` readonly. Map over a different key union and every modifier is lost.
+- It is shallow, as the fourth test shows: `nested` becomes optional, but `{ x: number }` inside it is untouched. A `DeepPartial` needs a recursive conditional.
 
 #### Docs
 - [Mapped Types](https://www.typescriptlang.org/docs/handbook/2/mapped-types.html)
@@ -117,6 +123,7 @@ type Mutable<T> = unknown
 type Frozen = { readonly x: number; readonly y: number }
 
 type _1 = Expect<Equal<Mutable<Frozen>, { x: number; y: number }>>
+type _2 = Expect<Equal<Mutable<{ readonly id: string; readonly nick?: string }>, { id: string; nick?: string }>>
 
 test('a mutable copy can be changed', () => {
   const p: Mutable<Frozen> = { x: 1, y: 2 }
@@ -134,6 +141,8 @@ test('a mutable copy can be changed', () => {
 
 #### Tips
 - `readonly` only exists at compile time. Removing it changes what the checker allows, not the object.
+- `-readonly` removes the modifier; a bare `readonly` would add it. The `+` form (`+readonly`) is legal and means the same as writing nothing, so it is rarely used.
+- Note what the second test does *not* ask for: `nick?` stays optional. You are changing one modifier, so leave the `?` alone.
 
 #### Docs
 - [Mapped Types: Mapping Modifiers](https://www.typescriptlang.org/docs/handbook/2/mapped-types.html#mapping-modifiers)
@@ -148,6 +157,8 @@ type Nullable<T> = unknown
 
 ```ts test
 type _1 = Expect<Equal<Nullable<{ a: string; b: number }>, { a: string | null; b: number | null }>>
+type _2 = Expect<Equal<Nullable<{ readonly id: number; tags?: string[] }>, { readonly id: number | null; tags?: string[] | null }>>
+type _3 = Expect<Equal<Nullable<{ inner: { x: number } }>, { inner: { x: number } | null }>>
 ```
 
 #### Uses
@@ -157,6 +168,10 @@ type _1 = Expect<Equal<Nullable<{ a: string; b: number }>, { a: string | null; b
 #### Hints
 - Map over `keyof T` like `MyPartial`, but keep the properties required.
 - The value type is the original `T[K]` in a union with `null`.
+
+#### Tips
+- Don't add `-?`. The second test keeps `tags?` optional, so the `?` has to survive, and it does automatically because you are mapping over `keyof T`.
+- On an optional property the value type already includes `undefined`, so `tags?: string[] | null` really means `string[] | null | undefined`. That is what the test asserts.
 
 #### Docs
 - [Mapped Types](https://www.typescriptlang.org/docs/handbook/2/mapped-types.html)
@@ -177,6 +192,9 @@ interface Mixed { id: number; name: string; age: number; active: boolean }
 type _1 = Expect<Equal<PickByType<Mixed, number>, { id: number; age: number }>>
 type _2 = Expect<Equal<PickByType<Mixed, string>, { name: string }>>
 type _3 = Expect<Equal<PickByType<Mixed, symbol>, {}>>
+type _4 = Expect<Equal<PickByType<Mixed, string | boolean>, { name: string; active: boolean }>>
+type _5 = Expect<Equal<PickByType<{ id: string | number; slug: string }, string>, { slug: string }>>
+type _6 = Expect<Equal<PickByType<{ readonly a: number; b: string }, number>, { readonly a: number }>>
 ```
 
 #### Uses
@@ -189,6 +207,8 @@ type _3 = Expect<Equal<PickByType<Mixed, symbol>, {}>>
 
 #### Tips
 - An `as` clause that filters keys still keeps each property's `readonly` and `?`, because you are still mapping over `keyof T`.
+- Test the *property* type against `V`, not the other way round. `PickByType<{ id: string | number }, string>` drops `id`, because `string | number` is not assignable to `string`.
+- `never` in an `as` clause deletes the key. It is the only way to remove a property from a mapped type, and it is how `Omit` is built.
 
 #### Docs
 - [Mapped Types: Key Remapping via `as`](https://www.typescriptlang.org/docs/handbook/2/mapped-types.html#key-remapping-via-as)

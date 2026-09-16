@@ -27,9 +27,14 @@ Slices never raise on out-of-range bounds; they clamp.
 "hello".find("l")               # 2, or -1 if missing
 "hello".count("l")              # 2
 "42".isdigit(), "abc".isalpha()
+"a1".isalnum()                  # True: a letter or a digit
+"a 1".isalnum()                 # False: the space is neither
+"".isdigit()                    # False: the empty string is never any of them
 ```
 
 `split()` with no argument splits on any whitespace and drops empties, which is usually what you want.
+
+Two gotchas. Every method here returns a *new* string, so `s.strip()` on its own does nothing — you have to use the result: `s = s.strip()`. And `"hello".replace("l", "L")` replaces every occurrence, not the first; pass a count as the third argument to limit it.
 
 ## Formatting
 
@@ -101,11 +106,22 @@ def is_palindrome(text):
 def test_simple():
     """plain words"""
     assert is_palindrome("racecar")
+    assert is_palindrome("x")
     assert not is_palindrome("python")
+    assert not is_palindrome("abca")
 
 def test_ignores_noise():
     """ignores case, spaces and punctuation"""
     assert is_palindrome("A man, a plan, a canal: Panama")
+    assert is_palindrome("RaceCar")
+    assert is_palindrome("Was it a car or a cat I saw?")
+    assert not is_palindrome("A man, a plan")
+
+def test_digits_count():
+    """digits are kept, not ignored"""
+    assert is_palindrome("12321")
+    assert is_palindrome("1 2, 21")
+    assert not is_palindrome("123")
 ```
 
 #### Uses
@@ -119,7 +135,9 @@ def test_ignores_noise():
 - A string is a palindrome when it equals its own reverse, `s[::-1]`.
 
 #### Tips
-- `str.isalnum()` checks for a letter or digit in one call.
+- `ch.isalnum()` checks for a letter or digit in one call, replacing the `isalpha() or isdigit()` pair.
+- `"".join(kept)` turns the list of surviving characters back into a string. Comparing a list with its reverse works too, but the string reads better.
+- Lowercase once, at the start. Lowercasing inside the comparison instead is easy to get half right.
 
 #### Docs
 - [Library reference: `str.isalpha`](https://docs.python.org/3/library/stdtypes.html#str.isalpha)
@@ -139,11 +157,19 @@ def test_converts():
     """converts snake_case"""
     assert to_camel("user_name") == "userName"
     assert to_camel("http_response_code") == "httpResponseCode"
+    assert to_camel("x_y_z") == "xYZ"
 
 def test_edge_cases():
     """handles stray underscores"""
     assert to_camel("__already") == "already"
     assert to_camel("a__b") == "aB"
+    assert to_camel("user_name_") == "userName"
+    assert to_camel("_private_value__") == "privateValue"
+
+def test_single_word():
+    """leaves a single word alone"""
+    assert to_camel("name") == "name"
+    assert to_camel("x") == "x"
 ```
 
 #### Uses
@@ -156,6 +182,8 @@ def test_edge_cases():
 
 #### Tips
 - `split("_")` with an explicit separator keeps empty pieces. Plain `split()` on whitespace drops them.
+- `[p for p in name.split("_") if p]` throws the empty pieces away in one line, which handles the leading, trailing and doubled underscores together.
+- `.title()` uppercases the first letter and lowercases the rest, so `"HTTP".title()` is `"Http"`. Use `p[0].upper() + p[1:]` when the rest of the word must survive.
 
 #### Docs
 - [Library reference: `str.split`](https://docs.python.org/3/library/stdtypes.html#str.split)
@@ -176,6 +204,17 @@ def test_format():
     lines = receipt_lines([("Coffee", 3.5), ("Bagel", 12)])
     assert lines == ["Coffee          3.50", "Bagel          12.00"]
     assert all(len(line) == 20 for line in lines)
+
+def test_every_pair_in_order():
+    """one line per pair, in order"""
+    lines = receipt_lines([("Tea", 2), ("Cake", 4.25), ("Juice", 0.1)])
+    assert lines == ["Tea             2.00", "Cake            4.25", "Juice           0.10"]
+    assert receipt_lines([]) == []
+
+def test_rounding_and_width():
+    """rounds to two decimals and fills the width"""
+    lines = receipt_lines([("Tea", 2.999), ("Sandwich", 1234.5), ("Hot chocolat", 4.25)])
+    assert lines == ["Tea             3.00", "Sandwich     1234.50", "Hot chocolat    4.25"]
 ```
 
 #### Uses
@@ -189,6 +228,8 @@ def test_format():
 
 #### Tips
 - The `f` in `.2f` also turns an int like `12` into `12.00`.
+- A width is a *minimum*, not a maximum. `f"{'Hot chocolat':<12}"` fills exactly 12, but a longer name would push the line past 20 rather than being cut.
+- `.2f` rounds rather than truncating, which is why `2.999` prints as `3.00`.
 
 #### Docs
 - [Library reference: Format specification mini-language](https://docs.python.org/3/library/string.html#format-specification-mini-language)

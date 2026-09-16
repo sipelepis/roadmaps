@@ -79,6 +79,27 @@ go get example.com/some/lib     add a dependency
 
 Each exercise gives you a file in `package main` without a `func main`. Tests call your functions directly and show what they expected next to what they got. Your job is to replace the `// TODO` stubs so every test passes. The code runs on the official Go Playground, so it is real Go.
 
+You can read the tests from the first exercise on, so it is worth knowing their five moving parts now. The Testing module covers the subject properly much later; nothing here has to be memorized.
+
+```go
+package main
+
+import "testing"
+
+// greets ada
+func TestGreetAda(t *testing.T) {
+	expect(t, Greet("Ada"), "Hello, Ada!")
+}
+```
+
+- `func TestXxx(t *testing.T)` is one test. Go finds them by that name and signature. `t` is the handle used to report failures.
+- The `//` comment above a test is the label you see next to its result on this page.
+- `expect(t, got, want)` is a small helper this site adds, not part of Go. It compares the two values and reports a failure when they differ. It compares *deeply*, so a whole slice, map or struct can be checked in one line.
+- `t.Errorf("...", args)` records a failure and keeps going; `t.Fatalf` records one and stops that test. Tests you see using them directly are checking something `expect` cannot phrase.
+- A panic fails only the test it happened in. The others still run.
+
+[Reference › How the tests here work](#/reference/how-the-tests-here-work) has the full details, including why a nil slice and an empty slice count as different.
+
 The runnable example below is a complete program. `fmt.Sprintf` works like `Println` but returns the string instead of printing it; `%s` is replaced by a string argument and `%d` by an integer.
 
 ```go playground
@@ -127,6 +148,7 @@ func TestGreeting(t *testing.T) {
 #### Uses
 - [What is Go? › Hello, world](#/intro/hello-world)
 - [What is Go? › How the exercises here work](#/intro/how-the-exercises-here-work)
+- [Reference › How the tests here work](#/reference/how-the-tests-here-work)
 
 #### Hints
 - A function with a `string` result hands its value back with `return`.
@@ -134,6 +156,7 @@ func TestGreeting(t *testing.T) {
 
 #### Tips
 - `Greeting` starts with a capital letter, so it is exported: code in other packages could call it too.
+- `expect` compares the two strings exactly. A trailing space or a missing `!` is a failure like any other, and the result panel shows both strings so you can spot the difference.
 
 #### Docs
 - [A Tour of Go: Packages](https://go.dev/tour/basics/1)
@@ -165,6 +188,12 @@ func TestGreetAda(t *testing.T) {
 func TestGreetGopher(t *testing.T) {
 	expect(t, Greet("Gopher"), "Hello, Gopher!")
 }
+
+// keeps the whole name, spaces and accents included
+func TestGreetFullName(t *testing.T) {
+	expect(t, Greet("Ada Lovelace"), "Hello, Ada Lovelace!")
+	expect(t, Greet("Zoë"), "Hello, Zoë!")
+}
 ```
 
 #### Uses
@@ -178,6 +207,7 @@ func TestGreetGopher(t *testing.T) {
 
 #### Tips
 - `Sprintf` returns the string. `Printf` prints it instead, which is not what a function returning a `string` wants.
+- Three tests run here, each with its own name. They all call the same function, so one wrong character fails all three at once.
 
 #### Docs
 - [fmt.Sprintf](https://pkg.go.dev/fmt#Sprintf)

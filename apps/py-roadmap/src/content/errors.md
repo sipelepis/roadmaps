@@ -112,12 +112,20 @@ def test_parses():
     """parses valid input"""
     assert safe_int("42") == 42
     assert safe_int("-7") == -7
+    assert safe_int(" 12 ") == 12
 
 def test_default():
     """falls back on bad input"""
     assert safe_int("abc") == 0
     assert safe_int("", default=-1) == -1
     assert safe_int(None, default=5) == 5
+    assert safe_int("3.5", default=-1) == -1
+    assert safe_int("12abc") == 0
+
+def test_default_only_on_failure():
+    """a valid 0 is returned, not the default"""
+    assert safe_int("0", default=99) == 0
+    assert safe_int("5", default=99) == 5
 ```
 
 #### Uses
@@ -130,6 +138,8 @@ def test_default():
 
 #### Tips
 - Don't widen it to `except Exception`. That would hide real bugs along with the bad input.
+- Keep only `int(text)` inside the `try`. Anything else you put there gets its errors swallowed by the same handler.
+- `except (ValueError, TypeError):` needs the brackets. Without them, `except ValueError, TypeError:` is a syntax error in modern Python.
 
 #### Docs
 - [Python tutorial: Handling exceptions](https://docs.python.org/3/tutorial/errors.html#handling-exceptions)
@@ -147,6 +157,12 @@ def withdraw(balance, amount):
 def test_withdraw():
     """returns the new balance"""
     assert withdraw(100, 30) == 70
+    assert withdraw(20, 0) == 20
+
+def test_whole_balance():
+    """withdrawing the whole balance is allowed"""
+    assert withdraw(50, 50) == 0
+    assert withdraw(7, 7) == 0
 
 def test_raises_custom():
     """raises InsufficientFunds, a ValueError"""
@@ -154,6 +170,15 @@ def test_raises_custom():
         withdraw(10, 30)
     except InsufficientFunds as e:
         assert isinstance(e, ValueError)
+        return
+    assert False, "expected InsufficientFunds"
+
+def test_message():
+    """the error carries a message"""
+    try:
+        withdraw(0, 1)
+    except InsufficientFunds as e:
+        assert str(e) != ""
         return
     assert False, "expected InsufficientFunds"
 ```
@@ -168,6 +193,8 @@ def test_raises_custom():
 
 #### Tips
 - Because it subclasses `ValueError`, callers that already catch `ValueError` keep working.
+- The message you pass to the exception becomes `str(e)`. Include the numbers — "cannot withdraw 30 from 10" tells you far more in a log than "insufficient funds".
+- An exception class with `pass` as its body still takes arguments, because it inherits `__init__` from `ValueError`. You only write an `__init__` when you want extra fields.
 
 #### Docs
 - [Python tutorial: User-defined exceptions](https://docs.python.org/3/tutorial/errors.html#user-defined-exceptions)
@@ -186,6 +213,18 @@ def parse_all(texts):
 def test_parse_all():
     """separates good and bad inputs"""
     assert parse_all(["1", "x", "3", ""]) == ([1, 3], ["x", ""])
+    assert parse_all(["x", "10", "y", "-2"]) == ([10, -2], ["x", "y"])
+
+def test_all_one_kind():
+    """all good, all bad, or nothing at all"""
+    assert parse_all(["4", "5"]) == ([4, 5], [])
+    assert parse_all(["a", "b"]) == ([], ["a", "b"])
+    assert parse_all([]) == ([], [])
+
+def test_int_rules():
+    """padded numbers parse, decimals are errors"""
+    assert parse_all([" 7 ", "4.5"]) == ([7], ["4.5"])
+    assert parse_all(["1e3", "08"]) == ([8], ["1e3"])
 ```
 
 #### Uses
@@ -200,6 +239,8 @@ def test_parse_all():
 
 #### Tips
 - `int(" 7 ")` is `7`: `int` ignores surrounding whitespace, so padded numbers aren't errors.
+- The `try` goes *inside* the loop. Wrapping the whole loop instead would stop at the first bad input, which is the behaviour this exercise exists to avoid.
+- Collect the failing *input*, not the exception. Callers can almost always do more with `"4.5"` than with a `ValueError` object.
 
 #### Docs
 - [Python tutorial: Handling exceptions](https://docs.python.org/3/tutorial/errors.html#handling-exceptions)
@@ -238,6 +279,39 @@ def test_retry_gives_up():
         assert len(calls) == 2
         return
     assert False, "expected ValueError"
+
+def test_first_try():
+    """calls fn only once when it works straight away"""
+    calls = []
+    def works():
+        calls.append(1)
+        return 42
+    assert retry(works, 3) == 42
+    assert len(calls) == 1
+
+def test_last_attempt():
+    """the last allowed attempt can still succeed"""
+    calls = []
+    def flaky():
+        calls.append(1)
+        if len(calls) < 3:
+            raise RuntimeError("flaky")
+        return "ok"
+    assert retry(flaky, 3) == "ok"
+    assert len(calls) == 3
+
+def test_raises_last_error():
+    """re-raises the last exception, not an earlier one"""
+    calls = []
+    def broken():
+        calls.append(1)
+        raise ValueError(f"attempt {len(calls)}")
+    try:
+        retry(broken, 3)
+    except ValueError as e:
+        assert str(e) == "attempt 3"
+        return
+    assert False, "expected ValueError"
 ```
 
 #### Uses
@@ -252,6 +326,8 @@ def test_retry_gives_up():
 
 #### Tips
 - The name in `except ... as e` is deleted when the block ends. To use the exception after the loop, copy it to another variable first.
+- A bare `raise` inside `except` keeps the original traceback. `raise e` re-raises the same error but restarts the traceback at this line, which makes the real origin harder to find.
+- `for attempt in range(times)` gives you the attempt number, so "is this the last one?" is `attempt == times - 1` rather than a separate counter.
 
 #### Docs
 - [Python tutorial: Handling exceptions](https://docs.python.org/3/tutorial/errors.html#handling-exceptions)

@@ -93,21 +93,34 @@ def clean(text):
 ```
 
 ```python test
-def test_extract_clean():
-    """ocr only when needed, then clean"""
+def test_extract():
+    """calls ocr only for blank pages, with their index"""
     calls = []
     def ocr(i):
         calls.append(i)
-        return "re-\nceipt  here"
-    assert extract(["a", None, "  "], ocr) == ["a", "re-\nceipt  here", "re-\nceipt  here"]
+        return f"scan {i}"
+    assert extract(["a", None, "  "], ocr) == ["a", "scan 1", "scan 2"]
+    assert extract(["  native text  ", "b"], ocr) == ["  native text  ", "b"]
     assert calls == [1, 2]
+
+def test_clean():
+    """normalizes unicode, joins broken words, collapses spaces"""
     assert clean("re-\nceipt  here ﬁne") == "receipt here fine"
+    assert clean("  a\t\tb  ") == "a b"
+    assert clean("① ﬂoor") == "1 floor"
+
+def test_clean_keeps():
+    """keeps line breaks and real hyphens"""
+    assert clean("para one\n\npara two") == "para one\n\npara two"
+    assert clean("well-known") == "well-known"
+    assert clean("x -\ny") == "x -\ny"
 ```
 
 #### Uses
 - [OCR: pages as pictures › When to run it](#/ocr/when-to-run-it)
 - [Cleaning extracted text › The usual suspects](#/cleaning/the-usual-suspects)
 - [Build the OCR → RAG pipeline › Order of operations](#/ocr-pipeline/order-of-operations)
+- [Documents to text › Pages come with their index](#/documents/pages-come-with-their-index)
 
 #### Hints
 - `extract` is the fallback from the OCR module: enumerate the pages and call `ocr(i)` only when `(p or "").strip()` is empty.
@@ -115,6 +128,8 @@ def test_extract_clean():
 
 #### Tips
 - Collapse `[ \t]+`, not `\s+`. `\s` matches newlines too, and would flatten the paragraph breaks chunkers rely on.
+- Normalize before dehyphenating. NFKC changes which characters exist, and `\w` has to see the normalised ones — a ligature or a full-width letter either side of the `-\n` would otherwise not match.
+- `extract` returns the native text untouched, spaces and all. Cleaning is `clean`'s job; two functions that each strip a little is how you end up unable to say which one broke something.
 
 #### Docs
 - [Python docs: `unicodedata.normalize`](https://docs.python.org/3/library/unicodedata.html#unicodedata.normalize)
@@ -173,6 +188,25 @@ def test_ingest():
     joined = " ".join(c["text"] for c in chunks)
     assert "receipt" in joined and "re-\n" not in joined
     assert "warranty" in joined
+
+def test_rows():
+    """each row is filename, ordinal, text, and embed of that text"""
+    chunks = ingest("a.txt", ["Short page.", None], lambda i: "Scanned  re-\nceipt text.")
+    text = "Short page.\nScanned receipt text."
+    assert chunks == [{"filename": "a.txt", "ordinal": 0, "text": text, "vector": embed(text)}]
+
+def test_join_then_clean():
+    """joins pages with a newline before cleaning, so a word split across pages is rejoined"""
+    chunks = ingest("contract.pdf", ["The agree-", "ment renews yearly."], lambda i: "")
+    assert [c["text"] for c in chunks] == ["The agreement renews yearly."]
+
+def test_size_and_overlap():
+    """passes size and overlap on to chunk_text"""
+    text = "one two three four five six seven eight nine ten"
+    for size, overlap in [(20, 5), (12, 0)]:
+        chunks = ingest("n.txt", [text], lambda i: "", size=size, overlap=overlap)
+        assert [c["text"] for c in chunks] == chunk_text(text, size, overlap)
+        assert all(c["vector"] == embed(c["text"]) for c in chunks)
 ```
 
 #### Uses
@@ -180,6 +214,7 @@ def test_ingest():
 - [Structure & metadata › Filename and ordinal](#/metadata/filename-and-ordinal)
 - [Chunking › The sliding window](#/chunking/the-sliding-window)
 - [Embeddings › A toy you can run offline](#/embeddings/a-toy-you-can-run-offline)
+- [Documents to text › Pages come with their index](#/documents/pages-come-with-their-index)
 
 #### Hints
 - Copy your `extract` and `clean` from exercise 1. The rest is plumbing.
@@ -188,13 +223,15 @@ def test_ingest():
 
 #### Tips
 - Clean before chunking. Chunk first and `re-` and `ceipt` can land in different chunks, where no regex will ever join them.
+- Join the pages *before* cleaning too. A word hyphenated across a page break only rejoins once the two pages are one string, which is what `test_join_then_clean` is checking.
+- Every seam in this function is a real bug somebody has shipped: OCR on every page, cleaning after chunking, sources numbered from zero. The order is the lesson; the code is four lines.
 
 #### Docs
 - [Python docs: `enumerate()`](https://docs.python.org/3/library/functions.html#enumerate)
 
 ### 3. Ask
 
-`ask(question, chunks, k=2)` embeds the question with the same `embed`, picks the `k` most similar chunks by cosine, and returns a dict with `sources` (those chunks, each with a `score` added, highest first) and `prompt` (numbered from 1, `[n] (filename) text`, joined by blank lines, then a blank line and `Question: …`).
+`ask(question, chunks, k=2)` embeds the question with the same `embed`, picks the `k` most similar chunks by cosine, and returns a dict with `sources` (those chunks, each with a `score` added, highest first) and `prompt` (numbered from 1, `[n] (filename) text`, joined by blank lines, then a blank line and `Question: …`). Leave the input chunks unchanged.
 
 ```python starter
 import math, re, zlib
@@ -227,12 +264,41 @@ def test_ask():
     assert out["prompt"].startswith("[1] (manual.pdf) two year warranty")
     assert out["prompt"].endswith("\n\nQuestion: how long is the warranty period")
     assert ask("receipt", chunks, k=1)["sources"][0]["ordinal"] == 1
+
+def test_prompt_format():
+    """numbers sources from 1 with their own filenames"""
+    texts = [("a.pdf", "warranty covers defects"), ("b.md", "refunds within ten days")]
+    chunks = [{"filename": f, "ordinal": 0, "text": t, "vector": embed(t)} for f, t in texts]
+    out = ask("refunds within ten days", chunks)
+    assert out["prompt"] == "[1] (b.md) refunds within ten days\n\n[2] (a.pdf) warranty covers defects\n\nQuestion: refunds within ten days"
+    out = ask("warranty covers defects", chunks, k=1)
+    assert out["prompt"] == "[1] (a.pdf) warranty covers defects\n\nQuestion: warranty covers defects"
+
+def test_scores():
+    """scores are cosine to the question, on copies of the chunks"""
+    texts = ["two year warranty period covering defects", "returns accepted within thirty days with receipt", "refunds to the original payment method"]
+    chunks = [{"filename": "manual.pdf", "ordinal": i, "text": t, "vector": embed(t)} for i, t in enumerate(texts)]
+    q = embed("refund of the payment")
+    out = ask("refund of the payment", chunks, k=3)
+    assert all(abs(s["score"] - cosine(q, s["vector"])) < 1e-9 for s in out["sources"])
+    scores = [s["score"] for s in out["sources"]]
+    assert scores == sorted(scores, reverse=True)
+    assert all("score" not in c for c in chunks)
+
+def test_k():
+    """k sets how many sources come back, 2 by default"""
+    texts = ["two year warranty period covering defects", "returns accepted within thirty days with receipt", "refunds to the original payment method"]
+    chunks = [{"filename": "manual.pdf", "ordinal": i, "text": t, "vector": embed(t)} for i, t in enumerate(texts)]
+    assert len(ask("warranty", chunks)["sources"]) == 2
+    assert len(ask("warranty", chunks, k=3)["sources"]) == 3
+    assert "[2]" not in ask("warranty", chunks, k=1)["prompt"]
 ```
 
 #### Uses
 - [Build the OCR → RAG pipeline › Order of operations](#/ocr-pipeline/order-of-operations)
 - [Retrieval › Choosing k](#/retrieval/choosing-k)
 - [Grounded prompts › The f-string that is "augmented generation"](#/prompting/the-f-string-that-is-augmented-generation)
+- [Reference › Lists, dicts and sets](#/reference/lists-dicts-and-sets)
 
 #### Hints
 - Embed the question once, then score each chunk with `cosine` against its `vector`, making a copy that carries the `score`.
@@ -241,6 +307,9 @@ def test_ask():
 
 #### Tips
 - Embed the question with the same function as the chunks. Any other function still returns results, just the wrong ones, with no error.
+- Embed it once, outside the loop. Re-embedding per chunk is the same answer and, with a real API, one HTTP request per chunk.
+- Build `sources` and `prompt` from the same sorted list. Two separate sorts is how `[2]` in the prompt stops being the second source in the panel, and nobody notices until a citation is checked.
+- Return scored copies. The chunks here stand in for rows in a store, and a `score` written onto them is last query's answer attached to the corpus.
 
 #### Docs
 - [Python docs: `sorted()`](https://docs.python.org/3/library/functions.html#sorted)

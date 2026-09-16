@@ -40,6 +40,29 @@ const [user, posts] = await Promise.all([loadUser(1), loadPosts(1)])
 
 `Promise.allSettled` gives `PromiseSettledResult<T>[]`, a discriminated union on `status` you narrow like any other.
 
+## Making and racing promises
+
+Four statics cover almost everything you need beyond `await`:
+
+```ts
+Promise.resolve(7)                      // Promise<number>, already fulfilled
+Promise.reject(new Error('boom'))       // Promise<never>, already rejected
+await Promise.all([a, b])               // waits for both, rejects as soon as either does
+await Promise.race([a, b])              // settles like whichever settles first
+```
+
+`Promise.resolve` and `Promise.reject` are mostly for tests and for early returns from an `async` function's callers. `Promise.reject` is typed `Promise<never>`, the honest type for something that never produces a value.
+
+`Promise.race` is how you add a deadline to work you don't control: race the real promise against one that rejects on a timer. The loser is not cancelled, it just stops mattering.
+
+The `new Promise` constructor takes both handles:
+
+```ts
+const failed = new Promise<never>((resolve, reject) => reject(new Error('no')))
+```
+
+`resolve` fulfils the promise, `reject` fails it. You only need the constructor to wrap something callback-based, like `setTimeout`; anywhere else, an `async` function is shorter.
+
 ## `Awaited<T>`
 
 `Awaited<T>` recursively unwraps promises. Use it to get the resolved type of a function you don't control:
@@ -120,9 +143,16 @@ async function loadNames(ids: number[]) {
 ```ts test
 test('loads every name in order', async () => {
   expect(await loadNames([3, 1, 2])).toEqual(['user3', 'user1', 'user2'])
+  expect(await loadNames([7, 7])).toEqual(['user7', 'user7'])
 })
 test('empty input', async () => {
   expect(await loadNames([])).toEqual([])
+})
+test('fetches concurrently', async () => {
+  const ids = Array.from({ length: 20 }, (_, i) => i)
+  const start = Date.now()
+  await loadNames(ids)
+  expect(Date.now() - start < 90).toBe(true)   // one at a time takes at least 20 × 5 ms
 })
 
 type _1 = Expect<Equal<ReturnType<typeof loadNames>, Promise<string[]>>>
@@ -131,6 +161,9 @@ type _1 = Expect<Equal<ReturnType<typeof loadNames>, Promise<string[]>>>
 #### Uses
 - [Async and Promises › `Promise<T>`](#/async-types/promiset)
 - [Async and Promises › `Promise.all` and tuples](#/async-types/promise-all-and-tuples)
+- [Async and Promises › Making and racing promises](#/async-types/making-and-racing-promises)
+- [Reference › Dates and timers](#/reference/dates-and-timers)
+- [Reference › Array methods](#/reference/array-methods)
 
 #### Hints
 - Turn the ids into an array of promises first, one `fetchName` call per id. `map` does that without waiting on any of them.
@@ -139,6 +172,9 @@ type _1 = Expect<Equal<ReturnType<typeof loadNames>, Promise<string[]>>>
 
 #### Tips
 - `for (const id of ids) names.push(await fetchName(id))` gives the same answer but waits for each call before starting the next. `Promise.all` starts them all at once.
+- The third test measures the difference with `Date.now()` before and after. Twenty sequential 5 ms calls take at least 100 ms; run concurrently they finish in roughly 5.
+- `Promise.all` preserves order. The results come back in the order of the input array, not the order they finished, which is why `loadNames([3, 1, 2])` gives `['user3', 'user1', 'user2']`.
+- It is also all-or-nothing: one rejection rejects the whole thing. When you want the successes anyway, that is `Promise.allSettled`.
 
 #### Docs
 - [MDN: `Promise.all()`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/all)
@@ -161,6 +197,12 @@ test('resolves once fn succeeds', async () => {
   expect(await retry(flaky, 5)).toBe('ok')
   expect(calls).toBe(3)
 })
+test('succeeds on the last allowed attempt', async () => {
+  let calls = 0
+  const flaky = async () => { calls++; if (calls < 3) throw new Error('flaky'); return 42 }
+  expect(await retry(flaky, 3)).toBe(42)
+  expect(calls).toBe(3)
+})
 test('gives up after `times` attempts', async () => {
   let calls = 0
   const broken = async () => { calls++; throw new Error('nope') }
@@ -168,6 +210,14 @@ test('gives up after `times` attempts', async () => {
   try { await retry(broken, 2) } catch (e) { caught = e }
   expect(caught instanceof Error && caught.message).toBe('nope')
   expect(calls).toBe(2)
+})
+test('rethrows the last error, not the first', async () => {
+  let calls = 0
+  const broken = async () => { calls++; throw new Error(`attempt ${calls}`) }
+  let caught: unknown
+  try { await retry(broken, 4) } catch (e) { caught = e }
+  expect(caught instanceof Error && caught.message).toBe('attempt 4')
+  expect(calls).toBe(4)
 })
 
 type _1 = Expect<Equal<ReturnType<typeof retry<number>>, Promise<number>>>
@@ -186,6 +236,8 @@ type _1 = Expect<Equal<ReturnType<typeof retry<number>>, Promise<number>>>
 
 #### Tips
 - Write `return await fn()`, not `return fn()`. Without `await`, the promise leaves the `try` before it rejects, so the `catch` never sees the error.
+- Declare the error variable as `unknown` outside the loop and `throw` it at the end. Rethrowing what you caught keeps the original stack; `throw new Error('failed')` would lose it.
+- `times` is a count of attempts, not of retries. The tests expect exactly `times` calls, so loop `times` times, not `times + 1`.
 
 #### Docs
 - [Generics: Hello World of Generics](https://www.typescriptlang.org/docs/handbook/2/generics.html#hello-world-of-generics)
@@ -208,6 +260,15 @@ test('handles the common thrown values', () => {
   expect(errorMessage(42)).toBe('Unknown error')
   expect(errorMessage(undefined)).toBe('Unknown error')
 })
+test('only real errors and strings count', () => {
+  expect(errorMessage({ message: 'fake' })).toBe('Unknown error')
+  expect(errorMessage(null)).toBe('Unknown error')
+  expect(errorMessage(['oops'])).toBe('Unknown error')
+})
+test('empty messages are kept as is', () => {
+  expect(errorMessage('')).toBe('')
+  expect(errorMessage(new Error(''))).toBe('')
+})
 test('works in a catch block', async () => {
   let msg = ''
   try { await Promise.reject(new Error('rejected')) } catch (e) { msg = errorMessage(e) }
@@ -217,6 +278,7 @@ test('works in a catch block', async () => {
 
 #### Uses
 - [Async and Promises › Errors are `unknown`](#/async-types/errors-are-unknown)
+- [Async and Promises › Making and racing promises](#/async-types/making-and-racing-promises)
 - [Basic types › `unknown` – the safe `any`](#/basic-types/unknown-the-safe-any)
 
 #### Hints
@@ -226,6 +288,8 @@ test('works in a catch block', async () => {
 
 #### Tips
 - `instanceof Error` also matches subclasses such as `TypeError` and `SyntaxError`, which is why the first test passes.
+- Order the checks so the empty-string cases survive. `e.message || 'Unknown error'` would turn `new Error('')` into `'Unknown error'`, and the test wants `''`.
+- Don't be tempted by a duck-typed check such as `'message' in e`. The test deliberately passes `{ message: 'fake' }` and expects `'Unknown error'`: anything can be thrown, and only a real `Error` counts here.
 
 #### Docs
 - [Narrowing: `instanceof` narrowing](https://www.typescriptlang.org/docs/handbook/2/narrowing.html#instanceof-narrowing)
@@ -233,9 +297,9 @@ test('works in a catch block', async () => {
 
 ### 4. Timeout wrapper
 
-Implement `withTimeout`, which resolves with the promise's value or rejects with an `Error('timeout')` after `ms` milliseconds, whichever comes first. It must keep the resolved type of the input promise.
+Implement `withTimeout`, which resolves with the promise's value or rejects with an `Error('timeout')` after `ms` milliseconds, whichever comes first. If `promise` rejects first, the result rejects with the same error. It must keep the resolved type of the input promise.
 
-Two tools you haven't met yet. `Promise.race([a, b])` returns a promise that settles the same way as whichever of `a` and `b` settles first. And the function you pass to `new Promise` receives a second argument, `reject`, which fails the promise:
+Two tools from the Making and racing promises section above. `Promise.race([a, b])` returns a promise that settles the same way as whichever of `a` and `b` settles first. And the function you pass to `new Promise` receives a second argument, `reject`, which fails the promise:
 
 ```ts
 const failed = new Promise<never>((resolve, reject) => reject(new Error('no')))
@@ -254,11 +318,22 @@ const delay = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
 
 test('passes through a fast promise', async () => {
   expect(await withTimeout(Promise.resolve(7), 50)).toBe(7)
+  expect(await withTimeout(delay(10).then(() => 'on time'), 100)).toBe('on time')
+})
+test('does not wait for the timer when the promise wins', async () => {
+  const start = Date.now()
+  expect(await withTimeout(Promise.resolve('now'), 500)).toBe('now')
+  expect(Date.now() - start < 250).toBe(true)
 })
 test('rejects a slow one', async () => {
   let caught = ''
   try { await withTimeout(delay(60).then(() => 'late'), 10) } catch (e) { caught = (e as Error).message }
   expect(caught).toBe('timeout')
+})
+test('passes on an early rejection', async () => {
+  let caught = ''
+  try { await withTimeout(Promise.reject(new Error('boom')), 50) } catch (e) { caught = (e as Error).message }
+  expect(caught).toBe('boom')
 })
 
 type _1 = Expect<Equal<ReturnType<typeof withTimeout<string>>, Promise<string>>>
@@ -266,7 +341,9 @@ type _1 = Expect<Equal<ReturnType<typeof withTimeout<string>>, Promise<string>>>
 
 #### Uses
 - [Async and Promises › Typing `setTimeout`](#/async-types/typing-settimeout)
+- [Async and Promises › Making and racing promises](#/async-types/making-and-racing-promises)
 - [Async and Promises › `Promise<T>`](#/async-types/promiset)
+- [Reference › Promises](#/reference/promises)
 - [Generics › Generic functions](#/generics/generic-functions)
 - [Basic types › `void` and `never`](#/basic-types/void-and-never)
 
@@ -277,6 +354,9 @@ type _1 = Expect<Equal<ReturnType<typeof withTimeout<string>>, Promise<string>>>
 
 #### Tips
 - The timer keeps running after the input wins. Harmless here; in long-lived code, keep the id from `setTimeout` and `clearTimeout` it once the race settles.
+- `Promise.race` passes a rejection through just as happily as a fulfilment, so the "passes on an early rejection" test needs no extra code from you.
+- `Promise<T> | Promise<never>` collapses to `Promise<T>`, because `never` adds nothing to a union. That is why the timeout branch doesn't pollute the return type.
+- Nothing cancels the loser. `withTimeout` gives up waiting; it does not stop the work, which is a real distinction once that work is a network request.
 
 #### Docs
 - [MDN: `Promise.race()`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/race)

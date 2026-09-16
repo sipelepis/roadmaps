@@ -208,12 +208,16 @@ func TestMoneyString(t *testing.T) {
 	expect(t, Money(1234).String(), "$12.34")
 	expect(t, Money(5).String(), "$0.05")
 	expect(t, Money(100000).String(), "$1000.00")
+	expect(t, Money(0).String(), "$0.00")
+	expect(t, Money(7).String(), "$0.07")
 }
 
 // handles negative amounts
 func TestMoneyNegative(t *testing.T) {
 	expect(t, Money(-50).String(), "-$0.50")
 	expect(t, Money(-1999).String(), "-$19.99")
+	expect(t, Money(-5).String(), "-$0.05")
+	expect(t, Money(-300).String(), "-$3.00")
 }
 
 // fmt uses String automatically
@@ -236,6 +240,7 @@ func TestMoneyFmt(t *testing.T) {
 
 #### Tips
 - Don't format `m` with `%v` or `%s` inside `String`: fmt would call `String` again, forever. `%d` prints the plain number, or convert first with `int64(m)`.
+- `Money(-50) / 100` is `0`, not `-1`: integer division truncates toward zero. That is exactly why the minus sign has to be taken off before the arithmetic.
 
 #### Docs
 - [fmt.Stringer](https://pkg.go.dev/fmt#Stringer)
@@ -295,6 +300,22 @@ func TestCountingWriterError(t *testing.T) {
 	}
 	expect(t, cw.N, 2)
 }
+
+// returns each write's count, keeps adding to N, and wraps another CountingWriter
+func TestCountingWriterStacked(t *testing.T) {
+	var sb strings.Builder
+	inner := &CountingWriter{W: &sb}
+	outer := &CountingWriter{W: inner, N: 100}
+	n, err := outer.Write([]byte("abc"))
+	expect(t, n, 3)
+	expect(t, err, nil)
+	n, _ = outer.Write([]byte(""))
+	expect(t, n, 0)
+	io.WriteString(outer, "defg")
+	expect(t, sb.String(), "abcdefg")
+	expect(t, inner.N, 7)
+	expect(t, outer.N, 107)
+}
 ```
 
 #### Uses
@@ -302,6 +323,8 @@ func TestCountingWriterError(t *testing.T) {
 - [Interfaces › Method sets: value vs pointer receivers](#/interfaces/method-sets-value-vs-pointer-receivers)
 - [Structs & methods › Value receivers and pointer receivers](#/structs/value-receivers-and-pointer-receivers)
 - [Functions › Multiple return values](#/functions/multiple-return-values)
+- [Reference › fmt and io](#/reference/fmt-and-io)
+- [Reference › How the tests here work](#/reference/how-the-tests-here-work)
 
 #### Hints
 - `c.W` is itself an `io.Writer`, so `c.W.Write(p)` does the forwarding and hands you `n` and `err`.
@@ -309,6 +332,7 @@ func TestCountingWriterError(t *testing.T) {
 
 #### Tips
 - The pointer receiver matters. With `(c CountingWriter)`, `c.N += n` would update a copy and the caller's count would stay at 0.
+- The test reaches your `Write` through `fmt.Fprintf` and `io.WriteString`, which only know `io.Writer`. Nothing declares that `*CountingWriter` implements it; having the method is the whole of it.
 
 #### Docs
 - [io.Writer](https://pkg.go.dev/io#Writer)
@@ -358,13 +382,17 @@ func (bothForTest) String() string { return "as stringer" }
 func TestDescribeBasics(t *testing.T) {
 	expect(t, Describe(nil), "nil")
 	expect(t, Describe(42), "int 42")
+	expect(t, Describe(-7), "int -7")
 	expect(t, Describe("hi"), `string "hi"`)
+	expect(t, Describe(`say "go"`), `string "say \"go\""`)
 	expect(t, Describe([]int{1, 2, 3}), "3 ints")
+	expect(t, Describe([]int{}), "0 ints")
 }
 
 // interfaces, error before Stringer
 func TestDescribeInterfaces(t *testing.T) {
 	expect(t, Describe(errors.New("boom")), "error: boom")
+	expect(t, Describe(errors.New("disk full")), "error: disk full")
 	expect(t, Describe(pointForTest{1, 2}), "stringer: point")
 	expect(t, Describe(bothForTest{}), "error: as error")
 }
@@ -374,6 +402,8 @@ func TestDescribeDefault(t *testing.T) {
 	expect(t, Describe(true), "bool")
 	expect(t, Describe(3.5), "float64")
 	expect(t, Describe(map[string]int{}), "map[string]int")
+	expect(t, Describe(int64(5)), "int64")
+	expect(t, Describe([]string{"a"}), "[]string")
 }
 ```
 
@@ -381,6 +411,7 @@ func TestDescribeDefault(t *testing.T) {
 - [Interfaces › Type assertions and type switches](#/interfaces/type-assertions-and-type-switches)
 - [Interfaces › Keep interfaces small](#/interfaces/keep-interfaces-small)
 - [Variables & types › Printing with fmt](#/basics/printing-with-fmt)
+- [Reference › errors](#/reference/errors)
 
 #### Hints
 - In `switch x := v.(type)`, `x` already has each case's type, so `x.Error()`, `x.String()` and `len(x)` all work in their own cases.
@@ -389,6 +420,7 @@ func TestDescribeDefault(t *testing.T) {
 
 #### Tips
 - `case nil` matches only an interface with nothing in it, like `Describe(nil)`. A nil pointer stored in `any` still goes to its type's case.
+- A case that lists several types leaves `x` as `any`, because there is no single type it could have. Only a one-type case gives you the concrete value.
 
 #### Docs
 - [Go spec: Type switches](https://go.dev/ref/spec#Type_switches)
@@ -425,8 +457,10 @@ import (
 
 // valid input returns a nil error
 func TestCheckValid(t *testing.T) {
-	if err := Check(5); err != nil {
-		t.Fatalf("Check(5) = %#v, want a nil error", err)
+	for _, n := range []int{5, 1, 9} {
+		if err := Check(n); err != nil {
+			t.Fatalf("Check(%d) = %#v, want a nil error", n, err)
+		}
 	}
 }
 
@@ -439,12 +473,29 @@ func TestCheckInvalid(t *testing.T) {
 	}
 	expect(t, re.N, 11)
 	expect(t, err.Error(), "11 is out of range")
+	err = Check(-3)
+	if !errors.As(err, &re) {
+		t.Fatalf("want a *RangeError, got %v", err)
+	}
+	expect(t, re.N, -3)
+	expect(t, err.Error(), "-3 is out of range")
+}
+
+// 0 and 10 are in range, -1 and 11 are not
+func TestCheckBounds(t *testing.T) {
+	expect(t, Check(0), nil)
+	expect(t, Check(10), nil)
+	if Check(-1) == nil || Check(11) == nil {
+		t.Fatal("want errors for -1 and 11")
+	}
 }
 ```
 
 #### Uses
 - [Interfaces › The nil interface gotcha](#/interfaces/the-nil-interface-gotcha)
 - [Structs & methods › Declaring and building structs](#/structs/declaring-and-building-structs)
+- [Reference › errors](#/reference/errors)
+- [Reference › How the tests here work](#/reference/how-the-tests-here-work)
 
 #### Hints
 - `err` is a `*RangeError` variable. Returning it as an `error` puts the nil pointer inside a non-nil interface.
@@ -452,6 +503,7 @@ func TestCheckInvalid(t *testing.T) {
 
 #### Tips
 - The same bug hides in helpers whose result type is a concrete pointer like `*RangeError`. Declare error results as `error`.
+- The buggy value prints as `<nil>` but is not equal to `nil`, which is what makes it so hard to spot. `%#v` in the failure message shows the type that is hiding inside.
 
 #### Docs
 - [Go FAQ: Why is my nil error value not equal to nil?](https://go.dev/doc/faq#nil_error)

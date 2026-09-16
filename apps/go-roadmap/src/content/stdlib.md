@@ -11,6 +11,7 @@ before, after, ok := strings.Cut("k=v", "=") // "k" "v" true
 strings.TrimSpace("  hi\n")                // "hi"
 strings.TrimPrefix("v1.2", "v")            // "1.2"
 strings.HasPrefix("# note", "#")           // true; HasSuffix checks the end
+strings.ToLower("Go GO")                   // "go go"; ToUpper goes the other way
 strings.EqualFold("Go", "GO")              // true: case-insensitive compare
 strings.ReplaceAll("a-b-c", "-", "+")      // "a+b+c"
 strings.Repeat("ab", 3)                    // "ababab"
@@ -82,6 +83,21 @@ t.Before(later)                     // true; compare with Equal, not ==
 ```
 
 The numbers are fixed: `01` is the month, `02` the day, `15` the 24-hour hour, `2006` the year. `time.Duration` is an `int64` of nanoseconds that prints nicely.
+
+The clock and the stopwatch are three more calls. You write a duration by multiplying a constant, never as a bare number of nanoseconds:
+
+```go
+start := time.Now()             // the current time
+time.Sleep(50 * time.Millisecond) // pause this goroutine; others keep running
+time.Since(start)                 // 50ms or a little more: short for time.Now().Sub(start)
+
+2 * time.Second                 // also Nanosecond, Microsecond, Millisecond, Minute, Hour
+time.Duration(n) * time.Second  // when n is a variable: convert, then multiply
+(90 * time.Minute).String()     // "1h30m0s"
+(1500 * time.Millisecond).Seconds() // 1.5
+```
+
+`time.Sleep` is fine in tests and demos. In real code, waiting on a channel or a context beats sleeping a guessed amount of time.
 
 ## `encoding/json`
 
@@ -214,6 +230,8 @@ func TestParseKV(t *testing.T) {
 	expect(t, err, nil)
 	m, _ = ParseKV("x=-7")
 	expect(t, m, map[string]int{"x": -7})
+	m, _ = ParseKV("  total =  42 ,n=0")
+	expect(t, m, map[string]int{"total": 42, "n": 0})
 }
 
 // empty input is an empty map
@@ -232,11 +250,21 @@ func TestParseKVErrors(t *testing.T) {
 		t.Fatal("want an error for a pair without =")
 	}
 	expect(t, err.Error(), `pair "x": missing =`)
+	_, err = ParseKV(" key only , a=1")
+	if err == nil {
+		t.Fatal("want an error for a pair without =")
+	}
+	expect(t, err.Error(), `pair "key only": missing =`)
 	_, err = ParseKV("a=1,b=two")
 	if !errors.Is(err, strconv.ErrSyntax) {
 		t.Fatalf("want an error wrapping strconv.ErrSyntax, got %v", err)
 	}
 	expect(t, err.Error(), `pair "b=two": strconv.Atoi: parsing "two": invalid syntax`)
+	_, err = ParseKV("c=3.5")
+	if !errors.Is(err, strconv.ErrSyntax) {
+		t.Fatalf("want an error wrapping strconv.ErrSyntax, got %v", err)
+	}
+	expect(t, err.Error(), `pair "c=3.5": strconv.Atoi: parsing "3.5": invalid syntax`)
 }
 ```
 
@@ -245,6 +273,7 @@ func TestParseKVErrors(t *testing.T) {
 - [Standard library tour › `strconv`](#/stdlib/strconv)
 - [Maps › Creating and using maps](#/maps/creating-and-using-maps)
 - [Errors › Wrapping with `%w`](#/errors/wrapping-with-w)
+- [Reference › How the tests here work](#/reference/how-the-tests-here-work)
 
 #### Hints
 - Handle the empty case first: if `strings.TrimSpace(s)` is `""`, return an empty map, not `nil`.
@@ -253,6 +282,7 @@ func TestParseKVErrors(t *testing.T) {
 
 #### Tips
 - Put the trimmed pair in error messages, so they read `pair "x"` without stray spaces.
+- An empty result must be a real empty map, not `nil`: the test rejects `nil` on purpose. `map[string]int{}` or `make(...)`, never `var m map[string]int`.
 
 #### Docs
 - [strings.Split](https://pkg.go.dev/strings#Split)
@@ -297,6 +327,8 @@ func TestShiftDate(t *testing.T) {
 		{"2023-12-31", 1, "Mon, Jan 1 2024"},
 		{"2024-03-01", -1, "Thu, Feb 29 2024"},
 		{"2026-01-15", 30, "Sat, Feb 14 2026"},
+		{"2024-07-04", 0, "Thu, Jul 4 2024"},
+		{"2024-01-01", -365, "Sun, Jan 1 2023"},
 	}
 	for _, tt := range tests {
 		got, err := ShiftDate(tt.date, tt.days)
@@ -322,8 +354,13 @@ func TestBetween(t *testing.T) {
 	expect(t, err, nil)
 	d, _ = Between("2026-01-01T12:00:00+02:00", "2026-01-01T12:00:00Z")
 	expect(t, d, 2*time.Hour)
+	d, _ = Between("2026-03-01T00:00:10Z", "2026-02-28T23:59:55Z")
+	expect(t, d, -15*time.Second) // b before a
 	if _, err := Between("noon", "2026-01-01T12:00:00Z"); err == nil {
-		t.Error("want an error for a bad timestamp")
+		t.Error("want an error for a bad first timestamp")
+	}
+	if _, err := Between("2026-01-01T12:00:00Z", "tomorrow"); err == nil {
+		t.Error("want an error for a bad second timestamp")
 	}
 }
 ```
@@ -339,6 +376,8 @@ func TestBetween(t *testing.T) {
 
 #### Tips
 - `time.Parse` rejects impossible dates such as `2024-02-30`, so validation comes for free.
+- `b.Sub(a)` is `b` minus `a`, so a `b` that comes first gives a negative duration. That is the third case in the test, not an error to guard against.
+- `AddDate(0, 0, days)` is calendar arithmetic. Adding `days * 24 * time.Hour` instead would drift across a daylight-saving change.
 
 #### Docs
 - [time.Time.Format](https://pkg.go.dev/time#Time.Format)
@@ -379,6 +418,8 @@ func TestItemJSON(t *testing.T) {
 	expect(t, string(data), `{"name":"pen","price":1.5}`)
 	data, _ = json.Marshal(Item{Name: "tape", Price: 2, Tags: []string{"office"}})
 	expect(t, string(data), `{"name":"tape","price":2,"tags":["office"]}`)
+	data, _ = json.Marshal(Item{Name: "gift", Tags: []string{}})
+	expect(t, string(data), `{"name":"gift","price":0}`) // only tags is left out
 }
 
 // decodes and sums prices
@@ -388,6 +429,8 @@ func TestTotal(t *testing.T) {
 	expect(t, err, nil)
 	sum, _ = Total([]byte(`[]`))
 	expect(t, sum, 0.0)
+	sum, _ = Total([]byte(`[{"name":"x","price":0.25},{"name":"y","price":0.5},{"name":"z","price":10}]`))
+	expect(t, sum, 10.75)
 }
 
 // returns decoding errors
@@ -413,6 +456,7 @@ func TestTotalInvalid(t *testing.T) {
 
 #### Tips
 - `encoding/json` only sees exported (capitalized) fields. The tag changes the JSON key, never whether the field is visible.
+- Only `Tags` gets `omitempty`. On `Price` it would make a price of `0` disappear from the output, which the third case of the first test would catch.
 
 #### Docs
 - [encoding/json.Marshal](https://pkg.go.dev/encoding/json#Marshal)
@@ -455,6 +499,13 @@ WARN retry`
 func TestLevelCounts(t *testing.T) {
 	expect(t, LevelCounts(sampleLogForTest), map[string]int{"INFO": 3, "WARN": 2, "ERROR": 1})
 	expect(t, len(LevelCounts("")), 0)
+	expect(t, len(LevelCounts("# only a comment\n\n")), 0)
+}
+
+// the first word counts even when indented or alone on its line
+func TestLevelCountsWords(t *testing.T) {
+	log := "  DEBUG indented\nDEBUG\n#INFO not counted\r\nFATAL bye\r\n"
+	expect(t, LevelCounts(log), map[string]int{"DEBUG": 2, "FATAL": 1})
 }
 
 // formats a sorted, aligned report
@@ -462,6 +513,9 @@ func TestReport(t *testing.T) {
 	got := Report(map[string]int{"WARN": 2, "INFO": 13, "ERROR": 1})
 	expect(t, got, "ERROR   1\nINFO   13\nWARN    2\n")
 	expect(t, Report(nil), "")
+	expect(t, Report(map[string]int{"DEBUG": 100}), "DEBUG 100\n")
+	got = Report(map[string]int{"e": 5, "b": 2, "d": 4, "a": 1, "f": 6, "c": 3})
+	expect(t, got, "a       1\nb       2\nc       3\nd       4\ne       5\nf       6\n")
 }
 ```
 
@@ -478,6 +532,8 @@ func TestReport(t *testing.T) {
 
 #### Tips
 - `sc.Text()` has no line ending, and the default line splitter also drops a `\r`, so Windows-style logs work too.
+- `strings.Fields` returns no words for a blank line *and* for an all-spaces line, so one `len(words) == 0` check covers both.
+- `Report` sorts the keys because map order is random. Without the sort it would pass locally and fail on the next run.
 
 #### Docs
 - [bufio.Scanner](https://pkg.go.dev/bufio#Scanner)

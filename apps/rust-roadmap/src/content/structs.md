@@ -232,6 +232,8 @@ impl Rect {
 #[test]
 fn area() {
     assert_eq!(Rect { width: 3, height: 4 }.area(), 12);
+    assert_eq!(Rect { width: 7, height: 6 }.area(), 42);
+    assert_eq!(Rect { width: 0, height: 5 }.area(), 0);
 }
 
 /// detects squares
@@ -239,6 +241,17 @@ fn area() {
 fn square() {
     assert_eq!(Rect { width: 5, height: 5 }.is_square(), true);
     assert_eq!(Rect { width: 5, height: 6 }.is_square(), false);
+    assert_eq!(Rect { width: 1, height: 1 }.is_square(), true);
+    assert_eq!(Rect { width: 6, height: 5 }.is_square(), false);
+}
+
+/// no rotating, and small can't hold big
+#[test]
+fn no_rotating() {
+    let wide = Rect { width: 10, height: 5 };
+    assert_eq!(wide.can_hold(&Rect { width: 4, height: 8 }), false);
+    assert_eq!(wide.can_hold(&Rect { width: 8, height: 4 }), true);
+    assert_eq!(Rect { width: 2, height: 2 }.can_hold(&wide), false);
 }
 
 /// can_hold needs room in both directions
@@ -248,6 +261,9 @@ fn holds() {
     assert_eq!(big.can_hold(&Rect { width: 2, height: 2 }), true);
     assert_eq!(big.can_hold(&Rect { width: 2, height: 9 }), false);
     assert_eq!(big.can_hold(&Rect { width: 10, height: 1 }), false);
+    assert_eq!(big.can_hold(&Rect { width: 9, height: 7 }), true);
+    assert_eq!(big.can_hold(&Rect { width: 9, height: 8 }), false);
+    assert_eq!(big.can_hold(&Rect { width: 10, height: 8 }), false);
 }
 ```
 
@@ -261,6 +277,8 @@ fn holds() {
 
 #### Tips
 - "Strictly inside" means `>`, not `>=`. The last test has a rectangle of exactly the same width.
+- All three take `&self`, so they only read. The tests call several methods on the same rectangle, which would not compile if any of them consumed it.
+- `other: &Rect` and `&self` are the same kind of thing. Inside the method, `other.width` reads through the reference without any `*`, because the dot operator dereferences for you.
 
 #### Docs
 - [Book: Method syntax](https://doc.rust-lang.org/book/ch05-03-method-syntax.html)
@@ -302,6 +320,9 @@ fn new_account() {
     let acct = Account::new("Ada");
     assert_eq!(acct.owner, "Ada");
     assert_eq!(acct.balance(), 0);
+    let acct = Account::new("Grace");
+    assert_eq!(acct.owner, "Grace");
+    assert_eq!(acct.balance(), 0);
 }
 
 /// deposits add up
@@ -311,6 +332,10 @@ fn deposits() {
     acct.deposit(500);
     acct.deposit(250);
     assert_eq!(acct.balance(), 750);
+    acct.deposit(0);
+    assert_eq!(acct.balance(), 750);
+    acct.deposit(1);
+    assert_eq!(acct.balance(), 751);
 }
 
 /// withdrawals check the balance
@@ -321,6 +346,20 @@ fn withdrawals() {
     assert_eq!(acct.withdraw(30), true);
     assert_eq!(acct.withdraw(100), false);
     assert_eq!(acct.balance(), 70);
+    assert_eq!(acct.withdraw(20), true);
+    assert_eq!(acct.balance(), 50);
+}
+
+/// can withdraw exactly the balance, not a cent more
+#[test]
+fn exact_balance() {
+    let mut acct = Account::new("Ada");
+    assert_eq!(acct.withdraw(1), false);
+    assert_eq!(acct.balance(), 0);
+    acct.deposit(100);
+    assert_eq!(acct.withdraw(101), false);
+    assert_eq!(acct.withdraw(100), true);
+    assert_eq!(acct.balance(), 0);
 }
 ```
 
@@ -328,6 +367,7 @@ fn withdrawals() {
 - [Structs & methods › Methods](#/structs/methods)
 - [Structs & methods › Defining and creating](#/structs/defining-and-creating)
 - [Functions › Implicit return](#/functions/implicit-return)
+- [Reference › Strings and &str](#/reference/strings-and-str)
 
 #### Hints
 - `new` builds the struct with `Self { ... }`: the owner as a `String`, and a balance of 0.
@@ -336,6 +376,8 @@ fn withdrawals() {
 
 #### Tips
 - Check before you subtract. A `u64` can't go below zero, so taking out too much would panic instead of returning `false`.
+- `balance` is private and `balance()` is the only way to read it. That's what keeps "the balance is never negative" true everywhere, rather than in the places somebody remembered to check.
+- `new` takes `&str` and stores a `String`. Borrow what you read, own what you keep: a struct holding a `&str` would need a lifetime and couldn't outlive whatever it borrowed from.
 
 #### Docs
 - [Book: Associated functions](https://doc.rust-lang.org/book/ch05-03-method-syntax.html#associated-functions)
@@ -368,6 +410,8 @@ impl Fahrenheit {
 fn c_to_f() {
     assert_eq!(Celsius(100.0).to_fahrenheit().0, 212.0);
     assert_eq!(Celsius(-40.0).to_fahrenheit().0, -40.0);
+    assert_eq!(Celsius(0.0).to_fahrenheit().0, 32.0);
+    assert_eq!(Celsius(25.0).to_fahrenheit().0, 77.0);
 }
 
 /// Fahrenheit to Celsius
@@ -375,6 +419,16 @@ fn c_to_f() {
 fn f_to_c() {
     assert_eq!(Fahrenheit(32.0).to_celsius().0, 0.0);
     assert_eq!(Fahrenheit(212.0).to_celsius().0, 100.0);
+    assert_eq!(Fahrenheit(-40.0).to_celsius().0, -40.0);
+    assert_eq!(Fahrenheit(14.0).to_celsius().0, -10.0);
+}
+
+/// converting there and back gives the start
+#[test]
+fn round_trip() {
+    assert_eq!(Celsius(37.5).to_fahrenheit().0, 99.5);
+    assert_eq!(Celsius(37.5).to_fahrenheit().to_celsius().0, 37.5);
+    assert_eq!(Fahrenheit(50.0).to_celsius().to_fahrenheit().0, 50.0);
 }
 ```
 
@@ -389,6 +443,8 @@ fn f_to_c() {
 
 #### Tips
 - Both methods take `&self`, so the original temperature stays usable after converting it.
+- `Celsius(100.0)` calls the tuple struct like a function, and `.0` reads the value back out. The name is the only difference between the two types, and it's the whole point: `to_fahrenheit` can't be handed a `Fahrenheit`.
+- Round-tripping lands exactly back on the start in these tests because the numbers chosen divide cleanly. Don't take that as a rule: `f64` arithmetic is not associative, and a different value could come back off by one bit.
 
 #### Docs
 - [Book: Creating different types with tuple structs](https://doc.rust-lang.org/book/ch05-01-defining-structs.html#creating-different-types-with-tuple-structs)
@@ -430,6 +486,9 @@ fn starts_as_get() {
     assert_eq!(r.url, "/home");
     assert_eq!(r.method, "GET");
     assert_eq!(r.headers.len(), 0);
+    let r = Request::get("/");
+    assert_eq!(r.url, "/");
+    assert_eq!(r.method, "GET");
 }
 
 /// methods chain
@@ -446,11 +505,36 @@ fn chains() {
     };
     assert_eq!(r, expected);
 }
+
+/// method replaces the method
+#[test]
+fn replaces_method() {
+    let r = Request::get("/x").method("PUT").method("DELETE");
+    assert_eq!(r.method, "DELETE");
+    assert_eq!(r.url, "/x");
+    assert_eq!(r.headers.len(), 0);
+}
+
+/// headers keep their order, repeats included
+#[test]
+fn header_order() {
+    let r = Request::get("/x").header("B", "2").header("A", "1").header("B", "3");
+    assert_eq!(r.method, "GET");
+    assert_eq!(
+        r.headers,
+        vec![
+            ("B".to_string(), "2".to_string()),
+            ("A".to_string(), "1".to_string()),
+            ("B".to_string(), "3".to_string()),
+        ]
+    );
+}
 ```
 
 #### Uses
 - [Structs & methods › Methods](#/structs/methods)
 - [Ownership › Ownership and functions](#/ownership/ownership-and-functions)
+- [Ownership › Stack and heap](#/ownership/stack-and-heap)
 - [Functions › Parameters are bindings too](#/functions/parameters-are-bindings-too)
 
 #### Hints
@@ -460,6 +544,8 @@ fn chains() {
 
 #### Tips
 - The struct update syntax is another way to write `method`: `Self { method: method.to_string(), ..self }` builds a new request from the old one's other fields.
+- Taking `self` by value is what makes the chain work *and* what makes it safe: each call consumes the old request, so there's never a half-built one lying around to use by mistake.
+- The catch is that a builder like this can't be reused. `let r = Request::get("/"); r.method("POST"); r.method("PUT");` fails on the second call, because the first one moved `r`.
 
 #### Docs
 - [Book: Method syntax](https://doc.rust-lang.org/book/ch05-03-method-syntax.html)

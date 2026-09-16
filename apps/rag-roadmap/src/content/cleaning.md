@@ -60,12 +60,24 @@ def dehyphenate(text):
 ```
 
 ```python test
-def test_dehyphenate():
-    """joins broken words and leaves real hyphens alone"""
+def test_joins():
+    """joins words broken across a line"""
     assert dehyphenate("agree-\nment") == "agreement"
-    assert dehyphenate("well-known") == "well-known"
-    assert dehyphenate("x -\ny") == "x -\ny"
     assert dehyphenate("re-\nceipt and deliv-\nery") == "receipt and delivery"
+    assert dehyphenate("x2-\ny") == "x2y"
+
+def test_real_hyphens():
+    """leaves real hyphens and plain line breaks alone"""
+    assert dehyphenate("well-known") == "well-known"
+    assert dehyphenate("state-of-the-art\nwork") == "state-of-the-art\nwork"
+    assert dehyphenate("one\ntwo") == "one\ntwo"
+
+def test_needs_word_both_sides():
+    """only joins with a word character on both sides"""
+    assert dehyphenate("x -\ny") == "x -\ny"
+    assert dehyphenate("x-\n y") == "x-\n y"
+    assert dehyphenate("end-\n") == "end-\n"
+    assert dehyphenate("a-\n\nb") == "a-\n\nb"
 ```
 
 #### Uses
@@ -77,6 +89,8 @@ def test_dehyphenate():
 
 #### Tips
 - `\w` matches letters, digits and `_`. In `x -\ny` the character before the dash is a space, so it is left alone.
+- Run this before chunking. Once `agree-` and `ment` are in different chunks, no regex will ever join them again.
+- It will occasionally be wrong. A genuine compound that happened to break at its own hyphen — `cost-\neffective` — comes out as `costeffective`. That trade is worth making, but know you are making it.
 
 #### Docs
 - [Python docs: `re.sub`](https://docs.python.org/3/library/re.html#re.sub)
@@ -91,11 +105,25 @@ def collapse_whitespace(text):
 ```
 
 ```python test
-def test_collapse():
-    """tidies spaces, tabs and blank runs"""
-    assert collapse_whitespace("a  b\t c\n\n\n\nd ") == "a b c\n\nd"
+def test_spaces():
+    """runs of spaces and tabs become one space"""
+    assert collapse_whitespace("a  b\t c") == "a b c"
+    assert collapse_whitespace("x\t\ty") == "x y"
+    assert collapse_whitespace("one two") == "one two"
+
+def test_strips():
+    """strips every line and both ends"""
     assert collapse_whitespace("  x  ") == "x"
+    assert collapse_whitespace(" a \n b ") == "a\nb"
+    assert collapse_whitespace("\n\nhi\n\n") == "hi"
+
+def test_blank_runs():
+    """keeps line breaks, and shrinks any run of blank lines to one"""
+    assert collapse_whitespace("a  b\t c\n\n\n\nd ") == "a b c\n\nd"
     assert collapse_whitespace("p1\n\np2") == "p1\n\np2"
+    assert collapse_whitespace("a\nb") == "a\nb"
+    assert collapse_whitespace("p1\n   \n\t\np2") == "p1\n\np2"
+    assert collapse_whitespace("a\nb\n\n\n\nc") == "a\nb\n\nc"
 ```
 
 #### Uses
@@ -109,6 +137,8 @@ def test_collapse():
 
 #### Tips
 - Strip the lines before collapsing newlines. A line holding only spaces would otherwise break up the run of `\n`s.
+- `[ \t]+`, never `\s+`. `\s` includes `\n`, so the lazy version flattens the whole document to one line and takes every paragraph break with it — and paragraph breaks are what the chunker cuts on.
+- The order in the article is not a style preference. Whitespace goes last because dehyphenation and header stripping both leave gaps behind that this step is there to close.
 
 #### Docs
 - [Python docs: `re.sub`](https://docs.python.org/3/library/re.html#re.sub)
@@ -128,12 +158,24 @@ def test_strip_repeated():
     """removes lines that repeat across pages"""
     pages = ["ACME Corp\nThe deal.\nPage 1", "ACME Corp\nThe terms.\nPage 2", "ACME Corp\nSignatures.\nPage 3"]
     assert strip_repeated_lines(pages) == ["The deal.\nPage 1", "The terms.\nPage 2", "Signatures.\nPage 3"]
+
+def test_min_pages():
+    """a line must be on at least min_pages pages to go"""
     assert strip_repeated_lines(["one\nfoot", "two\nfoot"], min_pages=3) == ["one\nfoot", "two\nfoot"]
+    assert strip_repeated_lines(["a\nfoot", "b\nfoot", "c"]) == ["a", "b", "c"]
+    pages = ["hdr\nx\n1", "hdr\nx\n2", "hdr\n3"]
+    assert strip_repeated_lines(pages, min_pages=3) == ["x\n1", "x\n2", "3"]
+
+def test_counts_pages():
+    """counts pages rather than occurrences, and compares stripped lines"""
+    assert strip_repeated_lines(["dup\ndup\nbody", "other"]) == ["dup\ndup\nbody", "other"]
+    assert strip_repeated_lines(["  ACME  \nA", "ACME\nB"]) == ["A", "B"]
     assert strip_repeated_lines(["solo"]) == ["solo"]
 ```
 
 #### Uses
 - [Cleaning extracted text › The usual suspects](#/cleaning/the-usual-suspects)
+- [Reference › Standard library](#/reference/standard-library)
 
 #### Hints
 - First pass: for each page, take the *set* of its stripped lines, and count how many pages each line appears on.
@@ -142,6 +184,8 @@ def test_strip_repeated():
 
 #### Tips
 - "Page 1" and "Page 2" are different strings, so exact matching keeps page numbers. Catching those needs a pattern such as `Page \d+`.
+- Two-page documents are the trap. With `min_pages=2`, any line appearing on both pages goes — including a real heading that happens to repeat. Scale the threshold with the page count rather than hard-coding 2.
+- Count *pages*, not occurrences. A line printed three times on one page is still furniture on only one page, and counting occurrences deletes it from a document it never repeated across.
 
 #### Docs
 - [Python docs: `collections.Counter`](https://docs.python.org/3/library/collections.html#collections.Counter)
@@ -157,11 +201,23 @@ def normalize_unicode(text):
 ```
 
 ```python test
-def test_normalize():
-    """folds ligatures and compatibility forms"""
+def test_ligatures():
+    """folds ligatures into plain letters"""
     assert normalize_unicode("ﬁnance") == "finance"
+    assert normalize_unicode("ﬂow") == "flow"
+    assert normalize_unicode("eﬀort") == "effort"
+
+def test_compatibility():
+    """folds circled, full-width and superscript forms"""
     assert normalize_unicode("①") == "1"
+    assert normalize_unicode("Ｈｅｌｌｏ") == "Hello"
+    assert normalize_unicode("x²") == "x2"
+
+def test_plain():
+    """leaves ordinary text as it is"""
     assert normalize_unicode("plain") == "plain"
+    assert normalize_unicode("Mixed Case, 42!") == "Mixed Case, 42!"
+    assert normalize_unicode("café") == "café"
 ```
 
 #### Uses
@@ -173,6 +229,8 @@ def test_normalize():
 
 #### Tips
 - NFKC is lossy on purpose: `²` becomes `2`. Right for text you search, wrong for text you need to show exactly as written.
+- Normalize first, before any regex or length check. `ﬁ` is one character, so `len` and `\w` both see something different from `fi` until this step has run.
+- If you keep the original text for display, keep it *before* this step and index the normalised copy. Trying to reverse NFKC later is not a thing you can do.
 
 #### Docs
 - [Python docs: `unicodedata.normalize`](https://docs.python.org/3/library/unicodedata.html#unicodedata.normalize)

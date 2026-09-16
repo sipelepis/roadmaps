@@ -84,11 +84,23 @@ def test_prompt():
     """numbered sources, filename, question last"""
     sources = [{"filename": "a.pdf", "text": "Alpha."}, {"filename": "b.md", "text": "Beta."}]
     assert build_prompt("Q?", sources) == "[1] (a.pdf) Alpha.\n\n[2] (b.md) Beta.\n\nQuestion: Q?"
+
+def test_numbering():
+    """numbers every source from 1, in order"""
+    one = [{"filename": "manual.pdf", "text": "Two years."}]
+    assert build_prompt("How long?", one) == "[1] (manual.pdf) Two years.\n\nQuestion: How long?"
+    three = [{"filename": "x.txt", "text": "A"}, {"filename": "y.txt", "text": "B"}, {"filename": "x.txt", "text": "C"}]
+    assert build_prompt("which?", three) == "[1] (x.txt) A\n\n[2] (y.txt) B\n\n[3] (x.txt) C\n\nQuestion: which?"
+
+def test_no_sources():
+    """no sources leave two newlines and the question"""
     assert build_prompt("Q?", []) == "\n\nQuestion: Q?"
+    assert build_prompt("anything", []) == "\n\nQuestion: anything"
 ```
 
 #### Uses
 - [Grounded prompts › The f-string that is "augmented generation"](#/prompting/the-f-string-that-is-augmented-generation)
+- [Documents to text › Pages come with their index](#/documents/pages-come-with-their-index)
 
 #### Hints
 - Number the sources with `enumerate(sources, 1)` and format each as `[i] (filename) text`.
@@ -96,6 +108,9 @@ def test_prompt():
 
 #### Tips
 - With no sources the context is `""`, so the prompt starts with two newlines. The short-circuit in exercise 4 keeps that prompt from ever reaching a model.
+- `enumerate(sources, 1)`, not `enumerate(sources)`. The model cites the numbers you print, so a zero-based prompt produces answers full of `[0]`, and every downstream citation check then has to know which convention it is looking at.
+- Keep this function separate from the call that sends it. A trace that shows the exact string beats a description of it every time, and this is the one string you will read most often when an answer goes wrong.
+- The question goes last. Instructions and sources first, then the thing to answer, is the order models follow most reliably.
 
 #### Docs
 - [Python tutorial: Formatted string literals](https://docs.python.org/3/tutorial/inputoutput.html#formatted-string-literals)
@@ -114,10 +129,20 @@ def parse_citations(answer):
 
 ```python test
 def test_citations():
-    """distinct, sorted, integers"""
+    """distinct and sorted"""
     assert parse_citations("See [2] and [1]; also [2].") == [1, 2]
-    assert parse_citations("No sources.") == []
+    assert parse_citations("[3][1][2][3]") == [1, 2, 3]
+
+def test_numeric_order():
+    """integers, sorted as numbers"""
     assert parse_citations("[10] beats [9]") == [9, 10]
+    assert parse_citations("[100], [20] and [3]") == [3, 20, 100]
+    assert all(type(n) is int for n in parse_citations("[12] [4]"))
+
+def test_no_citations():
+    """text without [n] markers cites nothing"""
+    assert parse_citations("No sources.") == []
+    assert parse_citations("(1) and 2 and [x] and []") == []
 ```
 
 #### Uses
@@ -129,6 +154,8 @@ def test_citations():
 
 #### Tips
 - Convert before sorting. As strings, `"10"` sorts before `"9"`.
+- `set()` then `sorted()` is the usual pair: the set removes the duplicates, the sort puts them back in an order. Neither on its own gives "distinct and sorted".
+- Parsing the markers back out is the cheapest faithfulness check there is. It costs a regex, it runs on every answer, and it catches the most common symptom of an invented claim — a citation pointing at a source that does not exist.
 
 #### Docs
 - [Python docs: `re.findall`](https://docs.python.org/3/library/re.html#re.findall)
@@ -144,10 +171,23 @@ def fit_sources(sources, budget_chars):
 
 ```python test
 def test_fit():
-    """keeps a prefix within budget"""
+    """keeps the longest prefix within budget"""
     s = [{"text": "aaaa"}, {"text": "bbb"}, {"text": "cc"}]
     assert fit_sources(s, 7) == s[:2]
+    assert fit_sources(s, 5) == s[:1]
     assert fit_sources(s, 100) == s
+
+def test_exact_budget():
+    """a total exactly at the budget still fits"""
+    s = [{"text": "aaaa"}, {"text": "bbb"}, {"text": "cc"}]
+    assert fit_sources(s, 4) == s[:1]
+    assert fit_sources(s, 9) == s
+    assert fit_sources([{"text": ""}], 0) == [{"text": ""}]
+
+def test_stops_at_first_misfit():
+    """stops at the first source that does not fit"""
+    s = [{"text": "aaaa"}, {"text": "bbbbbb"}, {"text": "c"}]
+    assert fit_sources(s, 6) == s[:1]
     assert fit_sources(s, 3) == []
     assert fit_sources([], 10) == []
 ```
@@ -161,6 +201,8 @@ def test_fit():
 
 #### Tips
 - Stop at the first source that doesn't fit, even if a shorter one further down would. You drop from the bottom of the ranking, you don't skip around in it.
+- The sources are not the whole prompt. The system message, the `[n] (filename)` wrappers and the question are all on the bill, so budget against the assembled string rather than the sum of the chunk texts.
+- Characters are a stand-in for tokens. Four characters per token is fine for deciding what to drop; it is not fine for deciding whether you are one token under a hard limit.
 
 #### Docs
 - [Python tutorial: `break` and `continue`](https://docs.python.org/3/tutorial/controlflow.html#break-and-continue-statements)
@@ -179,16 +221,32 @@ def answer(question, sources, call):
 ```
 
 ```python test
-def test_answer():
-    """short-circuits on an empty corpus"""
+def test_empty():
+    """short-circuits on an empty corpus without calling the model"""
     seen = []
     def fake_model(prompt):
         seen.append(prompt)
-        return "ok [1]"
+        return "should not be called"
     assert answer("Q?", [], fake_model) == "Nothing indexed yet — upload a document first."
+    assert answer("another question", [], fake_model) == "Nothing indexed yet — upload a document first."
     assert seen == []
-    assert answer("Q?", [{"filename": "f", "text": "t"}], fake_model) == "ok [1]"
-    assert seen == ["[1] (f) t\n\nQuestion: Q?"]
+
+def test_sends_prompt():
+    """sends the prompt build_prompt makes, once per question"""
+    seen = []
+    def fake_model(prompt):
+        seen.append(prompt)
+        return "ok"
+    answer("Q?", [{"filename": "f", "text": "t"}], fake_model)
+    sources = [{"filename": "a.pdf", "text": "Alpha."}, {"filename": "b.md", "text": "Beta."}]
+    answer("Why?", sources, fake_model)
+    assert seen == ["[1] (f) t\n\nQuestion: Q?", build_prompt("Why?", sources)]
+
+def test_returns_reply():
+    """returns the model's reply unchanged"""
+    source = [{"filename": "f", "text": "t"}]
+    assert answer("Q?", source, lambda prompt: "ok [1]") == "ok [1]"
+    assert answer("Q?", source, lambda prompt: prompt.upper()) == "[1] (F) T\n\nQUESTION: Q?"
 ```
 
 #### Uses
@@ -200,6 +258,8 @@ def test_answer():
 
 #### Tips
 - Copy the message exactly, em dash `—` included. The test compares the strings character by character.
+- The `seen == []` assertion is the real test. Returning the right string while still calling the model passes the first two checks and fails this one, which is the whole point: the short-circuit exists to *not* make the call.
+- An empty corpus is the one case where an ungrounded model looks exactly like a working RAG system. It answers fluently from training data, cites nothing, and nobody notices until someone asks about a document that was never uploaded.
 
 #### Docs
 - [Python docs: Truth value testing](https://docs.python.org/3/library/stdtypes.html#truth-value-testing)

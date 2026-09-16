@@ -51,6 +51,15 @@ But object *literals* get an extra check for excess properties, because a typo t
 const r: Point = { x: 1, y: 2, z: 3 }  // error: 'z' does not exist in type 'Point'
 ```
 
+That check only fires on a *fresh* object literal. Assign the same literal to a variable first and it passes, which is the usual explanation for "why did my typo get caught here but not there":
+
+```ts
+const s = { x: 1, y: 2, z: 3 }
+const t: Point = s   // no error: s is not a fresh literal
+```
+
+Structural typing also means a type is never a guarantee of *origin*. Anything with the right shape passes, so an object that happens to have `x` and `y` is a `Point` even if it came from somewhere you never intended. When identity matters, use a class and `instanceof`, or a branded type (Advanced patterns).
+
 ## Extending
 
 ```ts
@@ -59,6 +68,24 @@ interface Dog extends Animal { breed: string }
 
 type Cat = Animal & { indoor: boolean }
 ```
+
+## `readonly` is shallow, and compile-time only
+
+`readonly` stops assignment *through that type*. It does not freeze anything, and it stops at the first level:
+
+```ts
+interface Config {
+  readonly name: string
+  readonly tags: string[]
+}
+
+declare const c: Config
+c.name = 'x'        // error
+c.tags = []         // error
+c.tags.push('x')    // fine: the array itself is not readonly
+```
+
+Use `readonly string[]` for the inner array, and `Object.freeze` when you want the object to resist mutation at runtime too. Note also that a `readonly` property is still assignable to a mutable one, so handing the object to a function typed `{ name: string }` loses the protection entirely.
 
 ## Index signatures
 
@@ -120,16 +147,21 @@ function contact(user: User): string {
 ```ts test
 const ada: User = { id: 1, name: 'Ada' }
 const grace: User = { id: 2, name: 'Grace', email: 'grace@navy.mil' }
+const alan: User = { id: 3, name: 'Alan', email: 'alan@bletchley.uk' }
+const linus: User = { id: 4, name: 'Linus', email: undefined }
 
 test('falls back when there is no email', () => {
   expect(contact(ada)).toBe('no email')
+  expect(contact(linus)).toBe('no email')
 })
 test('returns the email', () => {
   expect(contact(grace)).toBe('grace@navy.mil')
+  expect(contact(alan)).toBe('alan@bletchley.uk')
 })
 
 type _1 = Expect<Equal<User['id'], number>>
 type _2 = Expect<Equal<User['email'], string | undefined>>
+type _3 = Expect<Equal<User['name'], string>>
 ```
 
 #### Uses
@@ -141,6 +173,8 @@ type _2 = Expect<Equal<User['email'], string | undefined>>
 
 #### Tips
 - `??` falls back only on `null` and `undefined`, while `||` would also replace an empty string.
+- `email?: string` and `email: string | undefined` are not the same. The optional form lets callers leave the property out; the union form makes them write `email: undefined`. The test passes `{ id: 4, name: 'Linus', email: undefined }`, which only the optional form and the union both accept.
+- The type test asserts `User['email']` is `string | undefined`. That is what `?` produces, so don't also write `| undefined` by hand.
 
 #### Docs
 - [Object Types: Optional properties](https://www.typescriptlang.org/docs/handbook/2/objects.html#optional-properties)
@@ -162,6 +196,15 @@ const origin: ReadonlyPoint = { x: 0, y: 0 }
 
 test('computes euclidean distance', () => {
   expect(distance(origin, { x: 3, y: 4 })).toBe(5)
+  expect(distance(origin, { x: 5, y: 12 })).toBe(13)
+})
+test('works between any two points', () => {
+  expect(distance({ x: 1, y: 2 }, { x: 4, y: 6 })).toBe(5)
+  expect(distance({ x: 4, y: 5 }, { x: -2, y: -3 })).toBe(10)
+})
+test('the same point is zero apart', () => {
+  expect(distance({ x: 7, y: -2 }, { x: 7, y: -2 })).toBe(0)
+  expect(distance(origin, origin)).toBe(0)
 })
 
 function neverCalled() {
@@ -175,6 +218,9 @@ type _1 = Expect<Equal<ReadonlyPoint, { readonly x: number; readonly y: number }
 #### Uses
 - [Objects and interfaces › `interface` and `type`](#/objects/interface-and-type)
 - [Objects and interfaces › Object type literals](#/objects/object-type-literals)
+- [Objects and interfaces › `readonly` is shallow, and compile-time only](#/objects/readonly-is-shallow-and-compile-time-only)
+- [Reference › Numbers and Math](#/reference/numbers-and-math)
+- [Reference › Type-level assertions](#/reference/type-level-assertions)
 
 #### Hints
 - Fill in the type literal with `x` and `y`, both `number`, each with `readonly` in front.
@@ -182,6 +228,8 @@ type _1 = Expect<Equal<ReadonlyPoint, { readonly x: number; readonly y: number }
 
 #### Tips
 - `readonly` is compile-time only. It blocks assignment through this type but doesn't freeze the object at runtime.
+- `Math.hypot(dx, dy)` is the whole formula in one call, and it avoids the overflow you can get from squaring large numbers yourself.
+- The `neverCalled` function in the test is never run. It exists so `// @ts-expect-error` can assert that `origin.x = 1` is *rejected*; if you forget `readonly`, that line compiles and the assertion itself fails.
 
 #### Docs
 - [Object Types: readonly properties](https://www.typescriptlang.org/docs/handbook/2/objects.html#readonly-properties)
@@ -206,10 +254,12 @@ function intro(e: Employee): string {
 ```ts test
 test('introduces an employee', () => {
   expect(intro({ name: 'Ada', age: 36, role: 'engineer' })).toBe('Ada, engineer')
+  expect(intro({ name: 'Grace', age: 85, role: 'admiral' })).toBe('Grace, admiral')
 })
 
 type _1 = Expect<Equal<Employee['role'], string>>
 type _2 = Expect<Equal<Employee['age'], number>>
+type _3 = Expect<Equal<Employee['name'], string>>
 ```
 
 #### Uses
@@ -221,6 +271,8 @@ type _2 = Expect<Equal<Employee['age'], number>>
 
 #### Tips
 - `type Employee = Person & { role: string }` also works. `extends` reports clearer errors when properties conflict.
+- `extends` also checks as you write it: redeclaring `name: number` in `Employee` is an error straight away, whereas an intersection would quietly give you `string & number`, which is `never`.
+- You don't have to relist `name` and `age`. The type test asserts they are there, and they are, by inheritance.
 
 #### Docs
 - [Object Types: Extending types](https://www.typescriptlang.org/docs/handbook/2/objects.html#extending-types)

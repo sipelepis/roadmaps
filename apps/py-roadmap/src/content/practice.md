@@ -9,6 +9,8 @@ This module is practice only. Each problem is a small, self-contained function o
 - `print()` inside your function shows up in the results panel, which is the fastest way to debug.
 - Aim for clarity first. Most of these have a five-line solution.
 - Strings join with `+`: `"ab" + "c"` is `"abc"`, and `s += "d"` adds to the end of `s`. For many pieces, collect them in a list and join once with `"".join(pieces)`.
+- When a name in a problem is unfamiliar, the [Reference](#/reference) page has every built-in, method and standard library call these modules use, with an example each.
+- Handle the empty input first. `[]`, `""` and `{}` are where most of these solutions break, and they are always in the tests.
 
 ## Exercises
 
@@ -26,6 +28,18 @@ def test_two_sum():
     """finds the pair"""
     assert two_sum([2, 7, 11, 15], 9) == (0, 1)
     assert two_sum([3, 2, 4], 6) == (1, 2)
+    assert two_sum([1, 5, 9, 2, 8], 3) == (0, 3)
+
+def test_no_self_pair():
+    """never uses the same element twice"""
+    assert two_sum([5, 3, 7], 10) == (1, 2)
+    assert two_sum([3, 3], 6) == (0, 1)
+
+def test_negatives_and_zero():
+    """negative numbers and zero"""
+    assert two_sum([-3, 4, 3, 90], 0) == (0, 2)
+    assert two_sum([0, 4, 3, 0], 0) == (0, 3)
+    assert two_sum([10, -2, 7], 5) == (1, 2)
 ```
 
 #### Uses
@@ -39,6 +53,8 @@ def test_two_sum():
 
 #### Tips
 - Store the number *after* checking for its partner, so a number can never pair with itself.
+- A repeated number overwrites its earlier index in the dict. That is harmless here because you check before storing, and `[3, 3]` still gives `(0, 1)`.
+- The dict turns an O(n²) scan of every pair into one O(n) pass. "Remember what I've seen in a dict" is the move behind most of these problems.
 
 #### Docs
 - [Built-in functions: `enumerate`](https://docs.python.org/3/library/functions.html#enumerate)
@@ -58,6 +74,17 @@ def test_groups():
     """groups anagrams"""
     words = ["eat", "tea", "tan", "ate", "nat", "bat"]
     assert anagram_groups(words) == [["ate", "eat", "tea"], ["bat"], ["nat", "tan"]]
+
+def test_letter_counts():
+    """same letters, same number of times"""
+    assert anagram_groups(["aab", "abb", "bab", "baa"]) == [["aab", "baa"], ["abb", "bab"]]
+    assert anagram_groups(["ab", "abc"]) == [["ab"], ["abc"]]
+
+def test_order_and_edges():
+    """sorted groups, single words, no words"""
+    assert anagram_groups(["zoo", "cab", "abc"]) == [["abc", "cab"], ["zoo"]]
+    assert anagram_groups(["solo"]) == [["solo"]]
+    assert anagram_groups([]) == []
 ```
 
 #### Uses
@@ -72,6 +99,8 @@ def test_groups():
 
 #### Tips
 - `collections.defaultdict(list)` removes the `setdefault` call: `groups[key].append(word)`.
+- `sorted("tea")` returns a *list*, which can't be a dict key. `tuple(sorted(word))` or `"".join(sorted(word))` both can.
+- `sorted(groups.values())` sorts lists against each other, element by element, so the groups end up ordered by their first word with no key function.
 
 #### Docs
 - [`dict.setdefault`](https://docs.python.org/3/library/stdtypes.html#dict.setdefault)
@@ -91,6 +120,19 @@ def test_balanced():
     """matching brackets"""
     assert balanced("({[]})") and balanced("") and balanced("a(b)c")
     assert not balanced("(]") and not balanced("((") and not balanced(")(")
+
+def test_more_balanced():
+    """siblings and nesting"""
+    assert balanced("{[()()]}") and balanced("print(x[0])") and balanced("()[]{}")
+
+def test_wrong_order():
+    """interleaved pairs are not balanced"""
+    assert not balanced("([)]") and not balanced("[(])") and not balanced("{(})")
+
+def test_leftovers():
+    """an extra opener or closer anywhere fails"""
+    assert not balanced("())") and not balanced("(()") and not balanced(")")
+    assert not balanced("[") and not balanced("a}b")
 ```
 
 #### Uses
@@ -106,6 +148,8 @@ def test_balanced():
 
 #### Tips
 - Characters that aren't brackets are simply skipped, which is how `"a(b)c"` passes.
+- Check the stack is non-empty *before* popping, or `")"` on its own raises `IndexError` instead of returning `False`.
+- Returning `not stack` at the end covers both remaining cases: nothing left is balanced, anything left is not.
 
 #### Docs
 - [Python tutorial: Using lists as stacks](https://docs.python.org/3/tutorial/datastructures.html#using-lists-as-stacks)
@@ -126,6 +170,18 @@ def test_roman():
     assert to_roman(4) == "IV"
     assert to_roman(1994) == "MCMXCIV"
     assert to_roman(3999) == "MMMCMXCIX"
+
+def test_subtractive():
+    """every subtractive pair"""
+    assert [to_roman(n) for n in [4, 9, 40, 90, 400, 900]] == ["IV", "IX", "XL", "XC", "CD", "CM"]
+    assert to_roman(444) == "CDXLIV"
+
+def test_more():
+    """other values"""
+    assert to_roman(1) == "I"
+    assert to_roman(58) == "LVIII"
+    assert to_roman(2024) == "MMXXIV"
+    assert to_roman(3888) == "MMMDCCCLXXXVIII"
 ```
 
 #### Uses
@@ -139,6 +195,8 @@ def test_roman():
 
 #### Tips
 - With the subtractive pairs in the table, no special cases are needed: 1994 is M + CM + XC + IV.
+- The table must be in descending order of value. Take the largest symbol that still fits, every time, and the greedy choice is always right for Roman numerals.
+- `while n >= value:` rather than `if`, so `MMM` for 3000 comes out of one table entry.
 
 #### Docs
 - [Python tutorial: Looping techniques](https://docs.python.org/3/tutorial/datastructures.html#looping-techniques)
@@ -158,6 +216,18 @@ def test_merge():
     assert merge_intervals([(1, 3), (2, 6), (8, 10), (15, 18)]) == [(1, 6), (8, 10), (15, 18)]
     assert merge_intervals([(1, 4), (4, 5)]) == [(1, 5)]
     assert merge_intervals([]) == []
+
+def test_unsorted():
+    """input in any order"""
+    assert merge_intervals([(8, 10), (1, 3), (2, 6)]) == [(1, 6), (8, 10)]
+    assert merge_intervals([(5, 6), (1, 2)]) == [(1, 2), (5, 6)]
+
+def test_contained_and_chains():
+    """contained intervals and chains"""
+    assert merge_intervals([(1, 10), (2, 3), (4, 5)]) == [(1, 10)]
+    assert merge_intervals([(1, 2), (2, 3), (3, 4)]) == [(1, 4)]
+    assert merge_intervals([(1, 5), (1, 2)]) == [(1, 5)]
+    assert merge_intervals([(3, 4)]) == [(3, 4)]
 ```
 
 #### Uses
@@ -173,6 +243,8 @@ def test_merge():
 
 #### Tips
 - Touching intervals like `(1, 4)` and `(4, 5)` count as overlapping here, which is why the check is `<=` and not `<`.
+- `max(last_end, end)` matters for a contained interval like `(1, 10)` then `(2, 3)`. Taking the new end unconditionally would shrink the merged range back to 3.
+- Sorting first is what makes one pass enough: after it, anything that overlaps an interval is the next one along, so you never look backwards.
 
 #### Docs
 - [Sorting techniques: Sorting basics](https://docs.python.org/3/howto/sorting.html#sorting-basics)
@@ -195,6 +267,22 @@ def test_caesar():
     assert caesar("Hello, World!", 3) == "Khoor, Zruog!"
     assert caesar("xyz", 3) == "abc"
     assert caesar(caesar("Round trip", 7), -7) == "Round trip"
+
+def test_capitals_wrap():
+    """capitals wrap and stay capitals"""
+    assert caesar("XYZ", 3) == "ABC"
+    assert caesar("Zebra", 1) == "Afcsb"
+
+def test_negative_and_large():
+    """negative shifts and shifts past 26"""
+    assert caesar("abc", -1) == "zab"
+    assert caesar("abc", 29) == "def"
+    assert caesar("Hi", 52) == "Hi"
+
+def test_non_letters():
+    """leaves everything else alone"""
+    assert caesar("a1 b2!?", 1) == "b1 c2!?"
+    assert caesar("123 ...", 5) == "123 ..."
 ```
 
 #### Uses
@@ -202,6 +290,7 @@ def test_caesar():
 - [Variables and types › Numbers](#/variables-types/numbers)
 - [What is Python? › `if` and `for`](#/intro/if-and-for)
 - [Practice problems › Tips](#/practice/tips)
+- [Reference › Strings](#/reference/strings)
 
 #### Hints
 - Keep the alphabet in a string, `"abcdefghijklmnopqrstuvwxyz"`, and its `.upper()` version for capitals.
@@ -210,7 +299,8 @@ def test_caesar():
 
 #### Tips
 - For a positive divisor, Python's `%` never gives a negative result: `(1 - 7) % 26` is `20`. That's why negative shifts wrap correctly too.
-- The Strings module shows another route: `ord("a")` is `97` and `chr(97)` is `"a"`.
+- The other route is arithmetic on code points: `ord("a")` is `97` and `chr(97)` is `"a"`, so a letter shifts with `chr((ord(ch) - ord("a") + k) % 26 + ord("a"))`. Same idea, no alphabet string.
+- Handle upper and lower case with the same code by picking which alphabet to look in, rather than writing the shift twice.
 
 #### Docs
 - [`str.index`](https://docs.python.org/3/library/stdtypes.html#str.index)
@@ -233,6 +323,17 @@ def test_decode():
     assert rle_decode("3a2b1c") == "aaabbc"
     assert rle_decode("12x") == "x" * 12
     assert rle_decode("") == ""
+
+def test_multi_digit():
+    """counts of any length, anywhere"""
+    assert rle_decode("10a2b") == "a" * 10 + "bb"
+    assert rle_decode("1a10b1c") == "a" + "b" * 10 + "c"
+    assert rle_decode("100z") == "z" * 100
+
+def test_repeats():
+    """the same letter can come back"""
+    assert rle_decode("2a1b2a") == "aabaa"
+    assert rle_decode("2A1b") == "AAb"
 ```
 
 #### Uses
@@ -240,6 +341,7 @@ def test_decode():
 - [Variables and types › Conversions](#/variables-types/conversions)
 - [Variables and types › Strings](#/variables-types/strings)
 - [Practice problems › Tips](#/practice/tips)
+- [Reference › Strings](#/reference/strings)
 
 #### Hints
 - Walk the text one character at a time. Digits are part of the count; anything else is the character to repeat.
@@ -248,6 +350,8 @@ def test_decode():
 
 #### Tips
 - The `re` module can do the splitting: `re.findall(r"(\d+)(\D)", text)` returns `(count, char)` pairs.
+- Accumulating the digits as *text* and converting once is what makes `"12x"` twelve rather than one then two. Converting each digit as you meet it loses the tens.
+- Resetting the count to `""` after each character is the step that's easy to forget, and `"2a1b2a"` is the test that catches it.
 
 #### Docs
 - [`str.isdigit`](https://docs.python.org/3/library/stdtypes.html#str.isdigit)
@@ -255,7 +359,7 @@ def test_decode():
 
 ### 8. Matrix spiral
 
-Return the elements of a matrix in clockwise spiral order.
+Return the elements of a matrix in clockwise spiral order. Don't change the input matrix.
 
 ```python starter
 def spiral(matrix):
@@ -269,6 +373,24 @@ def test_spiral():
     assert spiral(m) == [1, 2, 3, 6, 9, 8, 7, 4, 5]
     assert spiral([[1, 2], [3, 4], [5, 6]]) == [1, 2, 4, 6, 5, 3]
     assert spiral([]) == []
+
+def test_bigger():
+    """4x4 and wide matrices"""
+    m = [[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12], [13, 14, 15, 16]]
+    assert spiral(m) == [1, 2, 3, 4, 8, 12, 16, 15, 14, 13, 9, 5, 6, 7, 11, 10]
+    assert spiral([[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]]) == [1, 2, 3, 4, 8, 12, 11, 10, 9, 5, 6, 7]
+
+def test_thin():
+    """a single row, column, or cell"""
+    assert spiral([[1, 2, 3]]) == [1, 2, 3]
+    assert spiral([[1], [2], [3]]) == [1, 2, 3]
+    assert spiral([[5]]) == [5]
+
+def test_unchanged():
+    """leaves the input alone"""
+    m = [[1, 2], [3, 4]]
+    assert spiral(m) == [1, 2, 4, 3]
+    assert m == [[1, 2], [3, 4]]
 ```
 
 #### Uses
@@ -283,6 +405,8 @@ def test_spiral():
 
 #### Tips
 - The index version keeps four boundaries (top, bottom, left, right) and walks each edge in turn. It's longer but copies nothing.
+- `rows.pop(0)` needs its own outer list, or the caller's matrix loses its rows. `[list(r) for r in matrix]` copies a level deeper than strictly necessary, which is the cheap way to stop worrying about it.
+- `zip(*rows)` gives tuples, and the result is built from fresh objects either way, so the original rows are never touched after the first turn.
 
 #### Docs
 - [Built-in functions: `zip`](https://docs.python.org/3/library/functions.html#zip)
@@ -302,6 +426,18 @@ def test_prefix():
     assert common_prefix(["flower", "flow", "flight"]) == "fl"
     assert common_prefix(["dog", "racecar"]) == ""
     assert common_prefix([]) == ""
+
+def test_every_word_counts():
+    """a word in the middle can cut the prefix"""
+    assert common_prefix(["abcd", "xbcd", "abce"]) == ""
+    assert common_prefix(["cart", "care", "cow", "cab"]) == "c"
+
+def test_whole_word():
+    """the prefix can be a whole word"""
+    assert common_prefix(["ab", "abc"]) == "ab"
+    assert common_prefix(["same", "same"]) == "same"
+    assert common_prefix(["solo"]) == "solo"
+    assert common_prefix(["", "a"]) == ""
 ```
 
 #### Uses
@@ -317,6 +453,8 @@ def test_prefix():
 
 #### Tips
 - With an empty list, `zip(*words)` produces nothing, so the loop never runs and `""` comes out with no special case.
+- `zip` stopping at the shortest word is doing real work here: the prefix can never be longer than the shortest word, and you get that bound for free.
+- `len(set(column)) == 1` is the "all the same" test. `set` on a tuple of characters is cheap, and it reads better than comparing every element to the first.
 
 #### Docs
 - [Built-in functions: `zip`](https://docs.python.org/3/library/functions.html#zip)
@@ -338,13 +476,21 @@ def test_search():
     assert binary_search(items, 28) == -1
     assert binary_search([], 1) == -1
 
+def test_every_position():
+    """finds the first, last and every item between"""
+    for items in [[1, 3, 5, 7, 9], [2, 4, 6, 8], [42]]:
+        for i, value in enumerate(items):
+            assert binary_search(items, value) == i, (items, value)
+
+def test_missing():
+    """-1 below, above and between the items"""
+    items = [10, 20, 30, 40]
+    for target in [5, 15, 25, 35, 45]:
+        assert binary_search(items, target) == -1, target
+    assert binary_search([42], 41) == -1 and binary_search([42], 43) == -1
+
 def test_logarithmic():
     """few comparisons on a big input"""
-    class Probe:
-        def __init__(self, v): self.v = v; self.n = 0
-        def __eq__(self, o): return self.v == o
-        def __lt__(self, o): return self.v < o
-        def __gt__(self, o): return self.v > o
     n = 0
     class Item(int):
         def __lt__(self, o): nonlocal n; n += 1; return int.__lt__(self, o)
@@ -360,6 +506,7 @@ def test_logarithmic():
 - [Control flow › `while`](#/control-flow/while)
 - [Control flow › `if` / `elif` / `else`](#/control-flow/if-elif-else)
 - [Variables and types › Numbers](#/variables-types/numbers)
+- [Reference › Sequences](#/reference/sequences)
 
 #### Hints
 - Track the part of the list that could still hold `target` with two indices, `lo = 0` and `hi = len(items) - 1`.
@@ -367,7 +514,9 @@ def test_logarithmic():
 - If the middle item is smaller than `target`, the answer is to the right (`lo = mid + 1`); otherwise it's to the left (`hi = mid - 1`). Return `-1` after the loop.
 
 #### Tips
-- The standard library's `bisect` module does the halving for you: `bisect.bisect_left(items, target)` finds where `target` belongs.
+- The standard library's `bisect` module does the halving for you: `bisect.bisect_left(items, target)` finds where `target` belongs — but it returns an insertion point, so you still have to check that `items[i] == target` before calling it a hit.
+- `lo <= hi`, not `lo < hi`. With `<` the loop exits one step early and misses a target sitting alone in the final slot, which is what the single-item tests catch.
+- Every branch must shrink the range. `lo = mid` instead of `mid + 1` loops forever on a two-element list, and the page stops responding rather than failing a test.
 
 #### Docs
 - [`bisect`](https://docs.python.org/3/library/bisect.html#module-bisect)
@@ -389,6 +538,21 @@ def test_wrap():
     assert wrap("the quick brown fox jumps", 10) == ["the quick", "brown fox", "jumps"]
     assert wrap("supercalifragilistic is long", 5) == ["supercalifragilistic", "is", "long"]
     assert wrap("", 5) == []
+
+def test_exact_width():
+    """a line may be exactly width long, counting the space"""
+    assert wrap("aaa bbb", 7) == ["aaa bbb"]
+    assert wrap("aaa bbb", 6) == ["aaa", "bbb"]
+
+def test_long_word_between():
+    """a long word gets its own line, even between short ones"""
+    assert wrap("a bbbbbbbb c", 3) == ["a", "bbbbbbbb", "c"]
+    assert wrap("ab cdefgh ij", 4) == ["ab", "cdefgh", "ij"]
+
+def test_one_line():
+    """short text stays on one line"""
+    assert wrap("one two three", 50) == ["one two three"]
+    assert wrap("word", 4) == ["word"]
 ```
 
 #### Uses
@@ -404,6 +568,8 @@ def test_wrap():
 
 #### Tips
 - The standard library has this built in: `textwrap.wrap(text, width, break_long_words=False)` passes these tests.
+- The `+ 1` for the space only applies when the line already has something on it. An empty line takes the word whatever its length, which is what puts a long word on its own line.
+- Don't forget the last line. A loop that only saves a line when the *next* word doesn't fit drops whatever is still in hand when the words run out.
 
 #### Docs
 - [`str.split`](https://docs.python.org/3/library/stdtypes.html#str.split)
@@ -423,6 +589,18 @@ def test_flatten():
     """dotted keys"""
     assert flatten_dict({"a": {"b": 1, "c": {"d": 2}}, "e": 3}) == {"a.b": 1, "a.c.d": 2, "e": 3}
     assert flatten_dict({}) == {}
+
+def test_deep():
+    """any depth, several branches"""
+    assert flatten_dict({"x": {"y": {"z": {"w": 1}}}}) == {"x.y.z.w": 1}
+    data = {"db": {"host": "h", "port": 5432}, "app": {"debug": {"on": True}}}
+    assert flatten_dict(data) == {"db.host": "h", "db.port": 5432, "app.debug.on": True}
+
+def test_other_values():
+    """non-dict values are kept as they are"""
+    data = {"tags": ["x", "y"], "owner": None, "meta": {"size": [1, 2]}}
+    assert flatten_dict(data) == {"tags": ["x", "y"], "owner": None, "meta.size": [1, 2]}
+    assert flatten_dict({"a": 1, "b": "two"}) == {"a": 1, "b": "two"}
 ```
 
 #### Uses
@@ -438,6 +616,9 @@ def test_flatten():
 
 #### Tips
 - Recursion suits data nested to any depth: each call handles one level and hands the rest down.
+- An empty dict as a value disappears entirely, because recursing into it returns nothing to merge. Whether that is right depends on the format you are flattening for.
+- Only dicts are opened up. A list value is stored as it is, so `{"tags": ["x"]}` keeps its list rather than becoming `tags.0`.
+- `prefix=""` is a safe default because strings are immutable. A mutable default here would be the usual bug.
 
 #### Docs
 - [Built-in functions: `isinstance`](https://docs.python.org/3/library/functions.html#isinstance)

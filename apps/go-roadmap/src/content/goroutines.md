@@ -188,6 +188,13 @@ func TestGenerate(t *testing.T) {
 		got = append(got, v)
 	}
 	expect(t, got, []int{1, 2, 3, 4, 5})
+	got = nil
+	for v := range Generate(100) {
+		got = append(got, v)
+	}
+	expect(t, len(got), 100)
+	expect(t, got[0], 1)
+	expect(t, got[99], 100)
 }
 
 // closes the channel when done
@@ -212,6 +219,8 @@ func TestGenerateEmpty(t *testing.T) {
 - [Goroutines & channels › `go`](#/goroutines/go)
 - [Goroutines & channels › `close` and `range`](#/goroutines/close-and-range)
 - [Goroutines & channels › Directional channel types](#/goroutines/directional-channel-types)
+- [Reference › Built-in functions](#/reference/built-in-functions)
+- [Reference › How the tests here work](#/reference/how-the-tests-here-work)
 
 #### Hints
 - Move the `close(ch)` into a `go func() { ... }()` and send the numbers from a loop inside it.
@@ -219,6 +228,7 @@ func TestGenerateEmpty(t *testing.T) {
 
 #### Tips
 - Returning `ch` as `<-chan int` means callers can only receive from it. Only `Generate` can send or close.
+- `Generate` must return before anything has been sent. The channel is unbuffered, so if you sent from `Generate` itself the first send would block and no caller would ever get the channel back.
 
 #### Docs
 - [Go spec: Close](https://go.dev/ref/spec#Close)
@@ -270,11 +280,38 @@ func TestSquareTwice(t *testing.T) {
 	}
 	expect(t, got, []int{16, 81})
 }
+
+// an empty input closes the output
+func TestSquareEmpty(t *testing.T) {
+	for v := range Square(feedForTest()) {
+		t.Fatalf("unexpected value %d", v)
+	}
+}
+
+// keeps up with a sender that sends one value at a time
+func TestSquareUnbuffered(t *testing.T) {
+	in := make(chan int)
+	go func() {
+		for i := range 50 {
+			in <- i
+		}
+		close(in)
+	}()
+	var got []int
+	for v := range Square(in) {
+		got = append(got, v)
+	}
+	expect(t, len(got), 50)
+	expect(t, got[7], 49)
+	expect(t, got[49], 2401)
+}
 ```
 
 #### Uses
 - [Goroutines & channels › `close` and `range`](#/goroutines/close-and-range)
 - [Goroutines & channels › Directional channel types](#/goroutines/directional-channel-types)
+- [Reference › Built-in functions](#/reference/built-in-functions)
+- [Reference › How the tests here work](#/reference/how-the-tests-here-work)
 
 #### Hints
 - Same shape as `Generate`: a goroutine that owns `out` and starts with `defer close(out)`.
@@ -282,6 +319,7 @@ func TestSquareTwice(t *testing.T) {
 
 #### Tips
 - Close `out`, never `in`. Only the sender closes, and `Square` only receives from `in`.
+- Because `Square` returns immediately, `Square(Square(ch))` builds a two-stage pipeline that runs concurrently. A version that drained `in` before returning would still work here, but would hold the whole stream in memory.
 
 #### Docs
 - [Go blog: Pipelines and cancellation](https://go.dev/blog/pipelines)
@@ -308,6 +346,7 @@ func FetchAll(urls []string, fetch func(string) string) []string {
 package main
 
 import (
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -350,12 +389,30 @@ func TestFetchAllConcurrent(t *testing.T) {
 		t.Fatal("the fetch calls ran one at a time")
 	}
 }
+
+// later URLs finish first, but each result still lands at its URL's index
+func TestFetchAllMany(t *testing.T) {
+	var urls, want []string
+	for i := range 100 {
+		urls = append(urls, strconv.Itoa(i))
+		want = append(want, strconv.Itoa(i)+"!")
+	}
+	slowFirst := func(u string) string {
+		n, _ := strconv.Atoi(u)
+		time.Sleep(time.Duration(100-n) * 20 * time.Microsecond)
+		return u + "!"
+	}
+	expect(t, FetchAll(urls, slowFirst), want)
+	expect(t, len(FetchAll(nil, slowFirst)), 0)
+}
 ```
 
 #### Uses
 - [Goroutines & channels › `sync.WaitGroup`](#/goroutines/sync-waitgroup)
 - [Goroutines & channels › `go`](#/goroutines/go)
 - [Functions › Closures](#/functions/closures)
+- [Reference › sync and sync/atomic](#/reference/sync-and-sync-atomic)
+- [Reference › time](#/reference/time)
 
 #### Hints
 - Declare `var wg sync.WaitGroup` (import `sync`) and wrap the loop body in `wg.Go(func() { ... })`.
@@ -363,6 +420,8 @@ func TestFetchAllConcurrent(t *testing.T) {
 
 #### Tips
 - Goroutines writing to *different* indexes of one slice is safe. Appending to a shared slice from several goroutines is not.
+- `out` is allocated at full length before any goroutine starts, so every index already exists. That is what removes the need for a lock.
+- The closure captures `i` and `u` from the loop. Since Go 1.22 each iteration gets fresh copies, so the goroutines do not all end up on the last URL.
 
 #### Docs
 - [sync.WaitGroup.Go](https://pkg.go.dev/sync#WaitGroup.Go)
@@ -388,6 +447,7 @@ package main
 import (
 	"slices"
 	"testing"
+	"time"
 )
 
 func filledForTest(nums ...int) <-chan int {
@@ -435,12 +495,39 @@ func TestMergeSlow(t *testing.T) {
 	slices.Sort(got)
 	expect(t, got, []int{1, 10, 11, 12})
 }
+
+// both inputs empty closes the output
+func TestMergeBothEmpty(t *testing.T) {
+	for v := range Merge(filledForTest(), filledForTest()) {
+		t.Fatalf("unexpected value %d", v)
+	}
+}
+
+// forwards from b while a is still open and quiet
+func TestMergeNotInTurn(t *testing.T) {
+	a, b := make(chan int), make(chan int)
+	out := Merge(a, b)
+	select {
+	case b <- 1:
+	case <-time.After(time.Second):
+		t.Fatal("Merge is not reading b while a is still open")
+	}
+	expect(t, <-out, 1)
+	a <- 2
+	expect(t, <-out, 2)
+	close(a)
+	close(b)
+	_, ok := <-out
+	expect(t, ok, false)
+}
 ```
 
 #### Uses
 - [Goroutines & channels › `sync.WaitGroup`](#/goroutines/sync-waitgroup)
 - [Goroutines & channels › `close` and `range`](#/goroutines/close-and-range)
 - [Goroutines & channels › The deadlock you'll hit](#/goroutines/the-deadlock-youll-hit)
+- [Reference › slices, maps and cmp](#/reference/slices-maps-and-cmp)
+- [Reference › How the tests here work](#/reference/how-the-tests-here-work)
 
 #### Hints
 - One `wg.Go` per input, each ranging over its channel and sending every value on to `out`.
@@ -448,6 +535,7 @@ func TestMergeSlow(t *testing.T) {
 
 #### Tips
 - `out` may only be closed after both forwarders finish. Closing it while one of them still sends panics.
+- The tests sort what they received before comparing, because a merge has no defined order. Any test that asserted an order here would be flaky.
 
 #### Docs
 - [Go blog: Pipelines and cancellation](https://go.dev/blog/pipelines)

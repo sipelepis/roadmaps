@@ -151,12 +151,29 @@ import time
 ```
 
 ```python test
+import time
+
 def test_timer():
     """appends elapsed time"""
     log = []
     with timer(log):
         pass
     assert len(log) == 1 and isinstance(log[0], float)
+    with timer(log):
+        pass
+    assert len(log) == 2
+
+def test_measures_seconds():
+    """measures the block, in seconds"""
+    slow, quick = [], []
+    with timer(slow):
+        start = time.perf_counter()
+        while time.perf_counter() - start < 0.02:   # busy for 20 ms
+            pass
+    with timer(quick):
+        pass
+    assert 0.015 <= slow[0] < 1
+    assert quick[0] < slow[0]
 
 def test_timer_on_error():
     """still logs when the block raises"""
@@ -180,6 +197,8 @@ def test_timer_on_error():
 
 #### Tips
 - `perf_counter` is the clock for measuring durations. `time.time()` follows the wall clock, which can jump when the system time is adjusted.
+- A `@contextmanager` generator must yield exactly once. Yielding twice raises `RuntimeError` at the end of the block, and yielding nothing raises it at the start.
+- `finally` is what makes the timing survive an exception. A `try` / `except` here would also have to re-raise; `try` / `finally` never swallows anything.
 
 #### Docs
 - [`contextlib.contextmanager`](https://docs.python.org/3/library/contextlib.html#contextlib.contextmanager)
@@ -204,6 +223,23 @@ def test_describe():
     assert describe([]) == "empty"
     assert describe([1, 2, 3]) == "list of 3"
     assert describe("x") == "unknown"
+
+def test_points():
+    """any 2-tuple"""
+    assert describe((-5, 0)) == "on x axis"
+    assert describe((0, 7)) == "on y axis"
+    assert describe((2, -3)) == "point"
+    assert describe(("a", "b")) == "point"
+
+def test_lists():
+    """lists of any other length"""
+    assert describe([7]) == "list of 1"
+    assert describe(["a", "b", "c", "d"]) == "list of 4"
+
+def test_unknown():
+    """everything else"""
+    for value in ["ab", (1, 2, 3), (5,), 42, None, {}]:
+        assert describe(value) == "unknown", value
 ```
 
 #### Uses
@@ -217,6 +253,8 @@ def test_describe():
 
 #### Tips
 - Sequence patterns match lists and tuples alike, so `describe([0, 0])` also says `"origin"`. A class pattern such as `tuple((0, 0))` is how to insist on a tuple when it matters.
+- Strings are *not* matched by sequence patterns, which is why `describe("ab")` is `"unknown"` rather than `"list of 2"`. `str`, `bytes` and `bytearray` are deliberately excluded.
+- `case CONSTANT:` captures instead of comparing. A bare name in a pattern is always a binding; to match against a named constant, write it dotted, like `case Color.RED:`.
 
 #### Docs
 - [Python tutorial: `match` statements](https://docs.python.org/3/tutorial/controlflow.html#match-statements)
@@ -238,6 +276,12 @@ def test_ways():
     """counts stair climbs"""
     assert [ways(n) for n in range(1, 6)] == [1, 2, 3, 5, 8]
 
+def test_more():
+    """keeps adding up"""
+    assert ways(10) == 89
+    assert ways(20) == 10946
+    assert ways(30) == 1346269
+
 def test_fast():
     """large n is fine thanks to caching"""
     assert ways(90) == 4660046610375530309
@@ -254,6 +298,8 @@ def test_fast():
 
 #### Tips
 - These are the Fibonacci numbers, shifted by one. A loop that keeps only the last two values also works, with no recursion and no cache.
+- `@cache` has to be on the recursive function itself. Wrapping a helper that calls an uncached inner function caches only the outer call, and `ways(90)` still never finishes.
+- Deep recursion has a second limit: Python stops at about a thousand nested frames. The cache keeps this one shallow because each `n` is computed once, on the way down.
 
 #### Docs
 - [`functools.cache`](https://docs.python.org/3/library/functools.html#functools.cache)
@@ -277,12 +323,34 @@ def test_to_text():
     assert to_text("hi") == '"hi"'
     assert to_text([1, "a"]) == '[1, "a"]'
     assert to_text({"k": [1]}) == '{"k": [1]}'
+
+def test_scalars():
+    """numbers as-is, strings quoted"""
+    assert to_text(-4) == "-4" and to_text(2.5) == "2.5"
+    assert to_text("hello world") == '"hello world"' and to_text("") == '""'
+
+def test_lists():
+    """nested and empty lists"""
+    assert to_text([[1, 2], [3]]) == "[[1, 2], [3]]"
+    assert to_text([]) == "[]"
+    assert to_text(["x", ["y"]]) == '["x", ["y"]]'
+
+def test_dicts():
+    """keys and values both rendered"""
+    assert to_text({1: "a", 2: "b"}) == '{1: "a", 2: "b"}'
+    assert to_text({"a": {"b": 2}}) == '{"a": {"b": 2}}'
+    assert to_text({}) == "{}"
+
+def test_dispatch():
+    """registers str, list and dict versions"""
+    assert str in to_text.registry and list in to_text.registry and dict in to_text.registry
 ```
 
 #### Uses
 - [Advanced patterns › `singledispatch`](#/advanced-patterns/singledispatch)
 - [Functions › `*args` and `**kwargs`](#/functions/args-and-kwargs)
 - [Dicts and sets › Iterating](#/dicts-sets/iterating)
+- [Reference › Objects and attributes](#/reference/objects-and-attributes)
 
 #### Hints
 - Register one function per type with `@to_text.register` and an annotated parameter (`value: str`), as in the article. Numbers need nothing new: the base function already handles them.
@@ -291,6 +359,9 @@ def test_to_text():
 
 #### Tips
 - In an f-string a literal brace is written twice: `f"{{{inner}}}"` gives `{`, then `inner`, then `}`. Plain `+` is often easier to read.
+- The registered functions are all called `_` on purpose. Only the annotation matters, and reusing the name says "you are never meant to call this directly".
+- `to_text.registry` is a mapping from type to implementation; the last test reads it to confirm you registered `str`, `list` and `dict` rather than writing one function full of `isinstance` checks.
+- Dispatch is on the *runtime* type of the first argument only. `bool` would go to the `object` version unless registered, since dispatch follows the class hierarchy.
 
 #### Docs
 - [`functools.singledispatch`](https://docs.python.org/3/library/functools.html#functools.singledispatch)

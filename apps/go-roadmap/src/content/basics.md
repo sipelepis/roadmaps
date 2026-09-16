@@ -25,6 +25,19 @@ b, err := second() // fine: b is new, err is reassigned
 
 Declaring a local variable and never reading it is a compile error. Assign to the blank identifier `_` to discard a value on purpose: `_, err := f()`.
 
+Gotcha: `:=` inside a nested block declares a *new* variable that hides the outer one for the rest of that block. The outer one never changes:
+
+```go
+n := 1
+if true {
+	n := 2      // a second n, not the first
+	fmt.Println(n) // 2
+}
+fmt.Println(n)  // 1: the inner n is gone
+```
+
+The compiler will not warn you, because both variables are used. When you mean to assign to the outer variable, write `=`. This is the single most common cause of "my value didn't change".
+
 ## Zero values
 
 There is no `undefined` and no uninitialized memory. A variable declared without a value holds its type's zero value:
@@ -200,6 +213,14 @@ func TestBoiling(t *testing.T) {
 func TestMinusForty(t *testing.T) {
 	expect(t, CToF(-40), -40.0)
 }
+
+// everyday temperatures, fractions included
+func TestEveryday(t *testing.T) {
+	expect(t, CToF(10), 50.0)
+	expect(t, CToF(25), 77.0)
+	expect(t, CToF(37.5), 99.5)
+	expect(t, CToF(-10), 14.0)
+}
 ```
 
 #### Uses
@@ -213,6 +234,7 @@ func TestMinusForty(t *testing.T) {
 
 #### Tips
 - Untyped constants like `9`, `5` and `32` take the type of the value they meet, so this needs no conversions at all.
+- `c*9/5 + 32` gives 212 for 100; `c*(9/5) + 32` gives 132. The parentheses make `9/5` a division of two untyped *integer* constants, which is 1.
 
 #### Docs
 - [Go spec: Constant expressions](https://go.dev/ref/spec#Constant_expressions)
@@ -237,16 +259,20 @@ import "testing"
 // whole result
 func TestWholeAverage(t *testing.T) {
 	expect(t, Average(1, 2, 3), 2.0)
+	expect(t, Average(4, 4, 7), 5.0)
 }
 
 // keeps the fraction
 func TestFractionalAverage(t *testing.T) {
 	expect(t, Average(1, 2, 2), 5.0/3.0)
+	expect(t, Average(0, 0, 1), 1.0/3.0)
+	expect(t, Average(10, 20, 31), 61.0/3.0)
 }
 
 // negative numbers
 func TestNegativeAverage(t *testing.T) {
 	expect(t, Average(-1, -2, 0), -1.0)
+	expect(t, Average(-1, -2, -2), -5.0/3.0)
 }
 ```
 
@@ -260,6 +286,7 @@ func TestNegativeAverage(t *testing.T) {
 
 #### Tips
 - `float64((a + b + c) / 3)` converts too late: the integer division has already truncated.
+- The `3` needs no conversion. It is an untyped constant, so it becomes a `float64` the moment it meets one.
 
 #### Docs
 - [Go spec: Conversions](https://go.dev/ref/spec#Conversions)
@@ -289,10 +316,16 @@ func TestKB(t *testing.T) {
 	expect(t, KB, 1024)
 }
 
-// each unit is 1024 of the previous
-func TestMBandGB(t *testing.T) {
+// a megabyte is 1024 kilobytes
+func TestMB(t *testing.T) {
 	expect(t, MB, 1024*1024)
+	expect(t, MB, 1024*KB)
+}
+
+// a gigabyte is 1024 megabytes
+func TestGB(t *testing.T) {
 	expect(t, GB, 1024*1024*1024)
+	expect(t, GB, 1024*MB)
 }
 ```
 
@@ -306,6 +339,7 @@ func TestMBandGB(t *testing.T) {
 
 #### Tips
 - `1 << n` is 2 to the power `n`, so each extra 10 in the shift multiplies by 1024.
+- `iota` counts *lines* in the `const` block, not the ones you assign. The `_` line uses up 0, which is why `KB` lands on `iota == 1`.
 
 #### Docs
 - [Go spec: Iota](https://go.dev/ref/spec#Iota)
@@ -331,16 +365,20 @@ import "testing"
 // three apples
 func TestApples(t *testing.T) {
 	expect(t, Line("apple", 3, 0.5), "3 x apple @ 0.50 = 1.50")
+	expect(t, Line("egg", 12, 0.25), "12 x egg @ 0.25 = 3.00")
+	expect(t, Line("green tea", 1, 4), "1 x green tea @ 4.00 = 4.00")
 }
 
-// rounds to cents
+// rounds to cents, after multiplying
 func TestRounding(t *testing.T) {
 	expect(t, Line("coffee", 2, 3.333), "2 x coffee @ 3.33 = 6.67")
+	expect(t, Line("pen", 4, 0.126), "4 x pen @ 0.13 = 0.50")
 }
 
 // zero quantity
 func TestZeroQty(t *testing.T) {
 	expect(t, Line("tea", 0, 2), "0 x tea @ 2.00 = 0.00")
+	expect(t, Line("cake", 0, 3.75), "0 x cake @ 3.75 = 0.00")
 }
 ```
 
@@ -355,6 +393,7 @@ func TestZeroQty(t *testing.T) {
 
 #### Tips
 - `%.2f` rounds rather than truncates: 6.666 prints as `6.67`.
+- Each verb rounds on its own, so a line need not add up. `Line("pen", 4, 0.126)` prints the unit price as `0.13` and the total as `0.50`, because the total rounds `0.504`.
 
 #### Docs
 - [fmt: Printing](https://pkg.go.dev/fmt#hdr-Printing)

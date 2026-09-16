@@ -222,7 +222,10 @@ fn num(n: i64) -> Box<Expr> {
 #[test]
 fn numbers() {
     assert_eq!(eval(&Expr::Num(7)), 7);
+    assert_eq!(eval(&Expr::Num(-4)), -4);
     assert_eq!(eval(&Expr::Neg(num(7))), -7);
+    assert_eq!(eval(&Expr::Neg(num(-7))), 7);
+    assert_eq!(eval(&Expr::Neg(Box::new(Expr::Neg(num(5))))), 5);
 }
 
 /// (1 + 2) * -3
@@ -230,6 +233,10 @@ fn numbers() {
 fn nested() {
     let e = Expr::Mul(Box::new(Expr::Add(num(1), num(2))), Box::new(Expr::Neg(num(3))));
     assert_eq!(eval(&e), -9);
+    let e = Expr::Add(num(2), Box::new(Expr::Mul(num(3), num(4))));
+    assert_eq!(eval(&e), 14);
+    assert_eq!(eval(&Expr::Mul(num(-2), num(-3))), 6);
+    assert_eq!(eval(&Expr::Mul(num(0), num(9))), 0);
 }
 
 /// deep trees
@@ -254,6 +261,9 @@ fn deep() {
 
 #### Tips
 - The deep test nests 100 levels, which recursion handles fine. A tree thousands of levels deep could overflow the stack and would need a loop with an explicit stack instead.
+- `eval(left)` works on a `&Box<Expr>` where `&Expr` is expected, because of deref coercion. You never write `&**left`, though that's what it means.
+- Matching on a `&Expr` binds everything by reference, so `Num(n)` gives you a `&i64` and the arm is `*n`. Rust does that for you; forgetting the `*` is the one error this exercise reliably produces.
+- The shape of `eval` is the shape of the enum: one arm per variant, and the recursive arms call `eval` on their children. Interpreters and tree walkers are all this, with more variants.
 
 #### Docs
 - [Rust book: Enabling recursive types with boxes](https://doc.rust-lang.org/book/ch15-01-box.html#enabling-recursive-types-with-boxes)
@@ -321,8 +331,37 @@ fn peek_and_len() {
     s.push("b".to_string());
     assert_eq!(s.peek().map(|v| v.as_str()), Some("b"));
     assert_eq!(s.len(), 2);
+    assert_eq!(s.peek().map(|v| v.as_str()), Some("b"));
+    assert_eq!(s.len(), 2);
     s.pop();
     assert_eq!(s.len(), 1);
+    assert_eq!(s.peek().map(|v| v.as_str()), Some("a"));
+}
+
+/// popping an empty stack changes nothing
+#[test]
+fn pop_empty() {
+    let mut s: Stack<i32> = Stack::new();
+    assert_eq!(s.pop(), None);
+    assert_eq!(s.len(), 0);
+    s.push(5);
+    assert_eq!(s.len(), 1);
+    assert_eq!(s.pop(), Some(5));
+    assert_eq!(s.pop(), None);
+    assert_eq!(s.len(), 0);
+}
+
+/// pushes after pops go on top
+#[test]
+fn push_after_pop() {
+    let mut s = Stack::new();
+    s.push(1);
+    s.push(2);
+    assert_eq!(s.pop(), Some(2));
+    s.push(3);
+    assert_eq!(s.peek(), Some(&3));
+    assert_eq!(s.pop(), Some(3));
+    assert_eq!(s.pop(), Some(1));
 }
 ```
 
@@ -331,6 +370,8 @@ fn peek_and_len() {
 - [Enums & match › `if let` and `let else`](#/enums/if-let-and-let-else)
 - [Enums & match › `match`](#/enums/match)
 - [Generics & bounds › Generic structs and conditional methods](#/generics/generic-structs-and-conditional-methods)
+- [Reference › Option](#/reference/option)
+- [Reference › Strings and &str](#/reference/strings-and-str)
 
 #### Hints
 - `push`: the old head becomes the new node's `next`. Take it with `self.head.take()`, then set `self.head` to `Some(Box::new(Node { ... }))` and bump `len`.
@@ -339,6 +380,9 @@ fn peek_and_len() {
 
 #### Tips
 - You can move fields one by one out of a `Box` you own: after `take`, both `node.next` and `node.value` move out fine. That's special to `Box`; other smart pointers don't allow it.
+- `take()` is the answer to "cannot move out of `self.head` which is behind a mutable reference". It swaps in `None`, so the struct is never left in a state that doesn't exist.
+- `peek` returns `Option<&T>`, not `Option<T>`, which is what lets the test call it twice and still find the value there. Returning `T` would mean removing it.
+- Keep `len` in step with every `push` and `pop`, including the `pop` that finds nothing. A separate counter next to the real structure is always a chance to disagree with it, which is why `pop_empty` tests it.
 
 #### Docs
 - [std: Option::take](https://doc.rust-lang.org/std/option/enum.Option.html#method.take)
@@ -393,6 +437,17 @@ fn shared_lines() {
     assert_eq!(db.lines(), app.lines());
 }
 
+/// a child's child shares the list too
+#[test]
+fn grandchildren() {
+    let app = Logger::new("app");
+    let cache = app.child("db").child("cache");
+    cache.log("miss");
+    app.log("done");
+    assert_eq!(app.lines(), vec!["cache: miss", "app: done"]);
+    assert_eq!(cache.lines(), app.lines());
+}
+
 /// separate roots don't share
 #[test]
 fn separate_roots() {
@@ -400,6 +455,9 @@ fn separate_roots() {
     let b = Logger::new("b");
     a.log("x");
     assert!(b.lines().is_empty());
+    b.log("y");
+    assert_eq!(a.lines(), vec!["a: x"]);
+    assert_eq!(b.lines(), vec!["b: y"]);
 }
 
 /// counts the loggers sharing a list
@@ -410,6 +468,7 @@ fn sharers() {
     let db = app.child("db");
     let cache = db.child("cache");
     assert_eq!(app.sharers(), 3);
+    assert_eq!(cache.sharers(), 3);
     drop(db);
     drop(cache);
     assert_eq!(app.sharers(), 1);
@@ -427,7 +486,10 @@ fn sharers() {
 - `lines` clones the `Vec` behind `self.lines.borrow()`. `sharers` asks `Rc::strong_count` about `self.lines`.
 
 #### Tips
-- Each `borrow_mut()` guard lives only until the end of its statement, so loggers taking turns never trip the runtime check.
+- Each `borrow_mut()` guard lives only until the end of its statement, so loggers taking turns never trip the runtime check. Hold one in a `let` across a call that borrows again and it panics.
+- `log` takes `&self` and still changes the list. That's interior mutability: the `RefCell` moves the check from compile time to run time, which is the only way a shared list can be written to by several owners.
+- `Rc` alone wouldn't do. It hands out shared references only, so `self.lines.push(...)` would be `cannot borrow data in an Rc as mutable`; `RefCell` alone wouldn't share. The pair is the point.
+- `sharers` counts `Rc`s, not loggers, which is why dropping `db` and `cache` brings it back to 1 with no bookkeeping of your own.
 
 #### Docs
 - [Rust book: Allowing multiple owners of mutable data](https://doc.rust-lang.org/book/ch15-05-interior-mutability.html#allowing-multiple-owners-of-mutable-data-with-rct-and-refcellt)
@@ -477,7 +539,24 @@ fn paths() {
     let usr = add_child(&root, "usr");
     let bin = add_child(&usr, "bin");
     assert_eq!(path(&bin), "root/usr/bin");
+    assert_eq!(path(&usr), "root/usr");
     assert_eq!(path(&root), "root");
+    let etc = add_child(&root, "etc");
+    let conf = add_child(&add_child(&etc, "nginx"), "conf");
+    assert_eq!(path(&etc), "root/etc");
+    assert_eq!(path(&conf), "root/etc/nginx/conf");
+}
+
+/// links the child both ways
+#[test]
+fn links() {
+    let root = Node::new("root");
+    let a = add_child(&root, "a");
+    let b = add_child(&root, "b");
+    assert!(Rc::ptr_eq(&a.parent.borrow().upgrade().unwrap(), &root));
+    assert!(Rc::ptr_eq(&b.parent.borrow().upgrade().unwrap(), &root));
+    assert!(root.children.borrow().iter().any(|c| Rc::ptr_eq(c, &b)));
+    assert!(a.children.borrow().is_empty());
 }
 
 /// parents own children, children don't own parents
@@ -500,6 +579,11 @@ fn dropped_parent() {
     drop(root);
     assert!(usr.parent.borrow().upgrade().is_none());
     assert_eq!(path(&usr), "usr");
+    let root = Node::new("root");
+    let bin = add_child(&add_child(&root, "usr"), "bin");
+    assert_eq!(path(&bin), "root/usr/bin");
+    drop(root);
+    assert_eq!(path(&bin), "bin");
 }
 ```
 
@@ -507,6 +591,7 @@ fn dropped_parent() {
 - [Box, Rc & RefCell › `Weak<T>`: breaking cycles](#/smart-pointers/weakt-breaking-cycles)
 - [Enums & match › `if let` and `let else`](#/enums/if-let-and-let-else)
 - [Control flow › `loop`](#/control-flow/loop)
+- [Reference › Box, Rc, RefCell and Weak](#/reference/box-rc-refcell-and-weak)
 
 #### Hints
 - `add_child` is the playground's `adopt`, plus creating the child with `Node::new(name)` first and returning it at the end.
@@ -515,6 +600,9 @@ fn dropped_parent() {
 
 #### Tips
 - `upgrade()` returning `None` is how you recognize the root, and also why a dropped parent simply vanishes from the path instead of dangling.
+- Make the parent links `Rc` instead of `Weak` and nothing breaks visibly: the tests about counts start failing, and every node in the tree leaks. A reference cycle is a bug with no error message.
+- Don't hold the `borrow()` guard while you climb. `let next = p.parent.borrow().upgrade();` finishes the borrow at the semicolon; keeping it alive across the next loop pass is how `RefCell` panics.
+- The counts test is the design in one line: `strong_count(&root)` is 1 because nobody owns the root, and `weak_count(&root)` is 2 because both children point back at it.
 
 #### Docs
 - [Rust book: Creating a tree data structure](https://doc.rust-lang.org/book/ch15-06-reference-cycles.html#creating-a-tree-data-structure-a-node-with-child-nodes)

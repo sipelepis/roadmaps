@@ -125,7 +125,7 @@ func main() {
 
 ### 1. Swap
 
-`Swap(a, b)` exchanges the values of the two variables the pointers point to. Go's parallel assignment `x, y = y, x` works through pointers too.
+`Swap(a, b)` exchanges the values of the two variables the pointers point to. Go's parallel assignment `x, y = y, x` works through pointers too. Passing the same pointer twice leaves the variable as it was.
 
 ```go starter
 package main
@@ -146,6 +146,10 @@ func TestSwap(t *testing.T) {
 	Swap(&x, &y)
 	expect(t, x, 2)
 	expect(t, y, 1)
+	x, y = 0, -7
+	Swap(&x, &y)
+	expect(t, x, -7)
+	expect(t, y, 0)
 }
 
 // swapping twice restores the originals
@@ -155,6 +159,13 @@ func TestSwapTwice(t *testing.T) {
 	Swap(&x, &y)
 	expect(t, x, -5)
 	expect(t, y, 9)
+}
+
+// the same variable twice stays as it was
+func TestSwapSame(t *testing.T) {
+	x := 4
+	Swap(&x, &x)
+	expect(t, x, 4)
 }
 ```
 
@@ -168,6 +179,7 @@ func TestSwapTwice(t *testing.T) {
 
 #### Tips
 - `a, b = b, a` would only swap the function's own copies of the pointers; the caller would see nothing.
+- `Swap(&x, &x)` makes `*a` and `*b` the same variable. The parallel assignment still ends up correct, because the whole right side is read before either write happens.
 
 #### Docs
 - [Go spec: Address operators](https://go.dev/ref/spec#Address_operators)
@@ -193,18 +205,22 @@ import "testing"
 // nil uses the fallback
 func TestNilFallback(t *testing.T) {
 	expect(t, ValueOr(nil, 7), 7)
+	expect(t, ValueOr(nil, -2), -2)
 }
 
 // a pointer wins over the fallback
 func TestPointerValue(t *testing.T) {
 	n := 3
 	expect(t, ValueOr(&n, 7), 3)
+	m := -8
+	expect(t, ValueOr(&m, 100), -8)
 }
 
 // a pointer to zero is still a value
 func TestPointerToZero(t *testing.T) {
 	zero := 0
 	expect(t, ValueOr(&zero, 7), 0)
+	expect(t, ValueOr(&zero, -1), 0)
 }
 ```
 
@@ -218,6 +234,7 @@ func TestPointerToZero(t *testing.T) {
 
 #### Tips
 - A pointer to `0` is not nil. It says "there is a value", even when that value is zero.
+- Go has no optional chaining and no nil-safe dereference. The `if` is the entire mechanism, which is why you see it written out everywhere.
 
 #### Docs
 - [Go spec: If statements](https://go.dev/ref/spec#If_statements)
@@ -244,6 +261,10 @@ func TestLargerIdentity(t *testing.T) {
 	x, y := 3, 8
 	if got := Larger(&x, &y); got != &y {
 		t.Errorf("expected the pointer to y, got %v", got)
+	}
+	a, b := -2, -7
+	if got := Larger(&a, &b); got != &a {
+		t.Errorf("expected the pointer to a, got %v", got)
 	}
 }
 
@@ -282,6 +303,7 @@ func TestLargerTie(t *testing.T) {
 - [Pointers › nil](#/pointers/nil)
 - [Pointers › & and *](#/pointers/and)
 - [Variables & types › Operators](#/basics/operators)
+- [Reference › How the tests here work](#/reference/how-the-tests-here-work)
 
 #### Hints
 - Deal with nil first: if `a` is nil the answer is `b`, whatever `b` is. Then the same for `b`.
@@ -290,6 +312,8 @@ func TestLargerTie(t *testing.T) {
 
 #### Tips
 - `a == b` asks whether two pointers point at the same variable; `*a == *b` compares the values.
+- `a == nil || *a >= *b` is safe: `||` stops at the first true operand, so `*a` is never read when `a` is nil.
+- The tests compare the returned pointer with `!=`, not the number it points at. Return the parameter itself, never a pointer to a local copy.
 
 #### Docs
 - [Go spec: Comparison operators](https://go.dev/ref/spec#Comparison_operators)
@@ -320,6 +344,18 @@ func TestAdder(t *testing.T) {
 	add(3)
 	add(4)
 	expect(t, sum, 7)
+	add(-10)
+	expect(t, sum, -3)
+}
+
+// sees changes the caller makes in between
+func TestCallerChanges(t *testing.T) {
+	sum := 0
+	add := Adder(&sum)
+	add(3)
+	sum = 10
+	add(4)
+	expect(t, sum, 14)
 }
 
 // adders share one total
@@ -352,6 +388,7 @@ func TestSeparateTotals(t *testing.T) {
 
 #### Tips
 - Each adder holds a copy of the same address, which is why adders made from one pointer share a total.
+- `*total += n` adds to the variable. `total += n` does not compile: you cannot do arithmetic on a Go pointer.
 
 #### Docs
 - [Go spec: Function literals](https://go.dev/ref/spec#Function_literals)

@@ -11,7 +11,7 @@ let d: Direction = Direction.Left
 Direction[2]  // 'Left' – numeric enums get a reverse mapping
 ```
 
-Numeric enums are loosely checked: any `number` is assignable to `Direction`, which defeats part of the point.
+Numeric enums are loosely checked: any value typed `number` is assignable to `Direction`, which defeats part of the point.
 
 ## String enums
 
@@ -25,6 +25,13 @@ enum LogLevel {
 ```
 
 String enums are strictly checked (only `LogLevel.X` members are assignable) and read well in logs and JSON. If you use enums, use string enums.
+
+## Enum sharp edges
+
+- A numeric enum leaks. A literal that isn't a member is now rejected (`const d: Direction = 99` is an error since TS 5.0), but anything typed plain `number` still slips straight in: `declare const n: number; const d: Direction = n` compiles. A string enum has no such hole.
+- String enums are nominal in one direction. `LogLevel.Info` is assignable to a parameter typed `'info'`, but `'info'` is *not* assignable to `LogLevel`, so callers must reach for the enum object.
+- Only numeric enums get a reverse mapping, so `Color[1]` is `'Green'` but `LogLevel['info']` is not a thing.
+- `Object.values` on a *numeric* enum returns the names as well as the values, because the reverse mapping is part of the object. For a string enum you get just the values, in declaration order.
 
 ## `const enum`
 
@@ -93,13 +100,35 @@ test('compares severity', () => {
   expect(shouldLog(LogLevel.Warn, LogLevel.Warn)).toBe(true)
   expect(shouldLog(LogLevel.Debug, LogLevel.Info)).toBe(false)
 })
-test('is a string enum', () => {
-  expect<string>(LogLevel.Warn).toBe('warn')
+test('logs anything at or above min', () => {
+  expect(shouldLog(LogLevel.Info, LogLevel.Debug)).toBe(true)
+  expect(shouldLog(LogLevel.Error, LogLevel.Debug)).toBe(true)
+  expect(shouldLog(LogLevel.Debug, LogLevel.Debug)).toBe(true)
+  expect(shouldLog(LogLevel.Error, LogLevel.Error)).toBe(true)
 })
+test('skips anything below min', () => {
+  expect(shouldLog(LogLevel.Info, LogLevel.Warn)).toBe(false)
+  expect(shouldLog(LogLevel.Warn, LogLevel.Error)).toBe(false)
+  expect(shouldLog(LogLevel.Debug, LogLevel.Error)).toBe(false)
+})
+test('is a string enum', () => {
+  expect<string>(LogLevel.Debug).toBe('debug')
+  expect<string>(LogLevel.Info).toBe('info')
+  expect<string>(LogLevel.Warn).toBe('warn')
+  expect<string>(LogLevel.Error).toBe('error')
+})
+
+function neverCalled() {
+  // @ts-expect-error a string enum only accepts its own members
+  shouldLog('warn', LogLevel.Info)
+}
 ```
 
 #### Uses
 - [Enums › String enums](#/enums/string-enums)
+- [Enums › Enum sharp edges](#/enums/enum-sharp-edges)
+- [Reference › Matchers](#/reference/matchers)
+- [Reference › Array methods](#/reference/array-methods)
 
 #### Hints
 - Declare `enum LogLevel { Debug = 'debug', … }`, one member per level.
@@ -108,6 +137,8 @@ test('is a string enum', () => {
 
 #### Tips
 - For a string enum, `Object.values(LogLevel)` returns the values in declaration order. Numeric enums also include the reverse-mapped names, so don't rely on it there.
+- The last test writes `expect<string>(LogLevel.Debug)`, not `expect(...)`. `expect<T>(actual: T).toBe(expected: T)` types both sides the same, and an enum member is not a plain `string`, so the explicit `<string>` is what makes the comparison legal.
+- `indexOf` returns `-1` for something not in the list. It can't happen here, since the parameters are typed `LogLevel`, but a lookup table (`Record<LogLevel, number>`) says the same thing without that hole.
 
 #### Docs
 - [Enums: String enums](https://www.typescriptlang.org/docs/handbook/enums.html#string-enums)
@@ -127,6 +158,7 @@ function colorName(c: Color): string {
 ```ts test
 test('maps values back to names', () => {
   expect(colorName(Color.Red)).toBe('Red')
+  expect(colorName(Color.Green)).toBe('Green')
   expect(colorName(Color.Blue)).toBe('Blue')
 })
 test('members are numbers', () => {
@@ -143,6 +175,8 @@ test('members are numbers', () => {
 
 #### Tips
 - String enums have no reverse mapping, so this only works for numeric ones.
+- The reverse mapping is plain runtime code: the emitted object literally contains both `Red: 0` and `0: 'Red'`. That is the main reason enums are the one TypeScript feature that costs you bytes.
+- `Color[c]` is typed `string` already, so no annotation or cast is needed on the return.
 
 #### Docs
 - [Enums: Reverse mappings](https://www.typescriptlang.org/docs/handbook/enums.html#reverse-mappings)

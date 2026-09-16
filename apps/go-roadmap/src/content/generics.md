@@ -203,6 +203,7 @@ func TestMap(t *testing.T) {
 	expect(t, Map([]int{1, 2, 3}, func(n int) int { return n * n }), []int{1, 4, 9})
 	expect(t, Map([]string{"go", "zig"}, strings.ToUpper), []string{"GO", "ZIG"})
 	expect(t, Map([]string{"a", "abc"}, func(s string) int { return len(s) }), []int{1, 3})
+	expect(t, Map([]int{-1, 0, 2}, func(n int) bool { return n > 0 }), []bool{false, false, true})
 }
 
 // Filter keeps matching elements
@@ -211,6 +212,9 @@ func TestFilter(t *testing.T) {
 	expect(t, Filter([]int{1, 2, 3, 4, 5}, odd), []int{1, 3, 5})
 	long := Filter([]string{"a", "abc", "ab", "abcd"}, func(s string) bool { return len(s) > 2 })
 	expect(t, long, []string{"abc", "abcd"})
+	even := func(n int) bool { return n%2 == 0 }
+	expect(t, Filter([]int{1, 2, 3, 4, 5, 6}, even), []int{2, 4, 6})
+	expect(t, Filter([]int{7, 8, 9}, func(int) bool { return true }), []int{7, 8, 9})
 }
 
 // the input is not modified
@@ -220,6 +224,7 @@ func TestInputUntouched(t *testing.T) {
 	Filter(in, func(n int) bool { return n > 1 })
 	expect(t, in, []int{1, 2, 3})
 	expect(t, len(Filter(in, func(int) bool { return false })), 0)
+	expect(t, len(Map([]int{}, func(n int) int { return n })), 0)
 }
 ```
 
@@ -234,6 +239,7 @@ func TestInputUntouched(t *testing.T) {
 
 #### Tips
 - `make([]U, 0, len(s))` preallocates for `Map`, whose output is exactly as long as its input. `Filter` can't know its length ahead of time, so a nil slice is a fine start.
+- Inference reads the function you pass: `Map([]string{...}, strings.ToUpper)` needs no explicit type arguments, because `strings.ToUpper` is already a `func(string) string`.
 
 #### Docs
 - [Go tutorial: Getting started with generics](https://go.dev/doc/tutorial/generics)
@@ -289,12 +295,22 @@ func TestMaxOf(t *testing.T) {
 	expect(t, ok, true)
 	neg, _ := MaxOf([]int{-5, -3, -8})
 	expect(t, neg, -3)
+	first, _ := MaxOf([]int{7, 1, 2})
+	expect(t, first, 7)
+	last, _ := MaxOf([]float64{1.5, 2.5, 9.75})
+	expect(t, last, 9.75)
+	one, ok := MaxOf([]celsiusForTest{-40})
+	expect(t, one, celsiusForTest(-40))
+	expect(t, ok, true)
 }
 
 // empty input returns zero and false
 func TestMaxOfEmpty(t *testing.T) {
 	f, ok := MaxOf([]float64{})
 	expect(t, f, 0.0)
+	expect(t, ok, false)
+	s, ok := MaxOf([]string(nil))
+	expect(t, s, "")
 	expect(t, ok, false)
 }
 ```
@@ -310,6 +326,8 @@ func TestMaxOfEmpty(t *testing.T) {
 
 #### Tips
 - Don't start the maximum at `0`: for `[-5, -3, -8]` it would wrongly win. Start from the first element.
+- `var total N` and `var zero T` are the only way to name a zero of an unknown type. There is no `N(0)` that works for every member of the constraint.
+- `MaxOf` is `slices.Max` with the panic traded for a `bool`. That comma-ok shape is the Go convention for "there may be nothing here".
 
 #### Docs
 - [cmp.Ordered](https://pkg.go.dev/cmp#Ordered)
@@ -388,6 +406,34 @@ func TestStackEmpty(t *testing.T) {
 	s.Pop()
 	_, ok = s.Pop()
 	expect(t, ok, false)
+	expect(t, s.Len(), 0)
+}
+
+// interleaved pushes and pops, many values
+func TestStackMixed(t *testing.T) {
+	var s Stack[float64]
+	s.Push(1)
+	s.Push(2)
+	v, _ := s.Pop()
+	expect(t, v, 2.0)
+	s.Push(3)
+	top, _ := s.Peek()
+	expect(t, top, 3.0)
+	for i := range 100 {
+		s.Push(float64(i))
+	}
+	expect(t, s.Len(), 102)
+	for i := 99; i >= 0; i-- {
+		v, _ = s.Pop()
+		if v != float64(i) {
+			t.Fatalf("Pop() = %v, want %v", v, float64(i))
+		}
+	}
+	v, _ = s.Pop()
+	expect(t, v, 3.0)
+	v, _ = s.Pop()
+	expect(t, v, 1.0)
+	expect(t, s.Len(), 0)
 }
 ```
 
@@ -395,6 +441,7 @@ func TestStackEmpty(t *testing.T) {
 - [Generics › Generic types](#/generics/generic-types)
 - [Arrays & slices › append](#/slices/append)
 - [Arrays & slices › Slicing shares memory](#/slices/slicing-shares-memory)
+- [Reference › How the tests here work](#/reference/how-the-tests-here-work)
 
 #### Hints
 - The top of the stack is the end of the slice, `s.items[len(s.items)-1]`.
@@ -402,6 +449,8 @@ func TestStackEmpty(t *testing.T) {
 
 #### Tips
 - A nil `items` slice needs no setup: `len` is 0 and `append` allocates on first use, which is why `Stack[T]{}` works without a constructor.
+- `Pop` is `Peek` plus a reslice. Writing it that way keeps the empty check in one place instead of two.
+- All four methods take `*Stack[T]`, even `Len` and `Peek` which only read. Mixing value and pointer receivers on one type is what makes `var s Stack[int]` behave differently from `&Stack[int]{}`.
 
 #### Docs
 - [Go spec: Type parameter declarations](https://go.dev/ref/spec#Type_parameter_declarations)
@@ -454,6 +503,9 @@ func TestGroupByOrder(t *testing.T) {
 func TestSortedKeys(t *testing.T) {
 	expect(t, SortedKeys(map[string]int{"pear": 1, "apple": 2, "fig": 3}), []string{"apple", "fig", "pear"})
 	expect(t, SortedKeys(map[int]bool{3: true, -1: false, 2: true}), []int{-1, 2, 3})
+	many := map[float64]string{9.5: "", 2: "", -1: "", 7: "", 0: "", 3.25: "", 100: "", -50: ""}
+	expect(t, SortedKeys(many), []float64{-50, -1, 0, 2, 3.25, 7, 9.5, 100})
+	expect(t, len(SortedKeys(map[string]int{})), 0)
 }
 ```
 
@@ -469,6 +521,7 @@ func TestSortedKeys(t *testing.T) {
 
 #### Tips
 - `GroupBy` only needs `comparable` for `K`, because map keys are compared with `==`. `SortedKeys` needs the stronger `cmp.Ordered` so it can sort them.
+- `make` before the loop means `GroupBy` hands back a real empty map for empty input, not a nil one. `expect` compares deeply and tells the two apart.
 
 #### Docs
 - [slices.Sorted](https://pkg.go.dev/slices#Sorted)

@@ -185,6 +185,15 @@ pub fn spawn_squares(n: u64) -> Vec<u64> {
 #[test]
 fn squares() {
     assert_eq!(spawn_squares(5), vec![0, 1, 4, 9, 16]);
+    assert_eq!(spawn_squares(1), vec![0]);
+    assert_eq!(spawn_squares(3), vec![0, 1, 4]);
+}
+
+/// many threads, still in order
+#[test]
+fn many() {
+    let expected: Vec<u64> = (0..100).map(|i| i * i).collect();
+    assert_eq!(spawn_squares(100), expected);
 }
 
 /// zero threads, empty result
@@ -205,6 +214,9 @@ fn none() {
 
 #### Tips
 - Spawn everything before joining anything. Joining inside the first loop would wait for each thread before starting the next, and they'd run one at a time.
+- Threads finish in whatever order they like, but joining the handles in order gives an ordered result. The order comes from how you collect, never from when the work happened.
+- `move` is needed even though `i` is a `u64` and `Copy`. `spawn` requires the closure to own everything it touches, so the copy has to happen at spawn time rather than at call time.
+- `join()` gives a `Result`, and the `Err` is a panic that happened over there. `unwrap` re-raises it here, which is usually right: a worker that crashed shouldn't look like a worker that returned nothing.
 
 #### Docs
 - [Rust book: Waiting for all threads to finish](https://doc.rust-lang.org/book/ch16-01-threads.html#waiting-for-all-threads-to-finish-using-join-handles)
@@ -231,11 +243,22 @@ fn sums() {
     assert_eq!(parallel_sum(&data, 1), 500_500);
 }
 
+/// chunks that don't divide evenly
+#[test]
+fn uneven() {
+    let data: Vec<u64> = (1..=10).collect();
+    assert_eq!(parallel_sum(&data, 3), 55);
+    assert_eq!(parallel_sum(&data, 4), 55);
+    assert_eq!(parallel_sum(&[5, 6, 7], 3), 18);
+}
+
 /// more parts than items, or no items
 #[test]
 fn edge_cases() {
     assert_eq!(parallel_sum(&[1, 2, 3], 10), 6);
+    assert_eq!(parallel_sum(&[42], 5), 42);
     assert_eq!(parallel_sum(&[], 3), 0);
+    assert_eq!(parallel_sum(&[], 1), 0);
 }
 ```
 
@@ -243,6 +266,8 @@ fn edge_cases() {
 - [Threads & channels › Scoped threads can borrow](#/concurrency/scoped-threads-can-borrow)
 - [Threads & channels › Spawning and joining](#/concurrency/spawning-and-joining)
 - [Closures & iterators › Adapters are lazy](#/iterators/adapters-are-lazy)
+- [Vec & HashMap › Reading and cutting a slice](#/collections/reading-and-cutting-a-slice)
+- [Variables & types › Operators](#/basics/operators)
 
 #### Hints
 - Work out `size` first, then do the rest inside `thread::scope(|s| { ... })`. `thread::scope` returns whatever its closure returns, so the closure can end with the total.
@@ -251,6 +276,9 @@ fn edge_cases() {
 
 #### Tips
 - `move` here copies the `chunk` reference into the thread, not the numbers. The thread may borrow `data`, but not the loop variable, which ends with each iteration.
+- `thread::spawn` could not do this at all: it needs `'static`, and `data` is a local. `thread::scope` is what makes borrowing safe, by guaranteeing every thread is joined before the scope returns.
+- `.max(1)` isn't decoration. An empty `data` makes `size` zero, and `chunks(0)` panics, so the `edge_cases` test would fail on a panic rather than a wrong number.
+- Fewer, bigger chunks beat one thread per element. Each thread costs far more to start than a handful of additions saves, which is why `parts` is a parameter rather than `data.len()`.
 
 #### Docs
 - [std: thread::scope](https://doc.rust-lang.org/std/thread/fn.scope.html)
@@ -280,6 +308,15 @@ pub fn pipeline(nums: Vec<i32>) -> Vec<i32> {
 #[test]
 fn doubles_and_filters() {
     assert_eq!(pipeline(vec![1, 5, 6, 20, -3, 8]), vec![12, 40, 16]);
+    assert_eq!(pipeline(vec![100, 3]), vec![200]);
+}
+
+/// exactly 10 is not greater than 10
+#[test]
+fn boundary() {
+    assert!(pipeline(vec![5]).is_empty());
+    assert_eq!(pipeline(vec![5, 6]), vec![12]);
+    assert!(pipeline(vec![1, 2, 3, -50]).is_empty());
 }
 
 /// keeps order across many values
@@ -308,13 +345,16 @@ fn empty() {
 
 #### Tips
 - A channel keeps the order of messages from one sender, which is why the output comes out in input order across three threads.
+- The hang is the failure mode to recognize. If a `Sender` is still alive anywhere — kept in a variable, cloned and not dropped — the receiving loop waits forever and the run times out with no error.
+- `move` into each thread is what drops the senders at the right time: the closure owns its sender, and the sender dies when the thread's work is done.
+- Nothing here needs a lock. Ownership travels with each message, so only one thread can touch a value at a time by construction. That's the argument for channels over shared state.
 
 #### Docs
 - [Rust book: Using message passing to transfer data between threads](https://doc.rust-lang.org/book/ch16-02-message-passing.html)
 
 ### 4. Shared counts behind a mutex
 
-`count_words(texts)` counts words across all texts, one thread per text, every thread updating a single `Arc<Mutex<HashMap<String, usize>>>`. After joining the threads, take the map out: `Arc::try_unwrap(counts)` succeeds once only one `Arc` is left, and `Mutex::into_inner` unwraps the lock. (Locking and cloning the map works too.)
+`count_words(texts)` counts words across all texts, one thread per text, every thread updating a single `Arc<Mutex<HashMap<String, usize>>>`. Words are separated by any whitespace. After joining the threads, take the map out: `Arc::try_unwrap(counts)` succeeds once only one `Arc` is left, and `Mutex::into_inner` unwraps the lock. (Locking and cloning the map works too.)
 
 ```rust starter
 use std::collections::HashMap;
@@ -339,21 +379,35 @@ fn counts() {
     assert_eq!(counts["b"], 2);
     assert_eq!(counts["c"], 1);
     assert_eq!(counts.len(), 3);
+    let counts = count_words(texts(&["x\ty\n  x", "y"]));
+    assert_eq!(counts["x"], 2);
+    assert_eq!(counts["y"], 2);
+    assert_eq!(counts.len(), 2);
 }
 
 /// many threads, no lost updates
 #[test]
 fn many_threads() {
-    let many = vec!["tick tock".to_string(); 50];
+    let many = vec!["tick tock tick".to_string(); 100];
     let counts = count_words(many);
-    assert_eq!(counts["tick"], 50);
-    assert_eq!(counts["tock"], 50);
+    assert_eq!(counts["tick"], 200);
+    assert_eq!(counts["tock"], 100);
+    let mut mixed = Vec::new();
+    for i in 0..50 {
+        mixed.push(format!("word{i} shared"));
+    }
+    let counts = count_words(mixed);
+    assert_eq!(counts["shared"], 50);
+    assert_eq!(counts["word0"], 1);
+    assert_eq!(counts["word49"], 1);
+    assert_eq!(counts.len(), 51);
 }
 
 /// no texts, no counts
 #[test]
 fn empty() {
     assert!(count_words(vec![]).is_empty());
+    assert!(count_words(texts(&["", "   "])).is_empty());
 }
 ```
 
@@ -361,6 +415,7 @@ fn empty() {
 - [Threads & channels › Shared state: `Arc<Mutex<T>>`](#/concurrency/shared-state-arcmutext)
 - [Vec & HashMap › The entry API](#/collections/the-entry-api)
 - [Strings & slices › Everyday string methods](#/strings/everyday-string-methods)
+- [Reference › Threads and channels](#/reference/threads-and-channels)
 
 #### Hints
 - Same shape as the article's counter: one `Arc::new(Mutex::new(HashMap::new()))`, an `Arc::clone` moved into each thread, and a `Vec` of handles to join.
@@ -369,6 +424,9 @@ fn empty() {
 
 #### Tips
 - Locking once per word is simple but makes threads queue. Counting into a local `HashMap` and merging it under one lock at the end scales better.
+- `Arc::try_unwrap` fails if any clone is still alive, so every thread has to be joined first. A handle you forgot to join keeps its `Arc`, and the `unwrap` panics instead of hanging.
+- Swap `Arc` for `Rc` and it stops compiling, with `Rc<...> cannot be sent between threads safely`. That error is the `Send` marker doing its job, not an inconvenience to work around.
+- `*map.entry(word.to_string()).or_insert(0) += 1` holds the lock for the whole statement. Locking once and then counting a whole text inside that guard is both faster and simpler than locking per word.
 
 #### Docs
 - [Rust book: Sharing a `Mutex<T>` between multiple threads](https://doc.rust-lang.org/book/ch16-03-shared-state.html#sharing-a-mutext-between-multiple-threads)

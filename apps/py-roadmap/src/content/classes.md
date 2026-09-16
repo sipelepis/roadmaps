@@ -28,6 +28,22 @@ acct = Account("Ada").deposit(50)
 
 Everything is public. A leading underscore (`_balance`) says "internal, don't rely on it". A double underscore (`__balance`) triggers name mangling to `_Account__balance`, which prevents accidental clashes in subclasses; it is not privacy.
 
+`obj.name` is the everyday syntax. When the *name* is itself a value — from a loop, a config file, or a test — there are function forms that take it as a string:
+
+```python
+acct = Account("Ada", 50)
+
+getattr(acct, "balance")          # 50, same as acct.balance
+getattr(acct, "nickname", "n/a")  # 'n/a', the default for a missing attribute
+setattr(acct, "balance", 75)      # same as acct.balance = 75
+hasattr(acct, "balance")          # True
+
+for field in ["owner", "balance"]:
+    print(field, getattr(acct, field))
+```
+
+They go through exactly the same machinery as the dot, so `setattr` triggers a property's setter and raises whatever that setter raises. That is why tests use `setattr(r, side, bad)` to check both `width` and `height` with one loop.
+
 ## Properties
 
 Turn a method into a computed attribute, or add validation to assignment, without changing the call sites:
@@ -152,11 +168,27 @@ class Counter:
 ```python test
 def test_chain():
     """increments and chains"""
+    assert Counter().value == 0
     assert Counter().increment().increment().value == 2
+    c = Counter()
+    assert c.increment() is c
+    c.increment().increment()
+    assert c.value == 3
 
 def test_start():
     """accepts a start value"""
+    assert Counter(10).value == 10
     assert Counter(10).increment().value == 11
+    assert Counter(-3).increment().increment().value == -1
+
+def test_independent():
+    """each counter keeps its own count"""
+    a = Counter()
+    a.increment().increment()
+    b = Counter()
+    assert b.value == 0
+    b.increment()
+    assert (a.value, b.value) == (2, 1)
 
 def test_read_only():
     """value cannot be assigned"""
@@ -180,6 +212,8 @@ def test_read_only():
 
 #### Tips
 - The leading underscore in `_value` tells readers "internal". The property is the public way in.
+- `return self` is what makes `c.increment().increment()` work, and it is also why the test can write `c.increment() is c`. A method that returns `None` ends the chain.
+- Returning `self` suits builders and counters. Most methods should return a useful value or nothing at all — chaining everything makes it hard to see what mutates.
 
 #### Docs
 - [Built-in functions: `property`](https://docs.python.org/3/library/functions.html#property)
@@ -200,26 +234,36 @@ def test_area():
     assert r.area == 6
     r.width = 4
     assert r.area == 12
+    r.height = 5
+    assert r.area == 20
+    assert Rectangle(0.5, 4).area == 2.0
 
 def test_validation():
-    """rejects non-positive sizes"""
-    for bad in [lambda: Rectangle(0, 1), lambda: Rectangle(1, -2)]:
+    """rejects non-positive sizes when created"""
+    for bad in [lambda: Rectangle(0, 1), lambda: Rectangle(1, -2),
+                lambda: Rectangle(-3, 5), lambda: Rectangle(4, 0)]:
         try:
             bad()
         except ValueError:
             continue
         assert False, "expected ValueError"
+
+def test_setters():
+    """rejects non-positive sizes assigned later"""
     r = Rectangle(1, 1)
-    try:
-        r.height = 0
-    except ValueError:
-        return
-    assert False, "expected ValueError"
+    for side in ["width", "height"]:
+        for bad in [0, -2]:
+            try:
+                setattr(r, side, bad)   # same as r.width = bad
+            except ValueError:
+                continue
+            assert False, f"expected ValueError for {side} = {bad}"
 ```
 
 #### Uses
 - [Classes › Properties](#/classes/properties)
 - [Classes › Defining a class](#/classes/defining-a-class)
+- [Classes › Attribute access](#/classes/attribute-access)
 
 #### Hints
 - Give `width` and `height` each a `@property` getter and a matching `@width.setter` / `@height.setter`, like `radius` in the article.
@@ -227,7 +271,9 @@ def test_validation():
 - In `__init__`, assign `self.width = width`, not `self._width`, so construction goes through the setter. `area` is a read-only property that multiplies the two.
 
 #### Tips
-- Storing the real value under a different name matters: a setter that does `self.width = value` calls itself forever.
+- Storing the real value under a different name matters: a setter that does `self.width = value` calls itself forever, until Python gives up with `RecursionError`.
+- The `@property` getter has to be defined before `@width.setter`, because the setter decorator is an attribute *of* the property object the getter created.
+- Validating in the setter rather than in `__init__` is what makes the later assignments safe too. One check, two entry points covered.
 
 #### Docs
 - [Built-in functions: `property`](https://docs.python.org/3/library/functions.html#property)
@@ -250,12 +296,23 @@ def test_from_string():
     """parses 'x,y'"""
     p = Point.from_string("3,4")
     assert (p.x, p.y) == (3, 4)
+    p = Point.from_string("-2,15")
+    assert (p.x, p.y) == (-2, 15)
 
-def test_distance_and_eq():
-    """distance and value equality"""
+def test_distance():
+    """straight-line distance between two points"""
     assert Point(0, 0).distance_to(Point(3, 4)) == 5.0
+    assert Point(1, 1).distance_to(Point(4, 5)) == 5.0
+    assert Point(2, -1).distance_to(Point(-4, 7)) == 10.0
+    assert Point(6, 6).distance_to(Point(6, 6)) == 0.0
+
+def test_eq():
+    """value equality"""
     assert Point(1, 2) == Point(1, 2)
     assert Point(1, 2) != Point(2, 1)
+    assert Point(1, 2) != Point(1, 5)
+    assert Point(3, 2) != Point(4, 2)
+    assert Point.from_string("7,-1") == Point(7, -1)
 ```
 
 #### Uses
@@ -271,6 +328,8 @@ def test_distance_and_eq():
 
 #### Tips
 - Return `cls(...)`, not `Point(...)`, so a subclass calling `from_string` gets an instance of the subclass.
+- An alternative constructor is a `@classmethod`, not a `@staticmethod`: it needs `cls` to build the object. `Point.from_string("3,4")` is called on the class, with no instance in sight.
+- Defining `__eq__` sets `__hash__` to `None`, so this `Point` can no longer go in a set or be a dict key. Add `__hash__` too if it needs to.
 
 #### Docs
 - [Built-in functions: `classmethod`](https://docs.python.org/3/library/functions.html#classmethod)
@@ -298,11 +357,24 @@ def test_square():
     """square"""
     assert Square(3).area() == 9
     assert Square(3).describe() == "square with area 9"
+    assert Square(5).describe() == "square with area 25"
+    assert Square(1.5).describe() == "square with area 2.25"
+    assert isinstance(Square(3), Shape)
 
 def test_circle():
     """circle, rounded"""
     assert Circle(1).describe() == "circle with area 3.14"
+    assert Circle(2).describe() == "circle with area 12.57"
+    assert Circle(0.5).describe() == "circle with area 0.79"
     assert isinstance(Circle(1), Shape)
+
+def test_describe_on_shape():
+    """describe works for any subclass"""
+    class Triangle(Shape):
+        name = "triangle"
+        def area(self):
+            return 6
+    assert Triangle().describe() == "triangle with area 6"
 ```
 
 #### Uses
@@ -317,6 +389,8 @@ def test_circle():
 
 #### Tips
 - `round(9, 2)` stays the int `9`, which is why the square reads `"area 9"` and not `"area 9.0"`.
+- Write `describe` once, on `Shape`. The test defines a `Triangle` you have never seen and expects it to work — that is the whole point of putting shared behaviour on the base class.
+- `name` is a class attribute, so `self.name` finds the subclass's value without any `__init__` involvement. `Triangle` sets `name` and nothing else.
 
 #### Docs
 - [Python tutorial: Inheritance](https://docs.python.org/3/tutorial/classes.html#inheritance)

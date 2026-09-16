@@ -38,6 +38,16 @@ function len(value: unknown): number {
 }
 ```
 
+The difference in one line: `any` lets a mistake through silently, `unknown` refuses to compile until you prove what the value is.
+
+```ts
+declare const a: any, u: unknown
+a.toUpperCase()   // compiles, may crash
+u.toUpperCase()   // error: 'u' is of type 'unknown'
+```
+
+`any` is also contagious. `JSON.parse(text).items.map(f)` is `any` all the way down, and every value derived from it loses checking too. When you must accept anything, take `unknown` and narrow once at the edge.
+
 ## `void` and `never`
 
 - `void` is the return type of a function that returns nothing useful.
@@ -110,12 +120,19 @@ type _1 = Expect<Equal<Parameters<typeof describeBook>, [title: string, pages: n
 
 test('formats a book', () => {
   expect(describeBook('Refactoring', 448, true)).toBe('REFACTORING (448 pages) – in stock')
+  expect(describeBook('Dune', 412, true)).toBe('DUNE (412 pages) – in stock')
+})
+test('says sold out when not in stock', () => {
+  expect(describeBook('Refactoring', 448, false)).toBe('REFACTORING (448 pages) – sold out')
+  expect(describeBook('Emma', 474, false)).toBe('EMMA (474 pages) – sold out')
 })
 ```
 
 #### Uses
 - [Basic types › The primitives](#/basic-types/the-primitives)
 - [Basic types › `any` – turning the checker off](#/basic-types/any-turning-the-checker-off)
+- [Reference › String methods](#/reference/string-methods)
+- [Reference › Numbers and Math](#/reference/numbers-and-math)
 
 #### Hints
 - Read how the body uses each parameter. The method you call on a value tells you its type.
@@ -123,6 +140,8 @@ test('formats a book', () => {
 
 #### Tips
 - Use the lowercase names. `String`, `Number` and `Boolean` with capitals are wrapper object types.
+- `toFixed` returns a *string*, not a number, which is why it can be dropped straight into the template literal.
+- Getting a type wrong here is not a runtime crash you have to hunt for. The compiler points at the call, because the method you used doesn't exist on the type you wrote.
 
 #### Docs
 - [Everyday Types: The primitives](https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#the-primitives-string-number-and-boolean)
@@ -143,6 +162,13 @@ test('reports primitives', () => {
   expect(kindOf(1)).toBe('number')
   expect(kindOf(true)).toBe('boolean')
   expect(kindOf(undefined)).toBe('undefined')
+  expect(kindOf(10n)).toBe('bigint')
+  expect(kindOf(Symbol('id'))).toBe('symbol')
+})
+test('reports objects and functions', () => {
+  expect(kindOf({ a: 1 })).toBe('object')
+  expect(kindOf([1, 2])).toBe('object')
+  expect(kindOf(() => 1)).toBe('function')
 })
 test('typeof null is object (a JavaScript quirk)', () => {
   expect(kindOf(null)).toBe('object')
@@ -162,6 +188,8 @@ type _2 = Expect<Equal<ReturnType<typeof kindOf>, string>>
 
 #### Tips
 - `typeof null` is `'object'`. Check `=== null` separately when the difference matters.
+- `unknown` accepts every value, exactly like `any`. The difference shows up on the *next* line, when you try to use it.
+- `typeof` on an array gives `'object'` too. `Array.isArray` is the check you actually want for arrays.
 
 #### Docs
 - [More on Functions: unknown](https://www.typescriptlang.org/docs/handbook/2/functions.html#unknown)

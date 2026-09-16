@@ -19,6 +19,8 @@ theme.primary          // still known: [number, number, number], and `theme.acce
 
 Compare `const theme: Theme = ...`, which forgets the keys.
 
+Two things `satisfies` is not. It is not a cast: if the value doesn't fit, you get an error, not a silent reinterpretation. And it does not change the variable's type, so a *later* mutation is checked against the inferred type, not against `Theme`. Order matters when you combine it with `as const`: write `{ … } as const satisfies T`, so the literal is frozen first and the frozen type is what gets checked.
+
 ## `as const`
 
 Freeze a literal into its most specific type. Combine with `satisfies` for config objects.
@@ -148,6 +150,14 @@ test('validates', () => {
   expect(send(toEmail('ada@x.io'))).toBe('sent to ada@x.io')
   expect(() => toEmail('nope')).toThrow()
 })
+test('keeps the address as is', () => {
+  expect(send(toEmail('grace@navy.mil'))).toBe('sent to grace@navy.mil')
+  expect(send(toEmail('linus@kernel.org'))).toBe('sent to linus@kernel.org')
+})
+test('rejects anything without @', () => {
+  expect(() => toEmail('')).toThrow()
+  expect(() => toEmail('ada.x.io')).toThrow()
+})
 
 // @ts-expect-error a plain string is not an Email
 send('ada@x.io')
@@ -156,6 +166,8 @@ send('ada@x.io')
 #### Uses
 - [Advanced patterns › Branded types](#/advanced-patterns/branded-types)
 - [Unions, literals, and intersections › Intersections](#/unions/intersections)
+- [Reference › String methods](#/reference/string-methods)
+- [Reference › Matchers](#/reference/matchers)
 
 #### Hints
 - Redefine `Email` as `string` intersected with an object type holding a readonly `__brand` property, just like `UserId` in the article.
@@ -164,6 +176,8 @@ send('ada@x.io')
 
 #### Tips
 - Keep the `as Email` cast inside `toEmail` and nowhere else. If every `Email` comes through that function, every `Email` has been validated.
+- The brand property never exists at runtime. `__brand` is a lie the type system tells itself; the value is still just a string, and `send(toEmail('a@b'))` receives exactly what you passed in.
+- `toThrow` needs a function, so the test writes `expect(() => toEmail('nope')).toThrow()`. Make sure you `throw` rather than returning a sentinel, or those three tests fail no matter what the types say.
 
 #### Docs
 - [Everyday Types: Type Assertions](https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#type-assertions)
@@ -187,11 +201,18 @@ function unwrapOr<T, E>(r: Result<T, E>, fallback: T): T {
 ```ts test
 test('divides', () => {
   expect(safeDivide(6, 3)).toEqual({ ok: true, value: 2 })
+  expect(safeDivide(7, -2)).toEqual({ ok: true, value: -3.5 })
   expect(safeDivide(1, 0)).toEqual({ ok: false, error: 'division by zero' })
+})
+test('a zero numerator is fine', () => {
+  expect(safeDivide(0, 5)).toEqual({ ok: true, value: 0 })
+  expect(safeDivide(0, 0)).toEqual({ ok: false, error: 'division by zero' })
 })
 test('unwraps with a fallback', () => {
   expect(unwrapOr(safeDivide(6, 3), -1)).toBe(2)
   expect(unwrapOr(safeDivide(1, 0), -1)).toBe(-1)
+  expect(unwrapOr(safeDivide(0, 5), -1)).toBe(0)
+  expect(unwrapOr({ ok: false, error: 404 }, 'fallback')).toBe('fallback')
 })
 ```
 
@@ -205,6 +226,8 @@ test('unwraps with a fallback', () => {
 
 #### Tips
 - Try reading `r.value` before checking `r.ok`. The compiler refuses, and that refusal is the whole point of `Result`.
+- `ok: true` and `ok: false` must be literal types, not `boolean`. A single `{ ok: boolean; value?: T; error?: E }` would compile and narrow nothing.
+- `unwrapOr` is generic over both `T` and `E`, which is why the last test can hand it a result whose error is a `number` and a fallback that is a `string`.
 
 #### Docs
 - [Narrowing: Discriminated unions](https://www.typescriptlang.org/docs/handbook/2/narrowing.html#discriminated-unions)
@@ -228,6 +251,17 @@ test('narrows afterwards', () => {
   const maybe = 'hello' as string | null
   assertDefined(maybe)
   expect(maybe.toUpperCase()).toBe('HELLO')   // compiles only if narrowed to string
+  const count = 41 as number | undefined
+  assertDefined(count)
+  expect(count + 1).toBe(42)                  // compiles only if narrowed to number
+})
+test('lets falsy but defined values through', () => {
+  const zero = 0 as number | null
+  assertDefined(zero)
+  expect(zero).toBe(0)
+  const empty = '' as string | undefined
+  assertDefined(empty)
+  expect(empty).toBe('')
 })
 ```
 
@@ -242,6 +276,8 @@ test('narrows afterwards', () => {
 
 #### Tips
 - Use `== null`, not a falsy check. `assertDefined(0)` and `assertDefined('')` should pass.
+- Write it as a `function` declaration. An arrow function works only if the *variable* carries the full type annotation (`const f: (v: unknown) => asserts v is string = …`); writing `asserts` on the arrow itself gives "assertions require every name in the call target to be declared with an explicit type annotation".
+- The narrowing only sticks for a variable the compiler can track. `assertDefined(getUser())` narrows nothing, because there is no reference to narrow.
 
 #### Docs
 - [Narrowing: Assertion functions](https://www.typescriptlang.org/docs/handbook/2/narrowing.html#assertion-functions)
@@ -267,6 +303,7 @@ function css(rgb: Rgb): string {
 ```ts test
 test('keys are preserved', () => {
   expect(css(THEME.primary)).toBe('rgb(31, 120, 198)')
+  expect(css(THEME.danger)).toBe('rgb(220, 38, 38)')
 })
 
 // @ts-expect-error accent is not a key of THEME
@@ -277,6 +314,7 @@ type _1 = Expect<Equal<keyof typeof THEME, 'primary' | 'danger'>>
 
 #### Uses
 - [Advanced patterns › `satisfies`](#/advanced-patterns/satisfies)
+- [Reference › Array methods](#/reference/array-methods)
 
 #### Hints
 - Add `satisfies Record<string, Rgb>` after the object literal's closing brace.
@@ -284,6 +322,8 @@ type _1 = Expect<Equal<keyof typeof THEME, 'primary' | 'danger'>>
 
 #### Tips
 - `satisfies` also gives the literal its context, so `[31, 120, 198]` is checked as an `Rgb` tuple instead of widening to `number[]`. That is why `css(THEME.primary)` compiles.
+- It is a check, not a cast. Add a fourth number to one of the colours and you get an error on the object, which is the difference from `as Record<string, Rgb>`.
+- Reach for this whenever you want both halves: the *shape* validated and the *keys* remembered. Config objects, route tables and theme maps are the usual cases.
 
 #### Docs
 - [TypeScript 4.9: The `satisfies` Operator](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-4-9.html#the-satisfies-operator)

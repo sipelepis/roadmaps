@@ -184,18 +184,22 @@ pub fn count_vowels(s: &str) -> usize {
 fn counts() {
     assert_eq!(count_vowels("Hello World"), 3);
     assert_eq!(count_vowels("AEIOU aeiou"), 10);
+    assert_eq!(count_vowels("Rust Programming"), 4);
 }
 
 /// ignores accented letters
 #[test]
 fn accented() {
     assert_eq!(count_vowels("héllo wörld"), 1);
+    assert_eq!(count_vowels("café ÀÉÎÕÜ"), 1);
 }
 
-/// empty string has none
+/// no vowels, no count
 #[test]
 fn empty() {
     assert_eq!(count_vowels(""), 0);
+    assert_eq!(count_vowels("rhythm"), 0);
+    assert_eq!(count_vowels("123 !?"), 0);
 }
 ```
 
@@ -209,6 +213,8 @@ fn empty() {
 
 #### Tips
 - `é` and `ö` are `char`s of their own, not `e` or `o` with an accent added, so they never match. In `"héllo wörld"` only the `o` of `héllo` counts.
+- `"aeiouAEIOU".contains(c)` works because `contains` accepts a `char` as well as a `&str`. Ten comparisons joined with `||` would say the same thing much more slowly to read.
+- The return type is `usize`, the type of lengths and counts. Start the counter with `let mut n = 0;` and inference picks it up from the return.
 
 #### Docs
 - [Book: Methods for iterating over strings](https://doc.rust-lang.org/book/ch08-02-strings.html#methods-for-iterating-over-strings)
@@ -229,6 +235,7 @@ pub fn middle(values: &[i32]) -> &[i32] {
 #[test]
 fn drops_ends() {
     assert_eq!(middle(&[1, 2, 3, 4]), [2, 3]);
+    assert_eq!(middle(&[10, 20, 30, 40, 50]), [20, 30, 40]);
 }
 
 /// works on a Vec
@@ -236,6 +243,8 @@ fn drops_ends() {
 fn vec() {
     let v = vec![5, 6, 7];
     assert_eq!(middle(&v), [6]);
+    let v = vec![-1, 0, 0, -1];
+    assert_eq!(middle(&v), [0, 0]);
 }
 
 /// short slices give an empty slice
@@ -259,6 +268,8 @@ fn short() {
 
 #### Tips
 - `&[]` is an empty slice literal, and works as the early return too.
+- `values.len() - 1` on an empty slice underflows a `usize` and panics before any slicing happens. Test the length first; that's the whole point of the `short` test.
+- Nothing is copied here. The returned `&[i32]` points into the caller's data, and its lifetime is tied to the input by elision, which is why no annotation is needed.
 
 #### Docs
 - [Book: Other slices](https://doc.rust-lang.org/book/ch04-03-slices.html#other-slices)
@@ -278,6 +289,8 @@ pub fn truncate(s: &str, max_chars: usize) -> &str {
 #[test]
 fn ascii() {
     assert_eq!(truncate("hello", 3), "hel");
+    assert_eq!(truncate("hello", 4), "hell");
+    assert_eq!(truncate("hello", 5), "hello");
 }
 
 /// multi-byte characters
@@ -285,6 +298,8 @@ fn ascii() {
 fn multibyte() {
     assert_eq!(truncate("héllo", 2), "hé");
     assert_eq!(truncate("日本語", 1), "日");
+    assert_eq!(truncate("日本語", 2), "日本");
+    assert_eq!(truncate("🦀 rust", 3), "🦀 r");
 }
 
 /// shorter strings come back whole
@@ -292,12 +307,15 @@ fn multibyte() {
 fn short() {
     assert_eq!(truncate("hi", 5), "hi");
     assert_eq!(truncate("日本語", 3), "日本語");
+    assert_eq!(truncate("héllo", 5), "héllo");
+    assert_eq!(truncate("", 2), "");
 }
 
 /// zero characters is empty
 #[test]
 fn zero() {
     assert_eq!(truncate("abc", 0), "");
+    assert_eq!(truncate("日本語", 0), "");
 }
 ```
 
@@ -313,6 +331,8 @@ fn zero() {
 
 #### Tips
 - Offsets from `char_indices` always sit on a character boundary, so slicing at them can't panic. That's the point of the exercise.
+- The starter's `&s[..max_chars.min(s.len())]` treats `max_chars` as a byte count. It passes the ASCII test and panics on `"héllo"`, which is exactly how this bug reaches production.
+- `s.chars().take(n).collect::<String>()` gives the same text but allocates a new `String`. The signature asks for a `&str`, a view into the original, so it has to be a slice.
 
 #### Docs
 - [std: `str::char_indices`](https://doc.rust-lang.org/std/primitive.str.html#method.char_indices)
@@ -335,24 +355,36 @@ pub fn capitalize_words(s: &str) -> String {
 #[test]
 fn capitalizes() {
     assert_eq!(capitalize_words("hello wide world"), "Hello Wide World");
+    assert_eq!(capitalize_words("a b c"), "A B C");
 }
 
 /// keeps spacing
 #[test]
 fn spacing() {
     assert_eq!(capitalize_words("  two  spaces "), "  Two  Spaces ");
+    assert_eq!(capitalize_words(""), "");
+    assert_eq!(capitalize_words("   "), "   ");
 }
 
 /// leaves other letters alone
 #[test]
 fn rest_untouched() {
     assert_eq!(capitalize_words("mcDonald iPhone"), "McDonald IPhone");
+    assert_eq!(capitalize_words("Already Done"), "Already Done");
+}
+
+/// only a space starts a new word
+#[test]
+fn only_spaces_split() {
+    assert_eq!(capitalize_words("well-known 1st try"), "Well-known 1st Try");
+    assert_eq!(capitalize_words("o'neil (ok)"), "O'neil (ok)");
 }
 
 /// handles non-ASCII letters
 #[test]
 fn unicode() {
     assert_eq!(capitalize_words("élan ßtraße"), "Élan SStraße");
+    assert_eq!(capitalize_words("über öl"), "Über Öl");
 }
 ```
 
@@ -368,6 +400,8 @@ fn unicode() {
 
 #### Tips
 - `c.to_ascii_uppercase()` returns a plain `char`, but it leaves `é` and `ß` alone, so the last test fails with it.
+- Start the "previous character was a space" flag at `true`, not `false`. Otherwise the very first letter never gets capitalized, and only the `spacing` test with its leading blanks would notice.
+- Only `' '` starts a new word here, not any whitespace and not punctuation, which is why `"well-known"` stays `"Well-known"`. Read the tests for the exact rule before reaching for `split_whitespace`.
 
 #### Docs
 - [std: `char::to_uppercase`](https://doc.rust-lang.org/std/primitive.char.html#method.to_uppercase)
