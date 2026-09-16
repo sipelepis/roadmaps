@@ -42,7 +42,7 @@ for (const app of apps) {
       for (const href of hrefs) {
         const m = href.split('/')[0]
         if (!href.includes('/')) problems.push(`${where}: Uses link #/${href} should point at a section, not the whole module`)
-        else if (m in mods && !before.has(m)) problems.push(`${where}: Uses #/${href}, but ${m} is not ${id} or a module it builds on`)
+        else if (m in mods && m !== 'reference' && !before.has(m)) problems.push(`${where}: Uses #/${href}, but ${m} is not ${id} or a module it builds on`)
       }
     })
   }

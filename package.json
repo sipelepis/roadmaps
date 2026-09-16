@@ -10,7 +10,8 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "check": "turbo check",
-    "check:refs": "node --no-warnings scripts/check-refs.ts"
+    "check:refs": "node --no-warnings scripts/check-refs.ts",
+    "check:taught": "node --no-warnings scripts/check-taught.ts"
   },
   "devDependencies": {
     "turbo": "^2"

@@ -50,7 +50,7 @@ function shell(active: string, body: string, side = '') {
   app.innerHTML = `${SPRITE}
     <header class="nav">
       <a class="brand" href="#/" aria-label="Rust Roadmap home"><span class="mark">RS</span><span class="brand-name">Roadmap</span></a>
-      <nav aria-label="Primary">${link('#/', 'home', 'Roadmap')}${link('#/learn', 'learn', 'Learn')}${link('#/exercises', 'exercises', 'Exercises')}</nav>
+      <nav aria-label="Primary">${link('#/', 'home', 'Roadmap')}${link('#/learn', 'learn', 'Learn')}${link('#/exercises', 'exercises', 'Exercises')}${'reference' in modules ? link('#/reference', 'reference', 'Reference') : ''}</nav>
       <a class="pill" href="#/exercises" aria-label="${done} of ${exercises.length} exercises passed">${icon('check')}<span class="num">${done}</span><span class="sep">/</span><span class="num">${exercises.length}</span></a>
       <button class="theme" id="theme" aria-label="Switch between light and dark theme"><svg class="ic sun" aria-hidden="true"><use href="#i-sun"/></svg><svg class="ic moon" aria-hidden="true"><use href="#i-moon"/></svg></button>
     </header>
@@ -290,6 +290,15 @@ function exercisePage(id: string, i: number) {
   wireProblem(id, i, p)
 }
 
+/* The reference appendix: a lookup page, not a step on the roadmap, so it has no graph node and no exercises. */
+function referencePage() {
+  const m = modules['reference']
+  shell('reference', `
+    <header class="title"><h1>${m.title}</h1></header>
+    <article class="prose">${m.html}</article>`, sidebar(''))
+  colorize(app)
+}
+
 let shown = ''
 function route() {
   const [, a = '', b = '', c = ''] = location.hash.split('?')[0].split('/')
@@ -298,6 +307,7 @@ function route() {
   disposeAll()
   shown = a in modules ? a : ''
   if (a === 'learn') learn()
+  else if (a === 'reference' && 'reference' in modules) referencePage()
   else if (a === 'exercises') exercisesPage()
   else if (a === 'exercise' && b in modules && modules[b].problems[+c]) exercisePage(b, +c)
   else if (a in modules) modulePage(a)
