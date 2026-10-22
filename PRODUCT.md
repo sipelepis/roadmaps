@@ -2,7 +2,7 @@
 
 <!-- impeccable:product-schema 1 -->
 
-This file covers the roadmap apps, `apps/ts-roadmap`, `apps/py-roadmap`, `apps/rag-roadmap`, `apps/go-roadmap`, and `apps/rust-roadmap`. `apps/rag-pet` is a separate project in the same monorepo and has its own README. They share one shell, one content format, and one purpose; only the language and its runtime differ. Facts marked *(inferred)* come from the repository and launch copy rather than a confirmed answer from the owner.
+This file covers the roadmap apps, `apps/ts-roadmap`, `apps/py-roadmap`, `apps/rag-roadmap`, `apps/go-roadmap`, `apps/rust-roadmap`, and `apps/stats-roadmap`. `apps/rag-pet` is a separate project in the same monorepo and has its own README. They share one shell, one content format, and one purpose; only the language and its runtime differ. Facts marked *(inferred)* come from the repository and launch copy rather than a confirmed answer from the owner.
 
 ## Platform
 
@@ -33,7 +33,7 @@ Source: `social/caption.txt`, the launch copy.
 - Go and Rust send the code to the official Go Playground and Rust Playground on every Run; they need the network, and the first Run shows "Compiling…".
 - Every exercise carries a **Uses** row of links to the article sections that teach what it needs, and a **Hints and tips** tray (progressive hints, tips, official docs). Uses links may only point to the exercise's own module or modules it builds on; `npm run check:refs` enforces this, so an exercise never depends on something the learner hasn't reached.
 - Drafts and pass state are keyed in `localStorage`. Clearing site data resets progress.
-- Deployed as static `dist/` to Vercel, one project per app: `ts-roadmap`, `py-roadmap`, `rag-roadmap`, `go-roadmap`, `rust-roadmap`.
+- Deployed as static `dist/` to Vercel, one project per app: `ts-roadmap`, `py-roadmap`, `rag-roadmap`, `go-roadmap`, `rust-roadmap`, `stats-roadmap`.
 
 ## Capabilities and Constraints
 
@@ -47,7 +47,7 @@ Source: `social/caption.txt`, the launch copy.
 
 ## Brand Commitments
 
-- Names: "TypeScript Roadmap", "Python Roadmap", "RAG Roadmap", "Go Roadmap", "Rust Roadmap". Marks are the chips "TS", "PY", "RAG", "GO", "RS".
+- Names: "TypeScript Roadmap", "Python Roadmap", "RAG Roadmap", "Go Roadmap", "Rust Roadmap", "Statistics Roadmap". Marks are the chips "TS", "PY", "RAG", "GO", "RS", "STAT".
 - Voice, from the launch copy and articles: plain, direct, second person, short declaratives. "Try it, break it, tell me what's missing." No marketing superlatives.
 - Existing motion is respected: the graph draws itself top to bottom on the home page, content rises in on route change, and all of it is skipped under `prefers-reduced-motion`.
 
