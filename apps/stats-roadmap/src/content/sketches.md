@@ -4,26 +4,163 @@ Count frequencies and distinct items in fixed memory with Count-Min and HyperLog
 
 ## Exact counting does not scale
 
-Not written yet.
+To count how often each key appears, keep a dict of counts. To count distinct keys, keep a set. Both are exact, and both grow with the number of distinct keys, not with the number of events:
+
+```python
+import random
+
+rng = random.Random(6)
+stream = [f'user{int(rng.random() ** 3 * 10000)}' for _ in range(20000)]
+counts = {}
+for key in stream:
+    counts[key] = counts.get(key, 0) + 1
+print(len(stream), len(counts), max(counts.values()))
+```
+
+This prints `20000 6925 959`: 20,000 events, 6,925 distinct keys, and the busiest key seen 959 times. The dict holds 6,925 entries. With a billion distinct keys it holds a billion. A sketch is a small table of fixed size that you update as events arrive. You give up exactness. In return the memory does not depend on the number of distinct keys, and the size of the error is a number you choose in advance.
 
 ## Hashing you can reproduce
 
-Not written yet.
+Both sketches turn a key into a number with a hash function. Python's built-in hash function is salted for every process, controlled by the `PYTHONHASHSEED` setting, so the same string hashes to a different number each time you start Python. A sketch built on it cannot be saved, shared or merged. Use a hash that gives the same answer everywhere.
+
+```python
+import hashlib
+import zlib
+
+print(zlib.crc32(b'apple'))
+h = int.from_bytes(hashlib.blake2b(b'apple', digest_size=8).digest(), 'big')
+print(h, h.bit_length())
+```
+
+`zlib.crc32` is fast and returns a 32-bit number, `2838417488` for `b'apple'`. `hashlib.blake2b` with `digest_size=8` returns 8 bytes, and `int.from_bytes(..., 'big')` turns them into a 64-bit integer, here `10812779455369817823`. Use `crc32` to pick a column, with `% width`, and the 64-bit one when you need the individual bits.
+
+To get several independent hashes of one key, put a row number in front of it: `zlib.crc32(f'{row}:{key}'.encode())`. That is what the exercise code does.
 
 ## Count-Min sketch
 
-Not written yet.
+A Count-Min sketch is a table of `d` rows and `w` columns of counters, all starting at 0. Each row has its own hash. To add a key, bump one counter in every row. To estimate a key's count, read its counter in every row and take the minimum:
+
+```python
+import zlib
+
+def bucket(key, row, width):
+    return zlib.crc32(f'{row}:{key}'.encode()) % width
+
+def cm_add(sketch, key, count=1):
+    for r, row in enumerate(sketch):
+        row[bucket(key, r, len(row))] += count
+
+def cm_estimate(sketch, key):
+    return min(row[bucket(key, r, len(row))] for r, row in enumerate(sketch))
+```
+
+Other keys can land in the same counter, and then they add to it. So each counter is the key's true count plus some extras, and the minimum over rows is never below the true count. It never underestimates. It can overestimate, and taking the minimum keeps the overestimate small, because it takes only one row to be lucky.
+
+Cormode and Muthukrishnan ([2005](https://www.cs.ox.ac.uk/people/graham.cormode/pubs/html/CormodeMuthukrishnan04CMJalg.html)) showed how to size it. For a stream with `N` events in total, width `w = ceil(e / eps)` and depth `d = ceil(ln(1 / delta))` give an estimate that is at most `eps * N` too high, with probability at least `1 - delta`. For `eps = 0.01` and `delta = 0.01` that is `w = 272` and `d = 5`, which is 1,360 counters.
+
+Run it on the stream above. The three busiest keys have true counts `959`, `248` and `156`, and estimates `997`, `288` and `195`. Over all 6,925 keys the overestimates run from `17` to `91`, always positive and always below the bound `eps * N = 200`.
 
 ## HyperLogLog
 
-Not written yet.
+Counting distinct keys needs a different trick. Hash each key to 64 bits. A hash that starts with 10 zero bits is rare: about one in 1,024. So if the longest run of leading zeros you have seen is long, you have probably seen a lot of distinct keys. One register gives a noisy answer. HyperLogLog uses `m = 2 ** b` registers and averages them.
+
+The top `b` bits of the hash pick a register. In the other `64 - b` bits, find the position of the first 1 bit counted from the left, which is the rank. The register keeps the largest rank it has seen. A hash of `1 << 63` with `b = 4` goes to register 8, the other 60 bits are all zero, and the rank is `61`. A repeated key has the same hash, the same register and the same rank, so repeats change nothing.
+
+To estimate, combine the registers. With `M` the register values:
+
+```
+estimate = alpha_m * m^2 / sum(2^-M)
+```
+
+The constant `alpha_m` corrects a bias. The exercise gives it for each size. When the estimate is small, no more than `2.5 * m`, and some registers are still 0, the formula does badly, so use linear counting instead: `m * ln(m / zeros)`, where `zeros` is the number of empty registers. Flajolet and colleagues ([2007](https://algo.inria.fr/flajolet/Publications/FlFuGaMe07.pdf)) give the full method. The typical relative error is about `1.04 / sqrt(m)`.
+
+Count 20,000 distinct keys with three sizes of sketch. With `b = 6`, 64 registers, the estimate is `19310`, off by `-3.45%`, against a typical error of `13%`. With `b = 10`, 1,024 registers, it is `20102`, off by `0.51%`, against `3.25%`. With `b = 14`, 16,384 registers, it is `20094`, off by `0.47%`, against `0.81%`. Each register is a small integer, so 16,384 of them take far less room than 20,000 keys do. These are single runs, so a result can land on either side of its typical error. The error falls as the registers grow.
 
 ## Merging sketches
 
-Not written yet.
+Sketches merge, so each machine can sketch its own share of the data and send only the sketch. Two Count-Min sketches with the same shape and the same hashes merge by adding cells. Each counter is the sum of the events that landed there on either machine, which is what one sketch fed both streams would hold. Two HyperLogLog sketches with the same number of registers merge by taking the larger value in each register. A register keeps the largest rank among all the keys it saw, so the larger of two maxima is the maximum over the union.
+
+Split the stream from the first section into two halves, sketch each, and merge. The merged Count-Min table equals the table built from the whole stream, and so do the merged HyperLogLog registers. Overlap is not double-counted by HyperLogLog. With `b = 10`, keys `a0` to `a29` estimate `29.42`, keys `a20` to `a49` estimate `27.36`, and the merged 1,024 registers estimate `48.11`, against a true union of 50.
 
 ```python playground
-print("This module is not written yet.")
+import hashlib
+import math
+import random
+import zlib
+
+
+def bucket(key, row, width):
+    return zlib.crc32(f'{row}:{key}'.encode()) % width
+
+
+def cm_new(width, depth):
+    return [[0] * width for _ in range(depth)]
+
+
+def cm_add(sketch, key, count=1):
+    for r, row in enumerate(sketch):
+        row[bucket(key, r, len(row))] += count
+
+
+def cm_estimate(sketch, key):
+    return min(row[bucket(key, r, len(row))] for r, row in enumerate(sketch))
+
+
+def cm_merge(a, b):
+    return [[x + y for x, y in zip(ra, rb)] for ra, rb in zip(a, b)]
+
+
+def h64(key):
+    return int.from_bytes(hashlib.blake2b(key.encode(), digest_size=8).digest(), 'big')
+
+
+def hll_add(regs, h, b):
+    index = h >> (64 - b)
+    rest = h & ((1 << (64 - b)) - 1)
+    regs[index] = max(regs[index], (64 - b) - rest.bit_length() + 1)
+
+
+def hll_estimate(regs):
+    m = len(regs)
+    alpha = {16: 0.673, 32: 0.697, 64: 0.709}.get(m) or 0.7213 / (1 + 1.079 / m)
+    e = alpha * m * m / sum(2.0 ** -r for r in regs)
+    zeros = regs.count(0)
+    return m * math.log(m / zeros) if e <= 2.5 * m and zeros else e
+
+
+rng = random.Random(6)
+stream = [f'user{int(rng.random() ** 3 * 10000)}' for _ in range(20000)]
+counts = {}
+for key in stream:
+    counts[key] = counts.get(key, 0) + 1
+print(len(stream), len(counts), max(counts.values()))
+
+# Count-Min: width ceil(e / 0.01) = 272, depth ceil(ln(1 / 0.01)) = 5.
+whole = cm_new(272, 5)
+for key in stream:
+    cm_add(whole, key)
+over = [cm_estimate(whole, k) - c for k, c in counts.items()]
+print(min(over), max(over), 'bound', 0.01 * len(stream))
+for key in sorted(counts, key=counts.get, reverse=True)[:3]:
+    print(key, counts[key], cm_estimate(whole, key))
+
+# HyperLogLog on 20,000 distinct keys.
+for b in (6, 10, 14):
+    regs = [0] * (1 << b)
+    for i in range(20000):
+        hll_add(regs, h64(f'item{i}'), b)
+    est = hll_estimate(regs)
+    print(b, round(est), round(est / 20000 - 1, 4), round(1.04 / math.sqrt(1 << b), 4))
+
+# Merging: sketch each half, add the cells, compare with the whole.
+left, right = cm_new(272, 5), cm_new(272, 5)
+for key in stream[:10000]:
+    cm_add(left, key)
+for key in stream[10000:]:
+    cm_add(right, key)
+print(cm_merge(left, right) == whole)
+
+# Try: shrink the width to 64 and watch the overestimates grow.
 ```
 
 ## Exercises
@@ -103,6 +240,24 @@ def test_bad_shape():
             raise AssertionError(f'cm_new({width}, {depth}) should have raised ValueError')
 ```
 
+#### Uses
+- [Counting at scale › Count-Min sketch](#/sketches/count-min-sketch)
+- [Counting at scale › Hashing you can reproduce](#/sketches/hashing-you-can-reproduce)
+
+#### Hints
+- `cm_new` builds `depth` rows. Write `[[0] * width for _ in range(depth)]` so each row is its own list, and check `width` and `depth` first.
+- In `cm_add`, the width is `len(sketch[0])`. Loop over the rows with their numbers using `enumerate`.
+- For row `r`, the column is `bucket(key, r, width)`. Add `count` to that counter.
+- `cm_estimate` reads the same counter in every row and returns the smallest with `min`.
+
+#### Tips
+- Do not build the table as `[[0] * width] * depth`. That repeats one list `depth` times, and a bump to one row shows up in all of them.
+- A counter can only be too high, never too low, so the minimum is the safest read.
+
+#### Docs
+- [Python docs: `zlib.crc32`](https://docs.python.org/3/library/zlib.html#zlib.crc32)
+- [Cormode and Muthukrishnan: An Improved Data Stream Summary, the Count-Min Sketch](https://www.cs.ox.ac.uk/people/graham.cormode/pubs/html/CormodeMuthukrishnan04CMJalg.html)
+
 ### 2. Size a Count-Min
 
 Write `cm_size(eps, delta)`, which returns a tuple `(width, depth)` for a Count-Min sketch whose estimates overshoot by at most `eps` times the stream's total count, with probability at least `1 - delta`. Use `width = math.ceil(math.e / eps)` and `depth = math.ceil(math.log(1 / delta))`, both `int`. Raise `ValueError` when `eps` is 0 or less, or when `delta` is not strictly between 0 and 1.
@@ -139,6 +294,23 @@ def test_bad_inputs():
         else:
             raise AssertionError(f'cm_size({eps}, {delta}) should have raised ValueError')
 ```
+
+#### Uses
+- [Counting at scale › Count-Min sketch](#/sketches/count-min-sketch)
+
+#### Hints
+- Check the inputs first: `eps` must be above 0, and `delta` strictly between 0 and 1.
+- The width is `e` divided by `eps`, rounded up. `math.e` is the constant.
+- The depth is the natural log of `1 / delta`, rounded up. `math.log` is the natural log.
+- Return the two numbers as a tuple, width first.
+
+#### Tips
+- A smaller `eps` makes the table wider, and a smaller `delta` makes it deeper. The depth grows slowly, since it is a log.
+- Both sizes are whole counters, so always round up.
+
+#### Docs
+- [Python docs: `math.ceil`](https://docs.python.org/3/library/math.html#math.ceil)
+- [Python docs: `math.e`](https://docs.python.org/3/library/math.html#math.e)
 
 ### 3. HyperLogLog
 
@@ -219,6 +391,25 @@ def test_distinct_keys():
     assert abs(hll_estimate(regs) / 20000 - 1) < 0.13
 ```
 
+#### Uses
+- [Counting at scale › HyperLogLog](#/sketches/hyperloglog)
+- [Counting at scale › Hashing you can reproduce](#/sketches/hashing-you-can-reproduce)
+
+#### Hints
+- `hll_new` checks that `b` is from 4 to 16, then returns `2 ** b` zeros.
+- In `hll_add`, get `index` with a right shift of `64 - b`, and get `rest` by masking off the low `64 - b` bits.
+- The rank counts leading zeros of `rest` within `64 - b` bits, plus one. `int.bit_length` gives you the zeros: `(64 - b) - rest.bit_length() + 1`.
+- Keep the larger of the old register value and the new rank.
+- For the estimate, pick `alpha` by `m`, compute the raw `E`, count the zero registers, and switch to linear counting when `E <= 2.5 * m` and there is at least one zero.
+
+#### Tips
+- When `rest` is 0, `bit_length` is 0 and the rank comes out as `65 - b`, the biggest possible.
+- Linear counting is also what makes an empty sketch return `0.0`: `m * log(m / m)`.
+
+#### Docs
+- [Python docs: `int.bit_length`](https://docs.python.org/3/library/stdtypes.html#int.bit_length)
+- [Flajolet et al.: HyperLogLog, the analysis of a near-optimal cardinality estimation algorithm](https://algo.inria.fr/flajolet/Publications/FlFuGaMe07.pdf)
+
 ### 4. Merge two sketches
 
 Write `cm_merge(a, b)`, which returns a new Count-Min table where every counter is the sum of the two counters in the same place, and `hll_merge(a, b)`, which returns a new register list where every register is the larger of the two. Leave both inputs unchanged. Raise `ValueError` when the shapes differ: a different number of rows or a different row width for Count-Min, a different number of registers for HyperLogLog. A merged sketch is exactly the sketch you would have built from both streams together, which is why each machine can sketch its own share and send only the sketch.
@@ -275,3 +466,20 @@ def test_mismatched():
         else:
             raise AssertionError(f'{merge.__name__} of mismatched shapes should have raised ValueError')
 ```
+
+#### Uses
+- [Counting at scale › Merging sketches](#/sketches/merging-sketches)
+- [Counting at scale › Exact counting does not scale](#/sketches/exact-counting-does-not-scale)
+
+#### Hints
+- Compare shapes first and raise `ValueError` if they differ. For Count-Min compare the number of rows and then each row's width. For HyperLogLog compare the lengths.
+- Build the result from new lists. Do not write into `a` or `b`.
+- For Count-Min, add the counters in the same position: a nested comprehension over `zip(a, b)` and then over each pair of rows.
+- For HyperLogLog, take `max` of each pair of registers.
+
+#### Tips
+- Merging is only valid when both sketches used the same hashes. The shape check catches a size mismatch, but not a different hash.
+- Merging is the same operation whichever order you use: addition and `max` are both symmetric.
+
+#### Docs
+- [Python docs: `zip`](https://docs.python.org/3/library/functions.html#zip)
