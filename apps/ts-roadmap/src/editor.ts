@@ -29,7 +29,16 @@ typescriptDefaults.setCompilerOptions({
   strict: true,
 })
 typescriptDefaults.addExtraLib(HARNESS_DTS, 'file:///harness.d.ts')
-const token = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+/** Monaco accepts only #rrggbb[aa]; minified CSS shortens tokens (#fff) and a browser may resolve them to rgb(). */
+const token = (name: string) => {
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+  if (/^#[0-9a-f]{3,4}$/i.test(v)) return '#' + [...v.slice(1)].map(c => c + c).join('')
+  const m = v.match(/^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)(?:\s*[,/]\s*([\d.]+)(%?))?\s*\)$/i)
+  if (!m) return v
+  const hex = (n: number) => Math.round(Math.max(0, Math.min(255, n))).toString(16).padStart(2, '0')
+  const a = m[4] === undefined ? '' : hex(+m[4] * (m[5] ? 2.55 : 255))
+  return '#' + hex(+m[1]) + hex(+m[2]) + hex(+m[3]) + a
+}
 /** Monaco needs resolved colours, so the theme is rebuilt from the Akashi tokens on every theme change. */
 export const syncEditorTheme = () => {
   const dark = document.documentElement.dataset.theme === 'dark'
