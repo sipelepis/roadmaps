@@ -114,7 +114,7 @@ It never shows on links, buttons, focus rings, nav, or badges. Those stay monoch
 | ios | `#0A84FF` | `#191919` | `#0A84FF` | `#0A84FF` |
 | stats | `#be185d` | white | `#be185d` | `#d01a66` |
 
-Python uses yellow as its dark accent so the two-tone logo still shows on the dark surface. Android's light accent is darker than its brand green for the same reason. Stats lightens its accent in the dark theme to keep 3:1.
+Python uses yellow as its dark accent so the two-tone logo still shows on the dark surface. Android's brand green is 1.71:1 on light paper, so its light accent is the darker #1c9c55 (3.39:1). Stats lightens its accent in the dark theme to keep 3:1.
 
 ## 3. Dark theme
 
@@ -145,7 +145,7 @@ The graph is an SVG layered DAG. Its geometry (rows, node positions, edges) live
 - The up-next node gets an `--identity-accent` stroke. It is the only identity colour in the graph.
 - Undone edges are `--line-strong`.
 - Hover fills the node with `--hover-fill` and strokes it `--ink`.
-- Keyboard focus draws an `--ink` stroke, 2.5px wide. There is no blue focus ring.
+- Keyboard focus draws an `--ink` stroke, 2.5px wide, on every node state (up next and done included). There is no blue focus ring. The editor frame gets a 2px solid `--ink` ring when focused.
 
 On a small screen the graph scrolls sideways. Its minimum width is 760px.
 
