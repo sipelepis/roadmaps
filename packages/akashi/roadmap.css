@@ -155,6 +155,7 @@ kbd + kbd { margin-left: 0.2rem; }
 .prose li { margin: 0.25rem 0; }
 .prose pre, .bar pre, .tests pre { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-command); padding: 1rem 1.25rem; overflow-x: auto; font: 13.5px/1.6 var(--font-mono); margin: 0 0 1.25rem; }
 .prose code, .desc code { font-family: var(--font-mono); font-size: 0.88em; }
+.prose pre code, .desc pre code { font-size: inherit; }
 .prose :not(pre) > code, .desc :not(pre) > code, h1 code, h3 code, .ex-title code, .tray code { background: var(--mention-surface); color: var(--mention-text); border: 0; border-radius: var(--radius-mention); padding: 0.08em 0.4em; font-weight: 400; }
 h1 code { font-size: 0.85em; font-weight: 400; }
 .prose table { border-collapse: collapse; width: 100%; font-size: 0.95rem; margin: 0 0 1.25rem; }
