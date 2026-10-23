@@ -55,6 +55,6 @@ Reference solutions live outside git, in `.solutions/stats-roadmap/<id>.<n>.py`,
 
 ## Deploying
 
-Vercel project `stats-roadmap`, root directory `apps/stats-roadmap`. It is not deployed yet. See the root `README.md` for the deploy steps shared by all roadmaps.
+Vercel project `stats-roadmap`, root directory `apps/stats-roadmap`, live at https://stats-roadmap.vercel.app. Pushing `main` redeploys it. See the root `README.md` for the deploy steps shared by all roadmaps.
 
 Progress and drafts are stored in `localStorage`.
