@@ -136,12 +136,13 @@ def test_empty_draws_nothing():
 
 def test_bad_p():
     """p outside 0 to 1 raises ValueError"""
-    try:
-        flips(3, 1.5, random.Random(1))
-    except ValueError:
-        pass
-    else:
-        raise AssertionError('p of 1.5 should have raised ValueError')
+    for p in (1.5, -0.1):
+        try:
+            flips(3, p, random.Random(1))
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f'p of {p} should have raised ValueError')
 ```
 
 #### Uses
@@ -230,6 +231,7 @@ def test_errors():
     assert round(abs_error(0.34, 0.3), 9) == 0.04
     assert round(rel_error(0.29, 0.3), 9) == 0.033333333
     assert round(rel_error(-8.0, -10.0), 9) == 0.2
+    assert round(rel_error(12, 10), 9) == 0.2
 
 
 def test_zero_truth():
@@ -248,6 +250,7 @@ def test_close_enough():
     assert close_enough(1020, 1000) is False
     assert close_enough(1010.05, 1000) is False
     assert close_enough(0.29, 0.3, rel_tol=0.05) is True
+    assert close_enough(1010, 1000) is True
 
 
 def test_abs_tol():
@@ -256,6 +259,7 @@ def test_abs_tol():
     assert close_enough(0.0003, 0.0002, abs_tol=0.001) is True
     assert close_enough(0.0005, 0) is False
     assert close_enough(0.0005, 0, abs_tol=0.001) is True
+    assert close_enough(1015, 1000, abs_tol=10) is False
 ```
 
 #### Uses

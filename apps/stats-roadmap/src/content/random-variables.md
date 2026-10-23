@@ -192,6 +192,12 @@ def test_point_mass():
     assert variance({4: 1.0}) == 0.0
 
 
+def test_rounding_tolerance():
+    """probabilities that add to 1 only within rounding are accepted"""
+    assert round(expectation({i: 0.1 for i in range(10)}), 9) == 4.5
+    assert round(expectation({0: 0.33333333333, 1: 0.33333333333, 2: 0.33333333333}), 9) == 1.0
+
+
 def test_bad_pmf():
     """empty or non-normalised pmfs raise ValueError"""
     for pmf in ({}, {1: 0.5, 2: 0.4}, {1: 0.5, 2: 0.5000001}):
@@ -250,6 +256,16 @@ def test_exact_attempts():
     assert attempts_until_success(0.25, random.Random(9)) == 3
     assert attempts_until_success(0.25, random.Random(3)) == 1
     assert attempts_until_success(1.0, random.Random(3)) == 1
+
+
+def test_draws_until_success():
+    """it draws rng.random() once per attempt and stops at the first success"""
+    rng = random.Random(9)
+    attempts_until_success(0.25, rng)
+    ref = random.Random(9)
+    for _ in range(3):
+        ref.random()
+    assert rng.getstate() == ref.getstate()
 
 
 def test_mean_attempts():
@@ -323,6 +339,12 @@ def test_different_values():
     """the two pmfs need not share values"""
     got = convolve({0: 0.5, 10: 0.5}, {1: 0.5, 2: 0.5})
     assert {k: round(v, 9) for k, v in got.items()} == {1: 0.25, 2: 0.25, 11: 0.25, 12: 0.25}
+
+
+def test_zero_probability():
+    """a pair with probability 0 still adds its sum as a key"""
+    got = convolve({1: 0.0, 2: 1.0}, {1: 1.0})
+    assert {k: round(v, 9) for k, v in got.items()} == {2: 0.0, 3: 1.0}
 
 
 def test_empty():

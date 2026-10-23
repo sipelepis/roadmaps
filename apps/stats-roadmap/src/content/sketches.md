@@ -375,6 +375,7 @@ def test_estimate():
     assert round(hll_estimate(hll_new(6)), 9) == 0.0
     assert round(hll_estimate([0] * 15 + [61]), 9) == 1.032616338
     assert round(hll_estimate([5] * 16), 9) == 344.576
+    assert round(hll_estimate([1] * 16), 9) == 21.536
     assert round(hll_estimate([4] * 32), 9) == 356.864
     assert round(hll_estimate([4] * 64), 9) == 726.016
     assert round(hll_estimate([3] * 1024), 9) == 5902.669892174

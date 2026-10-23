@@ -320,6 +320,12 @@ def test_other_conf():
     assert n_for_margin(4, 0.5, conf=0.8) == 106
 
 
+def test_exact_z():
+    """z comes from the inverse normal CDF, not a rounded 1.96 or a table"""
+    assert n_for_margin(100, 1) == 38415
+    assert n_for_margin(100, 1, 0.975) == 50239
+
+
 def test_bad_inputs():
     """a margin of 0 or less, or conf outside 0 to 1, raises ValueError"""
     for args in ((15, 0), (15, -2), (15, 2, 0.0), (15, 2, 1.0), (15, 2, 1.5)):

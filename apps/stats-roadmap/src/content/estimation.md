@@ -184,6 +184,11 @@ def test_values():
     assert round(log_likelihood([0, 0, 0, 1, 0], 0.2), 9) == -2.502012118
 
 
+def test_long_list():
+    """2000 flips stay finite, so add logs rather than multiplying probabilities"""
+    assert round(log_likelihood([1] * 1000 + [0] * 1000, 0.5), 9) == -1386.29436112
+
+
 def test_certain():
     """an empty list, or flips that p of 0 or 1 makes certain, give 0.0"""
     assert round(log_likelihood([], 0.3), 9) == 0.0
@@ -258,13 +263,14 @@ def test_seven_of_ten():
 
 
 def test_grid_edges():
-    """the nearest step, never 0 or 1, and the smaller p on a tie"""
+    """the best step, never 0 or 1, and the smaller p on a tie"""
     assert round(grid_mle([1, 0, 0], steps=7), 9) == 0.285714286
     assert round(grid_mle([1, 1, 1, 1]), 9) == 0.999
     assert round(grid_mle([1, 1, 1, 1], steps=10), 9) == 0.9
     assert round(closed_form_mle([1, 1, 1, 1]), 9) == 1.0
     assert round(grid_mle([1, 0], steps=5), 9) == 0.4
     assert round(grid_mle([0, 1], steps=5), 9) == 0.4
+    assert round(grid_mle([1, 0, 0, 0], steps=10), 9) == 0.3
 
 
 def test_agree():

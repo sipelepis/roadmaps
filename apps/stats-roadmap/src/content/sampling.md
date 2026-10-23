@@ -230,6 +230,12 @@ def test_ties():
     assert allocate({'web': 640, 'app': 250, 'kiosk': 110}, 50) == {'web': 32, 'app': 13, 'kiosk': 5}
 
 
+def test_exact_quotas():
+    """quotas are exact fractions, so true ties stay ties"""
+    assert allocate({'x': 1, 'y': 1, 'z': 4}, 10) == {'x': 2, 'y': 2, 'z': 6}
+    assert allocate({'x': 1, 'y': 1, 'z': 7}, 3) == {'x': 1, 'y': 0, 'z': 2}
+
+
 def test_sums_to_n():
     """the parts always add up to n"""
     sizes = {'s1': 17, 's2': 29, 's3': 8, 's4': 46}
@@ -306,6 +312,15 @@ def test_zero_weight():
     assert sorted(set(picks)) == ['b', 'd']
 
 
+def test_zero_weight_at_edge():
+    """a draw of exactly 0.0 skips a leading item with weight 0"""
+    class Zero:
+        def random(self):
+            return 0.0
+
+    assert weighted_pick(['a', 'b', 'c', 'd'], [0, 4, 0, 1], Zero()) == 'b'
+
+
 def test_bad_weights():
     """empty input, a negative weight or a total of 0 raises ValueError"""
     for items, weights in (([], []), (['a', 'b'], [2, -1]), (['a', 'b'], [0, 0])):
@@ -357,6 +372,8 @@ def test_weights():
     assert {g: round(w, 9) for g, w in got.items()} == {'online': 0.571428571, 'store': 2.0}
     got = post_strat_weights({'a': 50, 'b': 30, 'c': 20}, {'a': 0.25, 'b': 0.35, 'c': 0.4})
     assert {g: round(w, 9) for g, w in got.items()} == {'a': 0.5, 'b': 1.166666667, 'c': 2.0}
+    got = post_strat_weights({'online': 14, 'store': 6}, {'online': 0.4, 'store': 0.6})
+    assert {g: round(w, 9) for g, w in got.items()} == {'online': 0.571428571, 'store': 2.0}
 
 
 def test_weighted_mean():
