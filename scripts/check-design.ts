@@ -1,8 +1,10 @@
 // Static oracle for the Akashi design system across the ten roadmap apps: the shared packages/akashi package,
 // each app's thin identity stylesheet, index.html, editor theme, docs, and WCAG contrast of the token pairs.
-// node --no-warnings scripts/check-design.ts [--self-test] [--dist] [group ...]
+// node --no-warnings scripts/check-design.ts [--self-test] [--dist] [--since <sha>] [group ...]
 //   groups: package docs ts py rag go rust kotlin swift android ios stats (none = all twelve)
 //   --self-test  run only the contrast self-test      --dist  also check built output (dist/) in every app group
+//   --since <sha>  also check that each app's main.ts, graph.ts and motion.ts are untouched since <sha> (a branch-only
+//                  invariant: leave it off once the work has merged, or any later edit to those files fails the check)
 // Exit 0 = nothing failed, 1 = a check failed, 2 = usage error or failing self-test.
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
@@ -10,7 +12,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { isDeepStrictEqual } from 'node:util'
 
-const BASE = '0c2c392'
+let since = ''
 const APPS = ['ts', 'py', 'rag', 'go', 'rust', 'kotlin', 'swift', 'android', 'ios', 'stats']
 const ID: Record<string, { identity: string; ink: string; light: string; dark: string; mark?: string }> = {
   ts: { identity: '#3178c6', ink: '#ffffff', light: '#3178c6', dark: '#3178c6' },
@@ -206,6 +208,16 @@ const pkgGroup = () => {
     [!accentOk && 'identity-accent in a wrong rule', accentAll.length && `identity-accent missing in ${accentAll.join(', ')}`, !markOnly && 'identity/identity-ink outside .mark',
       !markBoth && '.mark lacks identity and identity-ink', shadowBad.length && `box-shadow in ${shadowBad.map(r => r.sel).join(' | ')}`].filter(Boolean).join('; '))
 
+  const focusSel = (r: Rule, n: string) => sels(r).includes(n)
+  const focusIdx = (n: string) => rs.reduce((last, r, i) => (focusSel(r, n) ? i : last), -1)
+  const lastFocus = Math.max(...['.node:focus-visible rect', '.node.next:focus-visible rect', '.node.done:focus-visible rect'].map(focusIdx))
+  const strokeLost = ['next', 'done'].filter(k => rs.some((r, i) => sels(r).includes(`.node.${k} rect`) && /(^|[;\s])stroke\s*:/.test(r.body) &&
+    !(i < lastFocus || focusIdx(`.node.${k}:focus-visible rect`) >= 0)))
+  chk(g, 'a focused graph node keeps its ink focus stroke over the next and done strokes', lastFocus >= 0 && !strokeLost.length,
+    lastFocus < 0 ? 'no .node:focus-visible rect rule' : `.node.${strokeLost.join(', .node.')} rect stroke comes after and ties the focus rule`)
+  chk(g, 'links inside .hint and .builds running text are underlined', rs.some(r => /text-decoration\s*:\s*underline/.test(r.body) && !r.sel.includes(':hover') && ['.hint a', '.builds a'].every(n => sels(r).includes(n))),
+    'no non-hover text-decoration: underline rule for .hint a and .builds a')
+
   const prim = (name: string) => rs.filter(r => sels(r).includes(name))
   const primOk = (name: string) => {
     const rr = prim(name)
@@ -299,6 +311,9 @@ const appGroup = (a: string, dist: boolean) => {
   chk(g, 'favicon rect is the identity, text is the identity ink', fillOf('rect') === want.identity && fillOf('text') === want.ink, `rect=${fillOf('rect')} text=${fillOf('text')}`)
   const boot = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).find(s => s.includes('dataset.theme')) ?? ''
   chk(g, 'boot script handles light, dark and prefers-color-scheme: dark', /===\s*'light'/.test(boot) && /===\s*'dark'/.test(boot) && boot.includes('prefers-color-scheme: dark') && !boot.includes('localStorage.theme ||'), boot ? boot.slice(0, 70) : 'no inline theme script')
+  chk(g, "boot script uses the stored value only when 'light' or 'dark', and a dark OS maps to 'dark', otherwise 'light'",
+    /(\w+)\s*===\s*'light'\s*\|\|\s*\1\s*===\s*'dark'\s*\?\s*\1\s*:/.test(boot) &&
+    /prefers-color-scheme:\s*dark\s*\)?['"]\s*\)\s*\.matches\s*\?\s*'dark'\s*:\s*'light'/.test(boot), boot ? boot.slice(0, 120) : 'no inline theme script')
 
   const ed = rd(g, `${dir}/src/editor.ts`)
   const must = ["\"'DM Mono', ui-monospace, Menlo, Consolas, monospace\"", `document.fonts.load('400 14px "DM Mono"')`, 'remeasureFonts', 'getComputedStyle',
@@ -308,8 +323,33 @@ const appGroup = (a: string, dist: boolean) => {
   const em = must.filter(s => !ed.includes(s)), en = mustNot.filter(s => ed.includes(s))
   chk(g, 'editor.ts uses DM Mono and computed-style Monaco theme', !!ed && !em.length && !en.length, [em.length && `missing ${em.join(' | ')}`, en.length && `still has ${en.join(', ')}`].filter(Boolean).join('; '))
 
-  try {
-    const changed = execFileSync('git', ['diff', '--name-only', BASE, '--', ...['main', 'graph', 'motion'].map(f => `${dir}/src/${f}.ts`)], { encoding: 'utf8' }).trim()
+  const pair = (key: string, val: string) => new RegExp(`['"]${key.replace('.', '\\.')}['"]\\s*:\\s*(?:${val})\\s*[,}\\n]`).test(ed)
+  const SURF = "bg|token\\('--surface'\\)", INK = "ink|token\\('--ink'\\)"
+  const pairs: [string, string][] = [['editor.background', SURF], ['editorGutter.background', SURF], ['editor.foreground', INK], ['editorLineNumber.activeForeground', INK],
+    ['editorCursor.foreground', INK], ['editorLineNumber.foreground', "token\\('--muted'\\)"], ['editor.lineHighlightBackground', "token\\('--hover-fill'\\)"],
+    ['editor.selectionBackground', "token\\('--mention-surface'\\)"]]
+  const wrong = pairs.filter(([k, v]) => !pair(k, v)).map(([k]) => k)
+  if (!/\bbg\s*=\s*token\('--surface'\)/.test(ed)) wrong.push('const bg = token(--surface)')
+  if (!/\bink\s*=\s*token\('--ink'\)/.test(ed)) wrong.push('const ink = token(--ink)')
+  chk(g, 'editor.ts maps each Monaco colour key to its Akashi token', !!ed && !wrong.length, `wrong or missing: ${wrong.join(', ')}`)
+  chk(g, 'editor.ts token helper expands short hex (#rgb, #rgba)', /\^#\[0-9a-f\]\{3,4\}\$/i.test(ed), 'no #rgb/#rgba expansion')
+  const fl = ed.indexOf(`document.fonts.load('400 14px "DM Mono"')`)
+  const stmt = fl < 0 ? '' : ed.slice(fl, fl + ed.slice(fl + 1).search(/\n(?=\S)/) + 1 || undefined)
+  const thenTwoArgs = (t: string) => {
+    for (let i = t.indexOf('.then('); i >= 0; i = t.indexOf('.then(', i + 1)) {
+      let d = 0
+      for (let j = i + 5; j < t.length; j++) {
+        if ('([{'.includes(t[j])) d++
+        else if (')]}'.includes(t[j])) { if (--d === 0) break }
+        else if (t[j] === ',' && d === 1) return true
+      }
+    }
+    return false
+  }
+  chk(g, 'editor.ts document.fonts.load promise has a rejection handler', !!stmt && (/\.(catch|finally)\(/.test(stmt) || thenTwoArgs(stmt)), stmt ? 'no .catch, .finally or two-argument .then' : 'fonts.load statement missing')
+
+  if (since) try {
+    const changed = execFileSync('git', ['diff', '--name-only', since, '--', ...['main', 'graph', 'motion'].map(f => `${dir}/src/${f}.ts`)], { encoding: 'utf8' }).trim()
     chk(g, 'main.ts, graph.ts, motion.ts untouched', !changed, `changed: ${changed.split('\n').join(', ')}`)
   } catch (e) { bad(g, 'main.ts, graph.ts, motion.ts untouched', `git failed: ${(e as Error).message.split('\n')[0]}`) }
 
@@ -330,11 +370,14 @@ const appGroup = (a: string, dist: boolean) => {
 
 // ---------- main ----------
 const argv = process.argv.slice(2)
+const si = argv.indexOf('--since')
+const sinceMissing = si >= 0 && (!argv[si + 1] || argv[si + 1].startsWith('--'))
+if (si >= 0 && !sinceMissing) since = argv.splice(si + 1, 1)[0]
 const flags = argv.filter(a => a.startsWith('--')), names = argv.filter(a => !a.startsWith('--'))
 const groups = ['package', 'docs', ...APPS]
-const unknown = [...flags.filter(f => f !== '--self-test' && f !== '--dist'), ...names.filter(n => !groups.includes(n))]
+const unknown = [...(sinceMissing ? ['--since needs a sha'] : []), ...flags.filter(f => f !== '--self-test' && f !== '--dist' && f !== '--since'), ...names.filter(n => !groups.includes(n))]
 if (unknown.length) {
-  console.error(`usage: node --no-warnings scripts/check-design.ts [--self-test] [--dist] [${groups.join('|')} ...]  (unknown: ${unknown.join(', ')})`)
+  console.error(`usage: node --no-warnings scripts/check-design.ts [--self-test] [--dist] [--since <sha>] [${groups.join('|')} ...]  (unknown: ${unknown.join(', ')})`)
   process.exit(2)
 }
 selfTest()
