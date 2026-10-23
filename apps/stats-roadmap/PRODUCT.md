@@ -28,7 +28,7 @@ Teach statistics and probability in dependency order, from counting samples to d
 ## Capabilities and Constraints
 
 - Exercises must run offline with the standard library only. Randomness comes from a seeded `random.Random` passed in by the caller, so tests can pin exact values.
-- Brand mark: white "STAT" on magenta (#be185d). The only colour that differs from the other roadmaps.
+- Brand mark: white "STAT" on magenta (#be185d). The same colour marks the hero keyword, the up-next graph node and the current module; the dark theme lightens it to #d01a66 to keep 3:1.
 
 ## Evidence on Hand
 

@@ -28,7 +28,7 @@ Teach Rust in dependency order, from `fn main` through ownership and borrowing t
 - Needs the network: code runs on the public Rust Playground, not in the page. A compile plus test run takes a few seconds. Self-hosting rust-playground is the upgrade path.
 - Standard library only. The Playground ships popular crates as externs, so a local module named like one (`time`, `rand`, `regex`, `log`) is ambiguous in tests; avoid those names.
 - `npm run verify` checks every playground and starter against the Playground; with `--solutions <dir>` it also checks reference solutions (kept outside the repo).
-- Brand mark: white "RS" on rust orange (#b7410e).
+- Brand mark: white "RS" on rust orange (#b7410e). The same colour marks the hero keyword, the up-next graph node and the current module.
 
 ## Evidence on Hand
 

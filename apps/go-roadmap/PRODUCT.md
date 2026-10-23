@@ -29,7 +29,7 @@ Teach Go in dependency order, from `package main` to generics and concurrency, w
 - Needs the network: code runs on the public Go Playground, not in the page. If it is down or rate-limits, Run shows the error. Self-hosting the Playground's sandbox is the upgrade path.
 - Standard library only; one package per exercise, so the Packages module teaches layout in prose and exercises naming, init order, and package-level state.
 - `npm run verify` checks every playground and starter against the Playground; with `--solutions <dir>` it also checks reference solutions (kept outside the repo).
-- Brand mark: white "GO" on Go's dark cyan (#007d9c).
+- Brand mark: white "GO" on Go's dark cyan (#007d9c). The same colour marks the hero keyword, the up-next graph node and the current module.
 
 ## Evidence on Hand
 

@@ -29,7 +29,7 @@ Teach Python from syntax to idiom in dependency order, ending in practice proble
 
 - First run in a session is slow because Pyodide is several megabytes. The loading state is part of the product and must stay visible, not hidden behind a spinner with no words.
 - Requires network access to jsDelivr on first run. Offline use is not supported.
-- Brand mark: Python Yellow (#ffd43b) "PY" on Blueprint Blue (#3178c6), echoing the language's two-tone logo.
+- Brand mark: white "PY" on Python blue (#3776ab). Python yellow (#ffd43b) is the accent in the dark theme, so the two-tone logo still shows.
 - Undecided: whether to support `input()` or file-system exercises, and whether to bundle Pyodide locally instead of loading it from the CDN.
 
 ## Evidence on Hand

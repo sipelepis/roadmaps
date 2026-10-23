@@ -29,7 +29,7 @@ Teach TypeScript's type system in dependency order, from basic annotations to ty
 
 - Type errors surface twice: inline in the editor and as failed rows after a run. Both must stay.
 - The harness typings are injected as an extra lib, so `test`, `expect`, `Expect`, and `Equal` are always in scope without imports.
-- Brand mark: white "TS" on Blueprint Blue (#3178c6), matching the language's own logo color.
+- Brand mark: white "TS" on TypeScript blue (#3178c6), matching the language's own logo colour. The same colour marks the hero keyword, the up-next graph node and the current module.
 - Undecided: whether to add exercises that require multiple files or module imports. The single-module-per-editor model does not support it today.
 
 ## Evidence on Hand

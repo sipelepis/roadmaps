@@ -27,7 +27,7 @@ Teach RAG and OCR in dependency order, from a page that is a picture to an answe
 ## Capabilities and Constraints
 
 - Exercises must run offline with the standard library only. Embeddings are a deterministic hashed bag of words (`zlib.crc32`), OCR is a function passed in, the vector store is a list. The article for each says so.
-- Brand mark: white "RAG" on violet (#7c3aed). The only colour that differs from the other roadmaps.
+- Brand mark: white "RAG" on violet (#7c3aed). The same colour marks the hero keyword, the up-next graph node and the current module.
 - Undecided: whether the capstone should also drive the real rag-pet API from the page, and whether a Tesseract-in-WebAssembly demo belongs in the OCR module.
 
 ## Evidence on Hand
