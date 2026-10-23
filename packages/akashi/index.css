@@ -1,0 +1,176 @@
+/* Copied verbatim from ~/personal/viz/packages/design-system/index.css (Akashi). Edit there first, then copy. Fonts: Zen Kaku Gothic New, Manrope and DM Mono, each under the SIL Open Font License 1.1, self-hosted from @fontsource. */
+/* Latin subset only (English/Filipino). Import the numbered files instead to get Japanese glyphs. */
+@import '@fontsource/zen-kaku-gothic-new/latin-400.css';
+@import '@fontsource/zen-kaku-gothic-new/latin-500.css';
+@import '@fontsource/zen-kaku-gothic-new/latin-700.css';
+@import '@fontsource/manrope/400.css';
+@import '@fontsource/manrope/500.css';
+@import '@fontsource/manrope/600.css';
+@import '@fontsource/dm-mono/400.css';
+@import './tokens.css';
+
+/* Base */
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 400 16px/1.6 var(--font-ui);
+}
+
+h1, h2, h3, h4 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 500;
+  text-wrap: balance;
+}
+
+p { margin: 0; text-wrap: pretty; }
+img, svg, video { display: block; max-width: 100%; }
+code, kbd, pre { font-family: var(--font-mono); }
+
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 5px;
+}
+
+.skip-link {
+  position: absolute;
+  left: var(--gutter);
+  top: 12px;
+  transform: translateY(-200%);
+}
+.skip-link:focus { transform: none; }
+
+/* Layout */
+.container {
+  max-width: var(--max-width);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+.split {
+  display: grid;
+  grid-template-columns: 1fr 1.07fr;
+  gap: var(--gap);
+}
+@media (max-width: 760px) {
+  .split { grid-template-columns: 1fr; }
+}
+
+/* Type scale */
+.wordmark {
+  font: 700 36px/1 var(--font-display);
+  letter-spacing: -0.03em;
+}
+.display {
+  font: 500 clamp(40px, 4.5vw, 72px)/1.12 var(--font-display);
+  letter-spacing: -0.035em;
+}
+.display-xl {
+  font: 500 clamp(48px, 6.7vw, 96px)/1.1 var(--font-display);
+  letter-spacing: -0.035em;
+}
+.card-heading {
+  font: 500 clamp(24px, 2.25vw, 32px)/1.22 var(--font-display);
+  letter-spacing: -0.025em;
+}
+/* Quieter phrase inside a heading: <h1>Main <span class="quiet">aside</span></h1> */
+.quiet { font-weight: 400; color: var(--secondary-heading); }
+.lead {
+  font: 400 clamp(17px, 1.45vw, 23px)/1.45 var(--font-ui);
+  letter-spacing: -0.02em;
+  color: var(--lead);
+}
+.caption { font-size: 13px; line-height: 1.6; color: var(--muted); }
+.quote { font-size: 18px; line-height: 1.5; letter-spacing: -0.01em; }
+.mono { font: 400 11px/1.75 var(--font-mono); }
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 13px 23px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-button);
+  background: var(--surface);
+  color: var(--ink);
+  font: 500 14px/1.2 var(--font-ui);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 180ms, scale 180ms;
+}
+.btn:hover { background: var(--hover-fill); }
+.btn:active { scale: 0.97; }
+.btn-primary {
+  border-color: transparent;
+  background: var(--primary-gradient);
+  color: #fff;
+}
+.btn-primary:hover { background: var(--primary-gradient-hover); }
+.btn-icon {
+  width: 40px;
+  min-height: 40px;
+  padding: 0;
+  border-radius: 50%;
+}
+.btn svg { width: 18px; height: 18px; }
+@media (max-width: 760px) {
+  .btn { min-height: 46px; }
+}
+
+/* Surfaces */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  padding: clamp(20px, 2vw, 32px);
+}
+.card-float { box-shadow: var(--shadow-float); }
+
+.mention {
+  padding: 1px 4px;
+  border-radius: var(--radius-mention);
+  background: var(--mention-surface);
+  color: var(--mention-text);
+}
+
+dialog {
+  max-width: min(560px, calc(100vw - 2 * var(--gutter)));
+  max-height: calc(100dvh - 48px);
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-dialog);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-float);
+}
+dialog[open] { animation: dialog-in 220ms var(--ease-enter); }
+dialog::backdrop {
+  background: #fafafaab;
+  backdrop-filter: blur(10px);
+}
+@keyframes dialog-in {
+  from { opacity: 0; translate: 0 10px; scale: 0.99; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
+  }
+}

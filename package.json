@@ -3,6 +3,7 @@
   "private": true,
   "workspaces": [
     "apps/*",
+    "packages/*",
     "apps/rag-pet/apps/*",
     "apps/rag-pet/libs/*"
   ],
@@ -10,6 +11,7 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "check": "turbo check",
+    "check:design": "node --no-warnings scripts/check-design.ts",
     "check:refs": "node --no-warnings scripts/check-refs.ts",
     "check:taught": "node --no-warnings scripts/check-taught.ts"
   },

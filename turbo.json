@@ -1,8 +1,8 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "tasks": {
-    "build": { "outputs": ["dist/**"] },
-    "check": {},
+    "build": { "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/packages/akashi/**"], "outputs": ["dist/**"] },
+    "check": { "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/packages/akashi/**"] },
     "dev": { "cache": false, "persistent": true }
   }
 }

@@ -1,0 +1,49 @@
+/* Copied verbatim from ~/personal/viz/packages/design-system/tokens.css (Akashi). Edit there first, then copy. */
+/* Akashi tokens — values from DESIGN.md */
+:root {
+  --paper: #fafafa;
+  --surface: #ffffff;
+  --ink: #191919;
+  --muted: #6d6d6d;
+  --line: #dedede;
+  --lead: #4c4c4c;
+  --secondary-heading: #666666;
+  --mention-surface: #ededed;
+  --mention-text: #141414;
+  --hover-fill: #efefef;
+  --primary-gradient: linear-gradient(#292929, #141414);
+  --primary-gradient-hover: linear-gradient(#3b3b3b, #252525);
+
+  --font-display: 'Zen Kaku Gothic New', sans-serif;
+  --font-ui: 'Manrope', sans-serif;
+  --font-mono: 'DM Mono', monospace;
+
+  --radius-mention: 5px;
+  --radius-media: 10px;
+  --radius-command: 11px;
+  --radius-button: 13px;
+  --radius-window: 16px;
+  --radius-card: 17px;
+  --radius-dialog: 20px;
+
+  --gutter: 4.25vw;
+  --gap: 4vw;
+  --gap-wide: 6vw;
+  --max-width: 1800px;
+
+  --shadow-float:
+    0 1px 2px #00000005,
+    0 9px 14px -11px #0000002e,
+    0 28px 45px -28px #00000038,
+    0 56px 84px -53px #0000003d;
+
+  /* GSAP equivalents: power2.in, power2.out, power3.out, power3.inOut */
+  --ease-exit: cubic-bezier(0.55, 0.085, 0.68, 0.53);
+  --ease-fade: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --ease-enter: cubic-bezier(0.215, 0.61, 0.355, 1);
+  --ease-nav: cubic-bezier(0.645, 0.045, 0.355, 1);
+}
+
+@media (max-width: 760px) {
+  :root { --gutter: 25px; }
+}
