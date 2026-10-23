@@ -1,6 +1,6 @@
 # Conditional probability & Bayes
 
-Condition on what you know, apply Bayes rule, and see why a test that catches 99% of cases is usually wrong about rare things.
+Condition on what you know, apply Bayes rule, and see why a positive from a test that catches 99% of cases can still be a false alarm most of the time when the condition is rare.
 
 ## Conditioning shrinks the world
 

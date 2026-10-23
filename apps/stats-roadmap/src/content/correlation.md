@@ -82,7 +82,7 @@ small cases: A 9/10   = 0.9    B 80/100 = 0.8
 large cases: A 30/100 = 0.3    B 2/10   = 0.2
 ```
 
-A wins in both groups. Pool them and A has `39/110 = 0.3545` while B has `82/110 = 0.7455`: B wins. The reason is the group sizes. A was given mostly the hard, large cases, B mostly the easy ones, so each arm's pooled rate is mostly the rate of the group it got most of. This is Simpson's paradox, covered in many places, for example in [Harvard's Stat 110](https://stat110.hsites.harvard.edu/about).
+A wins in both groups. Pool them and A has `39/110 = 0.3545` while B has `82/110 = 0.7455`: B wins. The reason is the group sizes. A was given mostly the hard, large cases, B mostly the easy ones, so each arm's pooled rate is mostly the rate of the group it got most of. This is Simpson's paradox, covered in many places, for example in [Harvard's Stat 110, Lecture 6](https://stat110.hsites.harvard.edu/youtube).
 
 Neither answer is the right one on its own. The pooled rate answers a question about who got which cases, and the within-group rates answer a question about the treatment. Which you want depends on whether group membership is a confounder, and the data alone cannot say. To check for a reversal, compare exact rates as `fractions.Fraction` so that ties are real ties and not float noise. A group where an arm has 0 trials has no rate at all, and should raise `ValueError`.
 
@@ -309,4 +309,4 @@ def test_zero_trials():
 
 #### Docs
 - [Python docs: `fractions.Fraction`](https://docs.python.org/3/library/fractions.html)
-- [Harvard Stat 110](https://stat110.hsites.harvard.edu/about)
+- [Harvard Stat 110, Lecture 6](https://stat110.hsites.harvard.edu/youtube)

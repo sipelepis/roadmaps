@@ -93,7 +93,7 @@ ys = [2, 4, 5, 4, 5]
 slope, intercept = statistics.linear_regression(xs, ys)
 res = [y - (slope * x + intercept) for x, y in zip(xs, ys)]
 print('fit', slope, intercept)
-print('residuals', [round(r, 3) for r in res], round(sum(res), 9))
+print('residuals', [round(r, 3) for r in res], round(sum(res), 9) + 0.0)
 
 my = statistics.fmean(ys)
 ss_res = sum(r * r for r in res)

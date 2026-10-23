@@ -132,7 +132,7 @@ print(coverage(5, z, 10000, random.Random(1)))
 
 The data are normal with mean 10, and each sample has 5 values. Over 10,000 samples the `z` interval covers `0.881` of the time, well short of 95%. With the t multiplier 2.776 it covers `0.9512`. With 30 values and `z` it covers `0.9392`, close enough that most people use `z` from there on.
 
-Rates work the same way. With a true rate of 0.05 and 30 trials per sample, over 10,000 samples Wald covers `0.7738` and Wilson covers `0.9407`. Near 0 or 1, use Wilson.
+Rates work the same way. Take a true rate of 0.05 and 30 trials per sample, where the number of successes `k` is how many of 30 draws of `rng.random() < 0.05` come up true. Seed `random.Random(2)` fresh for each method, and over 10,000 samples Wald covers `0.7738` and Wilson covers `0.9407`. Near 0 or 1, use Wilson.
 
 A simulation has its own error. Coverage over `reps` samples is a proportion, so its standard error is `sqrt(c * (1 - c) / reps)`. For a true 95% over 2,000 reps that is `0.004873397172404482`, so a result anywhere from about 94% to 96% is consistent with 95%. That is why a coverage test checks a band, not an exact value.
 
