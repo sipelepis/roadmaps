@@ -55,7 +55,7 @@ The other familiar ruler is the z-score. It says how many standard deviations a 
 z = (x - mean) / sd
 ```
 
-Use the sample standard deviation, the one with `n - 1`. A common rule is to flag `|z| > 3`. That 3 is a convention too, and the [NIST handbook](https://www.itl.nist.gov/div898/handbook/eda/section3/eda35h.htm) discusses where it comes from and where it fails.
+Use the sample standard deviation, the one with `n - 1`. A common rule is to flag `|z| > 3`. That 3 is a convention, not a law. The [NIST handbook](https://www.itl.nist.gov/div898/handbook/eda/section3/eda35h.htm) calls z-scores common practice and shows where they fail.
 
 It fails because the outlier is part of the data that sets the ruler. One huge value drags the mean toward itself and blows up the standard deviation, and its own z-score shrinks. This is masking. There is a hard ceiling: with `n` values, no `|z|` can exceed `(n - 1) / sqrt(n)`. For 10 values that ceiling is `2.846`, so `|z| > 3` can never fire, however wild the data.
 

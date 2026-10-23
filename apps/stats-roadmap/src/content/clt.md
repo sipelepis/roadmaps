@@ -45,6 +45,8 @@ SE = sigma / sqrt(n)
 Check it against the simulation. Run the loop below and compare the two columns:
 
 ```python
+import math
+
 rng = random.Random(1)
 for n in (25, 100, 400):
     means = sample_means(lambda r: r.random(), n, 2000, rng)

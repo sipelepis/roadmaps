@@ -478,7 +478,7 @@ def test_bad_looks():
 - Remember whether any look fell below `alpha` and whether the last one did. Count each across the tests and divide by `reps`.
 
 #### Tips
-- Draw arm A before arm B for every user, one `rng.random()` each, or the seeded tests will not line up.
+- Per user, draw one value for A and then one for B, interleaved. Drawing all of one arm's users before the other arm in a rep changes the sequence, and the seeded tests will not line up.
 - With `looks=1` the only look is the last one, so the two rates are equal. That is a quick check of your loop.
 
 #### Docs

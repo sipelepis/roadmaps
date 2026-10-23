@@ -1,6 +1,6 @@
 # Conditional probability & Bayes
 
-Condition on what you know, apply Bayes rule, and see why a 99% accurate test is usually wrong about rare things.
+Condition on what you know, apply Bayes rule, and see why a test that catches 99% of cases is usually wrong about rare things.
 
 ## Conditioning shrinks the world
 
@@ -187,7 +187,7 @@ def posterior(prevalence, sensitivity, specificity):
 
 ```python test
 def test_rare_condition():
-    """a 99% accurate test on a 1% condition"""
+    """a 99% sensitive, 95% specific test on a 1% condition"""
     assert round(posterior(0.01, 0.99, 0.95), 9) == 0.166666667
 
 
@@ -222,7 +222,7 @@ def test_impossible_positive():
 - This is Bayes rule with the law of total probability in the denominator.
 
 #### Tips
-- Try `posterior(0.001, 0.99, 0.99)`. Even a 99% test on a 1-in-1,000 condition is mostly false alarms.
+- Try `posterior(0.001, 0.99, 0.99)`. Even a test that is 99% sensitive and 99% specific, on a 1-in-1,000 condition, is mostly false alarms.
 - Counting 10,000 people, as in the article, gives the same answer without the formula.
 
 #### Docs

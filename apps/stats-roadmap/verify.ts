@@ -25,7 +25,7 @@ function py(code: string, tests = '', seed = '0'): RunResult & { ms: number } {
     input: JSON.stringify({ code, tests }), encoding: 'utf8', env: { ...process.env, PYTHONHASHSEED: seed }, timeout: 20000, maxBuffer: 1 << 26,
   })
   const broken = (error: string) => ({ stdout: '', error, results: [], ms: 0 })
-  if (p.error || p.status !== 0) return broken(p.error ? 'timed out' : (p.stderr.trim().split('\n').pop() || 'python3 failed'))
+  if (p.error || p.status !== 0) return broken(p.error ? ((p.error as NodeJS.ErrnoException).code === 'ETIMEDOUT' ? 'timed out' : p.error.message) : (p.stderr.trim().split('\n').pop() || 'python3 failed'))
   try { const o = JSON.parse(p.stdout); return { ...o.run, ms: o.ms } } catch { return broken(p.stderr.trim().split('\n').pop() || 'unparsable output') }
 }
 

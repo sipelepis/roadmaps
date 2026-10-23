@@ -39,10 +39,10 @@ A positive residual means the point is above the line. With the fit above the pr
 ```python
 slope, intercept = statistics.linear_regression(xs, ys)
 res = [y - (slope * x + intercept) for x, y in zip(xs, ys)]
-print([round(r, 3) for r in res], round(sum(res), 9))
+print([round(r, 3) for r in res], round(sum(res), 9) + 0.0)
 ```
 
-That prints `[-0.8, 0.6, 1.0, -0.6, -0.2] 0.0`. A sum of zero does not mean the fit is good. What you look for in the residuals is a pattern. Residuals that are a mix of positive and negative with no shape mean a straight line was a fair choice. Residuals that go positive, negative, positive as `x` increases mean the data curves and a line is the wrong shape, however high the correlation is.
+The `+ 0.0` turns a float `-0.0` into `0.0`. That prints `[-0.8, 0.6, 1.0, -0.6, -0.2] 0.0`. A sum of zero does not mean the fit is good. What you look for in the residuals is a pattern. Residuals that are a mix of positive and negative with no shape mean a straight line was a fair choice. Residuals that go positive, negative, positive as `x` increases mean the data curves and a line is the wrong shape, however high the correlation is.
 
 ## R squared
 
