@@ -196,6 +196,12 @@ def test_wider_k_flags_fewer():
     assert tukey_outliers(xs, k=3) == [95]
 
 
+def test_inclusive_quartiles():
+    """quartiles use the inclusive method, which flags the 20 here"""
+    assert tukey_outliers([1, 2, 3, 4, 20]) == [20]
+    assert tukey_outliers([20, 3, 1, 4, 2]) == [20]
+
+
 def test_low_side():
     """a low outlier is flagged too"""
     xs = [-10, -12, -11, -13, -12, -11, -10, -12, -14, -13, -19, -95]

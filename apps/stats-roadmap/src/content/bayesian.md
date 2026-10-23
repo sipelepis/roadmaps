@@ -369,6 +369,24 @@ def test_swapping_arms():
     assert prob_b_beats_a(60, 100, 10, 100, 500, random.Random(2)) <= 0.01
 
 
+class ScriptedRng:
+    def __init__(self, values):
+        self.values = list(values)
+        self.calls = []
+
+    def betavariate(self, alpha, beta):
+        self.calls.append((alpha, beta))
+        return self.values[len(self.calls) - 1]
+
+
+def test_draw_pattern_and_ties():
+    """A then B per pair from Beta(1 + k, 1 + n - k); a tie is not a win"""
+    rng = ScriptedRng([0.2, 0.5, 0.6, 0.6, 0.7, 0.3, 0.1, 0.9, 0.4, 0.45])
+    got = prob_b_beats_a(3, 10, 5, 10, 5, rng)
+    assert rng.calls == [(4, 8), (6, 6)] * 5
+    assert round(got, 9) == 0.6
+
+
 def test_bad_draws():
     """draws of 0 raises ValueError"""
     try:

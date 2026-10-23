@@ -372,6 +372,13 @@ def test_nothing_passes():
     assert benjamini_hochberg([0.2, 0.5, 0.03]) == [False, False, False]
     assert benjamini_hochberg([0.2, 0.3]) == [False, False]
 
+
+def test_p_exactly_on_its_cutoff():
+    """a p-value equal to rank * q / m is rejected"""
+    assert benjamini_hochberg([0.0625, 0.5, 0.9, 0.99], q=0.25) == [True, False, False, False]
+    assert benjamini_hochberg([0.99, 0.01, 0.1875, 0.125], q=0.25) == [False, True, True, True]
+    assert benjamini_hochberg([0.01, 0.02, 0.03, 0.25], q=0.25) == [True, True, True, True]
+
 def test_edges():
     """an empty list and a single value"""
     assert benjamini_hochberg([]) == []
@@ -438,6 +445,16 @@ def test_peeking_inflates():
     """ten looks give far more false positives than one"""
     _, peeking = false_positive_rates(100, 10, 400, random.Random(3))
     assert peeking >= 0.11
+
+def test_exact_seeded_rates():
+    """seeded runs reproduce the exact rates"""
+    def r(*args, **kw):
+        return tuple(round(v, 9) for v in false_positive_rates(*args, **kw))
+    assert r(60, 6, 100, random.Random(1)) == (0.07, 0.18)
+    assert r(60, 6, 100, random.Random(2)) == (0.05, 0.23)
+    assert r(40, 4, 100, random.Random(3), p=0.3) == (0.03, 0.1)
+    assert r(40, 5, 100, random.Random(4), p=0.8, alpha=0.1) == (0.08, 0.2)
+
 
 def test_bad_looks():
     """looks below 1 or not dividing n raises ValueError"""

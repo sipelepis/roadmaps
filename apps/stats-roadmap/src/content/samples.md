@@ -190,7 +190,7 @@ def test_long_run():
     xs = [1 if rng.random() < 0.5 else 0 for _ in range(10000)]
     got = running_proportion(xs)
     assert len(got) == len(xs)
-    assert got[-1] == 5030 / 10000
+    assert round(got[-1], 9) == 0.503
 ```
 
 #### Uses

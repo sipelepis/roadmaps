@@ -346,6 +346,7 @@ def test_new():
     """2 ** b zero registers, with b from 4 to 16"""
     assert hll_new(4) == [0] * 16
     assert len(hll_new(10)) == 1024
+    assert len(hll_new(16)) == 65536
     for b in (3, 17):
         try:
             hll_new(b)

@@ -242,6 +242,13 @@ def test_bad_inputs():
             pass
         else:
             raise AssertionError('a bad rate should have raised ValueError')
+    for bad in (1.0, 1.5):
+        try:
+            alert_threshold(4.0, bad)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f'max_false_alarm of {bad} should have raised ValueError')
 ```
 
 #### Uses

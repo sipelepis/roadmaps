@@ -303,6 +303,8 @@ def test_labels():
     assert psi_label(0.05) == 'stable'
     assert psi_label(0.17) == 'moderate'
     assert psi_label(0.4) == 'major'
+    assert psi_label(0.1) == 'moderate'
+    assert psi_label(0.25) == 'major'
 
 def test_bad_input():
     """a total of 0 or different lengths raise ValueError"""
