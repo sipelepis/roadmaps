@@ -33,7 +33,7 @@ export const syncEditorTheme = () => {
   editor.setTheme(name)
 }
 syncEditorTheme()
-document.fonts.load('400 14px "DM Mono"').then(() => editor.remeasureFonts())
+document.fonts.load('400 14px "DM Mono"').then(() => editor.remeasureFonts(), () => {})
 
 let live: IDisposable[] = []
 export const disposeAll = () => { live.forEach(d => d.dispose()); live = [] }
